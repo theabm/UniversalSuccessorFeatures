@@ -1,0 +1,1 @@
+from .multiGoalDQN import MultigoalDQN
