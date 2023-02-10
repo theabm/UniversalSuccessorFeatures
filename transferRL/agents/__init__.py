@@ -1,1 +1,2 @@
-from .multiGoalDQN import MultigoalDQN
+from envs.gridWorld import GridWorld
+from memory.experienceReplayMemory import ExperienceReplayMemory
