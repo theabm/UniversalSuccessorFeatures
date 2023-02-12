@@ -43,7 +43,7 @@ class MultigoalDQN():
             ),
             target_network_update = eu.AttrDict(
                 rule = "soft",  # "hard" or "soft"
-                frequency = 1, #in timesteps
+                every_n_steps = 1, 
                 alpha = 0.999,  # taraget network params will be updated as P_t = alpha * P_t + (1-alpha) * P_p   where P_p are params of policy network
             ),
             memory = eu.AttrDict(
@@ -117,8 +117,8 @@ class MultigoalDQN():
         elif self.config.target_network_update.rule == "soft":
             self.update_alpha = self.config.target_network_update.alpha
 
-        self.target_network_update_frequency = self.config.target_network_update.frequency
-        self.steps_since_last_training = 0
+        self.update_target_network_every_n_steps = self.config.target_network_update.every_n_steps
+        self.steps_since_last_network_update = 0
 
         self.current_episode = 0
 
@@ -229,18 +229,18 @@ class MultigoalDQN():
                 loss = self._train_one_batch()
                 losses.append(loss)
 
-                if self.config.log.loss_per_step:
-                    log.add_value("agent_loss", np.mean(losses))
-                    log.add_value("agent_loss_step", step)
+            if self.config.log.loss_per_step:
+                log.add_value("agent_loss", np.mean(losses))
+                log.add_value("agent_loss_step", step)
         else:
             self.steps_since_last_training += 1
         
-        if self.steps_since_last_update >= self.target_network_update_frequency:
-            self.steps_since_last_update = 0
+        if self.steps_since_last_network_update >= self.update_target_network_every_n_steps:
+            self.steps_since_last_network_update = 0
 
             self._update_target_network()
         else:
-            self.steps_since_last_training += 1
+            self.steps_since_last_network_update += 1
 
 if __name__ == '__main__':
     pass
