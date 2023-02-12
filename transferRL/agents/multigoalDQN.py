@@ -122,6 +122,8 @@ class MultigoalDQN():
 
         self.current_episode = 0
 
+        self.learning_starts_after = self.batch_size*2
+
     def _decay_epsilon(self):
         if self.epsilon_decay_type == "linear":
             self.__decay_epsilon_linearly()
@@ -135,8 +137,8 @@ class MultigoalDQN():
     def __decay_epsilon_exponentially(self):
         self.current_epsilon = min(self.eps_min, self.current_epsilon*self.epsilon_exponential_decay_factor) 
         
-    def _remember(self, **kwargs):
-        self.memory.push(kwargs)
+    def _remember(self, *args):
+        self.memory.push(*args)
         return
     
     def _epsilon_greedy_action_selection(self, obs):
@@ -220,6 +222,9 @@ class MultigoalDQN():
     def train(self, transition, step):
 
         self._remember(*transition)
+        
+        if len(self.memory) < self.learning_starts_after:
+            return
 
         if self.steps_since_last_training >= self.train_every_n_steps:
             self.steps_since_last_training = 0
