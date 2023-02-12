@@ -5,9 +5,9 @@ import exputils.data.logging as log
 import warnings
 import copy
 from collections import namedtuple
-import experienceReplayMemory as mem
-import multigoalDQNNetwork as dnn
-import gridWorld as env
+import memory.experienceReplayMemory as mem
+import networks.multigoalDQNNetwork as dnn
+import sys
 
 
 Experiences = namedtuple("Experiences", ("goal_batch", "state_batch", "action_batch", "reward_batch", "next_state_batch", "terminated_batch", "truncated_batch"))
@@ -23,7 +23,7 @@ class MultigoalDQN():
                 obs_space_size = 2,
                 num_actions = 4,
             ),
-            additional_info = ["goal"],
+            additional_info = ["goal_position_x", "goal_position_y"],
             discount_rate = 0.9,
             learning_starts_after = 128,
             batch_size = 64,
@@ -135,22 +135,22 @@ class MultigoalDQN():
     def __decay_epsilon_exponentially(self):
         self.current_epsilon = min(self.eps_min, self.current_epsilon*self.epsilon_exponential_decay_factor) 
         
-    def start_episode(self, episode):
-        self.current_episode = episode
-        self._decay_epsilon()
-
     def _remember(self, **kwargs):
         self.memory.push(kwargs)
         return
     
-    def epsilon_greedy_action_selection(self, obs):
+    def _epsilon_greedy_action_selection(self, obs):
         """Epsilon greedy action selection"""
         if torch.rand(1).item() > self.current_epsilon:
             with torch.no_grad():
-                return torch.argmax(self.policy_net(obs)).item()
+                return torch.argmax(self.policy_net(obs.toTorch())).item()
         else:
             return torch.randint(0,self.config.env.num_actions,(1,)).item() 
             
+    def _greedy_action_selection(self,obs):
+        with torch.no_grad():
+            return torch.argmax(self.policy_net(obs.toTorch())).item()
+
     def _sample_experiences(self):
         experiences = self.memory.sample(self.batch_size)
         return Experiences(*zip(*experiences))
@@ -161,10 +161,17 @@ class MultigoalDQN():
             target = reward_batch + self.discount_rate * torch.mul(self.target_net(next_state_batch).gather(1,max_action).squeeze(), 1-torch.tensor(terminated_batch))
         return target
 
+    def _build_observation_tensor(self, state, features):
+        state = torch.tensor(state)
+        features = torch.tensor(features)
+        
+        return torch.cat((features,state), dim = 1)
+        
     def _train_one_batch(self):
         experiences = self._sample_experiences()
 
-        next_state_batch = torch.tensor(experiences.next_state_batch).to(self.device)
+        next_state_batch = self._build_observation_tensor(experiences.next_state_batch, experiences.goal_batch).to(self.device)
+        
         reward_batch = torch.tensor(experiences.reward_batch).to(self.device)
         terminated_batch = torch.tensor(experiences.terminated_batch).to(self.device)
 
@@ -174,8 +181,7 @@ class MultigoalDQN():
         del reward_batch
         del terminated_batch
         
-
-        state_batch = torch.tensor(experiences.state_batch).to(self.device)
+        state_batch = self._build_observation_tensor(experiences.state_batch, experiences.goal_batch).to(self.device)
         action_batch = torch.tensor(experiences.action_batch).unsqueeze(1).to(self.device)
 
         self.optimizer.zero_grad()
@@ -197,9 +203,23 @@ class MultigoalDQN():
 
         self.target_net.load_state_dict(target_net_state_dict)
 
+    def start_episode(self, episode):
+        self.current_episode = episode
+        self._decay_epsilon()
+        if self.config.log.epsilon_per_episode:
+            log.add_value("agent_epsilon_per_episode", self.current_epsilon)
+
+    def choose_action(self, obs, purpose):
+        if purpose == "training":
+            return self._epsilon_greedy_action_selection(obs)
+        elif purpose == "training":
+            return self._greedy_action_selection(obs)
+        else:
+            raise ValueError("Unknown purpose. Choose either inference or training.")
+
     def train(self, transition, step):
 
-        self._remember(transition)
+        self._remember(*transition)
 
         if self.steps_since_last_training >= self.train_every_n_steps:
             self.steps_since_last_training = 0
@@ -223,12 +243,4 @@ class MultigoalDQN():
             self.steps_since_last_training += 1
 
 if __name__ == '__main__':
-
-    dqn = MultigoalDQN()
-    my_env = env.GridWorld()
-
-    episodes = 3
-    
-    for _ in range(episodes):
-        pass
-        
+    pass

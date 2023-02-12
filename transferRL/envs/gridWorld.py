@@ -2,6 +2,7 @@ import gymnasium as gym
 from gymnasium.utils.env_checker import check_env
 import numpy as np
 import exputils as eu
+import torch
 
 class GridWorld(gym.Env):
     
@@ -40,6 +41,9 @@ class GridWorld(gym.Env):
         y = np.random.choice(self.length_y)
         
         return x,y
+    
+    def get_current_goal_coordinates(self):
+        return np.array([self.agent_x, self.agent_y])
 
     def reset(self, seed = None, **kwargs):
 
