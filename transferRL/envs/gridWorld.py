@@ -49,6 +49,9 @@ class GridWorld(gym.Env):
     def get_current_goal_coordinates(self):
         return np.array([self.goal_x, self.goal_y])
 
+    def get_current_agent_coordinates(self):
+        return np.array([self.agent_x, self.agent_y])
+
     def _goal_is_same_as_initial_position(self):
         return (self.goal_x,self.goal_y) == (self.agent_x,self.agent_y)
 
