@@ -45,6 +45,9 @@ class GridWorld(gym.Env):
     def get_current_goal_coordinates(self):
         return np.array([self.goal_x, self.goal_y])
 
+    def _goal_is_same_as_initial_position(self):
+        return (self.goal_x,self.goal_y) == (self.agent_x,self.agent_y)
+
     def reset(self, seed = None, **kwargs):
 
         super().reset(seed=seed)
@@ -56,6 +59,9 @@ class GridWorld(gym.Env):
         self.agent_x, self.agent_y = self._sample_xy_coordinates()
         self.goal_x, self.goal_y = self._sample_xy_coordinates()
 
+        while self._goal_is_same_as_initial_position():
+            self.goal_x, self.goal_y = self._sample_xy_coordinates()
+            
         info = {}
 
         return np.array([self.agent_x, self.agent_y]), info
