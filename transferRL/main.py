@@ -38,6 +38,8 @@ def train_agent(agent, my_env, episodes):
             if terminated or truncated:
                 break
 
+            log.add_value("reward_per_step", total_reward)
+        log.add_value("reward_per_episode", total_reward, tb_global_step=episode)
 
 
 
