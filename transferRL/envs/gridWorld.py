@@ -11,7 +11,7 @@ class GridWorld(gym.Env):
         return eu.AttrDict(
             length_y = 10,
             length_x = 10,
-            nmax_steps = 1000,
+            nmax_steps = 1e6,
             )
 
     def __init__(self, config = None, **kwargs):
@@ -105,6 +105,19 @@ class GridWorld(gym.Env):
 
     def render(self, action, reward):
         print(f"Action: {action}, position: ({self.agent_x},{self.agent_y}), reward: {reward}")
+
+    def _make_grid_and_place_one_in(self,x,y):
+        grid = np.zeros_like((self.length_x, self.length_y))
+        grid[x][y] = 1.
+        return grid.reshape(self.length_x*self.length_y)
+
+    def get_state_features(self):
+        state_features = self._make_grid_and_place_one_in(self.agent_x, self.agent_y)
+        return state_features
+        
+    def get_goal_weights(self):
+        goal_weights = self._make_grid_and_place_one_in(self.goal_x, self.goal_y)
+        return goal_weights
 
 
 if __name__ == '__main__':
