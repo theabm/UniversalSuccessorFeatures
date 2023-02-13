@@ -2,7 +2,6 @@ import gymnasium as gym
 from gymnasium.utils.env_checker import check_env
 import numpy as np
 import exputils as eu
-import torch
 
 class GridWorld(gym.Env):
     
@@ -32,6 +31,11 @@ class GridWorld(gym.Env):
 
         self.reward_range = (-np.inf, 0)
 
+        self.agent_x = None
+        self.agent_y = None
+
+        self.goal_x = None
+        self.goal_y = None
 
         self.cur_step = None 
         self.nmax_steps = self.config.nmax_steps
@@ -48,7 +52,7 @@ class GridWorld(gym.Env):
     def _goal_is_same_as_initial_position(self):
         return (self.goal_x,self.goal_y) == (self.agent_x,self.agent_y)
 
-    def reset(self, seed = None, **kwargs):
+    def reset(self, start_position = None, goal = None, seed = None, **kwargs):
 
         super().reset(seed=seed)
         np.random.seed(seed=seed)
@@ -56,12 +60,22 @@ class GridWorld(gym.Env):
         self.cur_step = 0
 
         #position of the agent and goal in x,y coordinates 
-        self.agent_x, self.agent_y = self._sample_xy_coordinates()
-        self.goal_x, self.goal_y = self._sample_xy_coordinates()
+        if start_position is None:
+            self.agent_x, self.agent_y = self._sample_xy_coordinates()
+        else:
+            self.agent_x, self.agent_y = start_position
 
-        while self._goal_is_same_as_initial_position():
+        if goal is None:
             self.goal_x, self.goal_y = self._sample_xy_coordinates()
+
+            while self._goal_is_same_as_initial_position():
+                self.goal_x, self.goal_y = self._sample_xy_coordinates()
+        else:
+            self.goal_x, self.goal_y = goal
             
+        if self._goal_is_same_as_initial_position():
+            raise ValueError("Start and Goal position cannot be the same.")
+
         info = {}
 
         return np.array([self.agent_x, self.agent_y]), info
@@ -107,9 +121,9 @@ class GridWorld(gym.Env):
         print(f"Action: {action}, position: ({self.agent_x},{self.agent_y}), reward: {reward}")
 
     def _make_grid_and_place_one_in(self,x,y):
-        grid = np.zeros_like((self.length_x, self.length_y))
-        grid[x][y] = 1.
-        return grid.reshape(self.length_x*self.length_y)
+        grd = np.zeros((self.length_x, self.length_y))
+        grd[x][y] = 1.
+        return grd.reshape(self.length_x*self.length_y)
 
     def get_state_features(self):
         state_features = self._make_grid_and_place_one_in(self.agent_x, self.agent_y)
