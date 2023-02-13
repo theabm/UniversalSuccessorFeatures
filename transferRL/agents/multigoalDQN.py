@@ -5,9 +5,8 @@ import exputils.data.logging as log
 import warnings
 import copy
 from collections import namedtuple
-import memory.experienceReplayMemory as mem
-import networks.multigoalDQNNetwork as dnn
-import sys
+import transferRL.memory.experienceReplayMemory as mem
+import transferRL.networks.multigoalDQNNetwork as dnn
 
 
 Experiences = namedtuple("Experiences", ("goal_batch", "state_batch", "action_batch", "reward_batch", "next_state_batch", "terminated_batch", "truncated_batch"))
@@ -18,14 +17,13 @@ class MultigoalDQN():
     @staticmethod
     def default_config():
         cnf = eu.AttrDict(
-            device = "cuda", # "cuda" or "gpu"
+            device = "cuda", # "cuda" or "cpu"
             env = eu.AttrDict(
                 obs_space_size = 2,
                 num_actions = 4,
             ),
             additional_info = ["goal_position_x", "goal_position_y"],
             discount_rate = 0.9,
-            learning_starts_after = 128,
             batch_size = 64,
             learning_rate = 1e-3,
             train_for_n_iterations = 5,
@@ -71,7 +69,7 @@ class MultigoalDQN():
         
         self.config = eu.combine_dicts(kwargs, config, self.default_config())
 
-        if self.config.device == "gpu":
+        if self.config.device == "cuda":
             if torch.cuda.is_available():
                 self.device = torch.device("cuda")
             else:
@@ -145,13 +143,12 @@ class MultigoalDQN():
         """Epsilon greedy action selection"""
         if torch.rand(1).item() > self.current_epsilon:
             with torch.no_grad():
-                return torch.argmax(self.policy_net(obs.toTorch())).item()
+                return torch.argmax(self.policy_net(torch.tensor(obs).to(torch.float).to(self.device))).item()
         else:
             return torch.randint(0,self.config.env.num_actions,(1,)).item() 
             
     def _greedy_action_selection(self,obs):
-        with torch.no_grad():
-            return torch.argmax(self.policy_net(obs.toTorch())).item()
+        return torch.argmax(self.policy_net(torch.tensor(obs).to(torch.float).to(self.device))).item()
 
     def _sample_experiences(self):
         experiences = self.memory.sample(self.batch_size)
@@ -160,20 +157,24 @@ class MultigoalDQN():
     def _get_target_batch(self, next_state_batch, reward_batch, terminated_batch):
         with torch.no_grad():
             max_action = torch.argmax(self.policy_net(next_state_batch), axis = 1).unsqueeze(1).to(self.device)
-            target = reward_batch + self.discount_rate * torch.mul(self.target_net(next_state_batch).gather(1,max_action).squeeze(), 1-torch.tensor(terminated_batch))
+            target = reward_batch + self.discount_rate * torch.mul(self.target_net(next_state_batch).gather(1,max_action).squeeze(), ~terminated_batch)
         return target
 
     def _build_observation_tensor(self, state, features):
-        state = torch.tensor(state)
-        features = torch.tensor(features)
+        state = np.array(state)
+        state = torch.from_numpy(state)
+
+        features = np.array(features)
+        features = torch.from_numpy(features)
         
-        return torch.cat((features,state), dim = 1)
+        return torch.cat((state, features), dim = 1)
         
     def _train_one_batch(self):
         experiences = self._sample_experiences()
 
-        next_state_batch = self._build_observation_tensor(experiences.next_state_batch, experiences.goal_batch).to(self.device)
-        
+        next_state_batch = self._build_observation_tensor(experiences.next_state_batch, experiences.goal_batch)
+
+        next_state_batch = next_state_batch.to(torch.float).to(self.device) 
         reward_batch = torch.tensor(experiences.reward_batch).to(self.device)
         terminated_batch = torch.tensor(experiences.terminated_batch).to(self.device)
 
@@ -183,7 +184,9 @@ class MultigoalDQN():
         del reward_batch
         del terminated_batch
         
-        state_batch = self._build_observation_tensor(experiences.state_batch, experiences.goal_batch).to(self.device)
+        state_batch = self._build_observation_tensor(experiences.state_batch, experiences.goal_batch)
+        state_batch = state_batch.to(torch.float).to(self.device)
+
         action_batch = torch.tensor(experiences.action_batch).unsqueeze(1).to(self.device)
 
         self.optimizer.zero_grad()
@@ -195,7 +198,7 @@ class MultigoalDQN():
         del state_batch
         del action_batch
 
-        return loss
+        return loss.item()
 
     def _update_target_network(self):
         target_net_state_dict = self.target_net.state_dict()
@@ -214,7 +217,7 @@ class MultigoalDQN():
     def choose_action(self, obs, purpose):
         if purpose == "training":
             return self._epsilon_greedy_action_selection(obs)
-        elif purpose == "training":
+        elif purpose == "inference":
             return self._greedy_action_selection(obs)
         else:
             raise ValueError("Unknown purpose. Choose either inference or training.")

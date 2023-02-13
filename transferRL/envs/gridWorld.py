@@ -43,7 +43,7 @@ class GridWorld(gym.Env):
         return x,y
     
     def get_current_goal_coordinates(self):
-        return np.array([self.agent_x, self.agent_y])
+        return np.array([self.goal_x, self.goal_y])
 
     def reset(self, seed = None, **kwargs):
 

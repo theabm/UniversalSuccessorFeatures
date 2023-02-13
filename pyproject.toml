@@ -1,0 +1,11 @@
+[project]
+name = "tranferRL"
+description = "rlan"
+
+version = "0.1"
+authors = [
+    { name = "Andres Bermeo Marinelli", email = "andres.bermeo-marinelli@inria.fr" }
+]
+dependencies = [
+]
+#url = ""
