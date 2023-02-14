@@ -22,20 +22,25 @@ class MultigoalDQN():
                 obs_space_size = 2,
                 num_actions = 4,
             ),
-            additional_info = ["goal_position_x", "goal_position_y"],
-            discount_rate = 0.9,
-            batch_size = 64,
-            learning_rate = 1e-3,
+            goal_size = 2,
+            discount_rate = 0.99,
+            batch_size = 32,
+            learning_rate = 5e-4,
             train_for_n_iterations = 5,
             train_every_n_steps = 1,
             epsilon = eu.AttrDict(
-                max = 1.0,
-                min = 0.1,
-                decay_type = "linear",  #"linear" or "exponential"
+                decay_type = "none",  #"none","linear" or "exponential"
+                no_decay_params = eu.AttrDict(
+                    value = 0.25,
+                ),
                 linear_decay_params = eu.AttrDict(
-                    scheduled_episodes = 100,
+                    max = 1.0,
+                    min = 0.1,
+                    scheduled_episodes = 1000,
                 ),
                 exponential_decay_params = eu.AttrDict(
+                    max = 1.0,
+                    min = 0.1,
                     decay_factor = 0.99,
                 ),
             ),
@@ -49,7 +54,6 @@ class MultigoalDQN():
                 size = 1e6,
             ),
             network = eu.AttrDict(
-                hidden_layer_structure = [64,128,64],
                 optimizer = torch.optim.Adam,
                 loss = torch.nn.MSELoss,
             ),
@@ -78,15 +82,13 @@ class MultigoalDQN():
         else:
             self.device = torch.device("cpu")
 
-        self.state_size = self.config.env.obs_space_size + len(self.config.additional_info)
-        
-        self.policy_net = dnn.MultigoalDQNNetwork(in_features = self.state_size, out_features = self.config.env.num_actions)
+        self.policy_net = dnn.MultigoalDQNNetwork(state_size=self.config.env.obs_space_size, goal_size=self.config.goal_size, num_actions=self.config.env.num_actions)
         self.policy_net.to(self.device)
 
         self.target_net = copy.deepcopy(self.policy_net)
         self.target_net.to(self.device)
 
-        self.loss = torch.nn.MSELoss()
+        self.loss = self.config.network.loss()
         self.optimizer = self.config.network.optimizer(self.policy_net.parameters(), lr = self.config.learning_rate)
         
         self.batch_size = self.config.batch_size      
@@ -97,21 +99,27 @@ class MultigoalDQN():
 
         self.discount_rate = self.config.discount_rate
 
-        self.eps_max = self.config.epsilon.max
-        self.eps_min = self.config.epsilon.min
-        self.current_epsilon = None
-
-        if self.config.epsilon.decay_type == "linear":
+        if self.config.epsilon.decay_type == "none":
+            self.current_epsilon = self.config.epsilon.no_decay_params.value
+        elif self.config.epsilon.decay_type == "linear":
+            self.eps_max = self.epsilon.linear_decay_params.max
+            self.eps_min = self.epsilon.linear_decay_params.min
+            self.curent_epsilon = None
             self.scheduled_episodes = self.config.epsilon.linear_decay_params.scheduled_episodes
         elif self.config.epsilon.decay_type == "exponential":
+            self.eps_max = self.epsilon.exponential_decay_params.max
+            self.eps_min = self.epsilon.exponential_decay_params.min
+            self.curent_epsilon = None
             self.epsilon_exponential_decay_factor = self.config.epsilon.exponential_decay_params.decay_factor
+        else:
+            raise ValueError("Unknown value for epsilon decay. Please select between none, linear, or exponential.")
             
         self.epsilon_decay_type = self.config.epsilon.decay_type
             
         if self.config.target_network_update.rule == "hard":
-            if self.config.target_network_update.alpha != 1.0:
-                warnings.warn("For hard update, alpha should be set to 1.0 ... proceeding with alpha = 1.0")
-            self.update_alpha = 1.0
+            if self.config.target_network_update.alpha != 0.0:
+                warnings.warn("For hard update, alpha should be set to 0.0 ... proceeding with alpha = 0.0")
+            self.update_alpha = 0.0
         elif self.config.target_network_update.rule == "soft":
             self.update_alpha = self.config.target_network_update.alpha
 
@@ -119,11 +127,12 @@ class MultigoalDQN():
         self.steps_since_last_network_update = 0
 
         self.current_episode = 0
-
         self.learning_starts_after = self.batch_size*2
 
     def _decay_epsilon(self):
-        if self.epsilon_decay_type == "linear":
+        if self.epsilon_decay_type == "none":
+            return
+        elif self.epsilon_decay_type == "linear":
             self.__decay_epsilon_linearly()
         elif self.epsilon_decay_type == "exponential":
             self.__decay_epsilon_exponentially()
