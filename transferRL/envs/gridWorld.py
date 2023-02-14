@@ -114,7 +114,7 @@ class GridWorld(gym.Env):
 
         truncated = self.cur_step >= self.nmax_steps
 
-        reward = 0 if terminated else -1
+        reward = 0 if terminated else -0.1
 
         info = {}
 
