@@ -104,12 +104,12 @@ class MultigoalDQN():
         elif self.config.epsilon.decay_type == "linear":
             self.eps_max = self.epsilon.linear_decay_params.max
             self.eps_min = self.epsilon.linear_decay_params.min
-            self.curent_epsilon = None
+            self.curent_epsilon = self.eps_max
             self.scheduled_episodes = self.config.epsilon.linear_decay_params.scheduled_episodes
         elif self.config.epsilon.decay_type == "exponential":
             self.eps_max = self.epsilon.exponential_decay_params.max
             self.eps_min = self.epsilon.exponential_decay_params.min
-            self.curent_epsilon = None
+            self.curent_epsilon = self.eps_max
             self.epsilon_exponential_decay_factor = self.config.epsilon.exponential_decay_params.decay_factor
         else:
             raise ValueError("Unknown value for epsilon decay. Please select between none, linear, or exponential.")
@@ -129,6 +129,11 @@ class MultigoalDQN():
         self.current_episode = 0
         self.learning_starts_after = self.batch_size*2
 
+    def start_episode(self, episode):
+        self.current_episode = episode
+        if self.config.log.epsilon_per_episode:
+            log.add_value("agent_epsilon_per_episode", self.current_epsilon)
+
     def _decay_epsilon(self):
         if self.epsilon_decay_type == "none":
             return
@@ -138,11 +143,14 @@ class MultigoalDQN():
             self.__decay_epsilon_exponentially()
 
     def __decay_epsilon_linearly(self):
-        fraction = min(self.current_episode/self.scheduled_episodes, 1.0)
-        self.current_epsilon = (self.eps_min-self.eps_max)*fraction + self.eps_max
+        m = (self.eps_min-self.eps_max)/self.scheduled_episodes * (self.current_episode<=self.scheduled_episodes)
+        self.curent_epsilon += m
 
     def __decay_epsilon_exponentially(self):
         self.current_epsilon = min(self.eps_min, self.current_epsilon*self.epsilon_exponential_decay_factor) 
+    
+    def end_episode(self):
+        self._decay_epsilon()
         
     def _remember(self, *args):
         self.memory.push(*args)
@@ -217,11 +225,6 @@ class MultigoalDQN():
 
         self.target_net.load_state_dict(target_net_state_dict)
 
-    def start_episode(self, episode):
-        self.current_episode = episode
-        self._decay_epsilon()
-        if self.config.log.epsilon_per_episode:
-            log.add_value("agent_epsilon_per_episode", self.current_epsilon)
 
     def choose_action(self, obs, purpose):
         if purpose == "training":
