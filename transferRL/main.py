@@ -28,7 +28,7 @@ def train_agent(agent, my_env, episodes):
             total_reward += reward
 
             transition = goal_state, agent_state, action, reward, agent_next_state, terminated, truncated
-            break
+
             agent.train(transition, step)
 
             agent_state = agent_next_state
