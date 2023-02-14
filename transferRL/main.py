@@ -21,16 +21,14 @@ def train_agent(agent, my_env, episodes):
         
         while True:
         
-            state = np.concatenate((agent_state, goal_state))
-
-            action = agent.choose_action(state, purpose = "inference")
+            action = agent.choose_action(agent_state, goal_state, purpose = "training")
             
             agent_next_state, reward, terminated, truncated, _ = my_env.step(action)
 
             total_reward += reward
 
             transition = goal_state, agent_state, action, reward, agent_next_state, terminated, truncated
-
+            break
             agent.train(transition, step)
 
             agent_state = agent_next_state
