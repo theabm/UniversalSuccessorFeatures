@@ -6,7 +6,7 @@ import warnings
 import copy
 from collections import namedtuple
 import transferRL.memory.experienceReplayMemory as mem
-import transferRL.networks.multigoalDQNNetwork as dnn
+import transferRL.networks.multigoalDQN.state_goal_output_like_paper as dnn
 
 
 Experiences = namedtuple("Experiences", ("goal_batch", "state_batch", "action_batch", "reward_batch", "next_state_batch", "terminated_batch", "truncated_batch"))

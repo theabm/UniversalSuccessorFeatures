@@ -1,5 +1,5 @@
 import torch
-import transferRL.networks.multigoalDQNNetwork as dqn
+import transferRL.networks.multigoalDQN.state_goal_output_like_paper as dqn
 
 def test_input_of_network():
     my_dqn = dqn.MultigoalDQNNetwork()
