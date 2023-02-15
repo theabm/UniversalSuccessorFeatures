@@ -22,6 +22,7 @@ class MinimalUSFNN(torch.nn.Module):
         g_rep = self.layer_goal(g)
         rep = torch.cat((phi_s,g_rep),dim=1)
         sf_s_g = self.layer_concat(rep)
+
         N = sf_s_g.shape[0]
         sf_s_g = sf_s_g.reshape(N, self.num_actions, self.features_size)
 

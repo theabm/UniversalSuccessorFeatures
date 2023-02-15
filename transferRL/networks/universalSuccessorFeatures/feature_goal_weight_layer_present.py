@@ -1,6 +1,6 @@
 import torch
 
-class MinimalUSFNN(torch.nn.Module):
+class MinimalUSFNNWeights(torch.nn.Module):
     def __init__(self, goal_size = 2, num_actions = 4, features_size = 100) -> None:
         super().__init__()
         self.num_actions = num_actions
@@ -41,7 +41,7 @@ class MinimalUSFNN(torch.nn.Module):
 
 
 if __name__ == '__main__':
-    my_dqn = MinimalUSFNN()
+    my_dqn = MinimalUSFNNWeights()
     print(my_dqn)
     
     rand_features = torch.rand(10,100)
