@@ -5,9 +5,9 @@ import exputils.data.logging as log
 import warnings
 import copy
 from collections import namedtuple
-import transferRL.memory.experienceReplayMemory as mem
-import transferRL.networks.multigoalDQN.state_goal_output_like_paper as dnn
-
+import universalSuccessorFeatures.memory.experienceReplayMemory as mem
+import universalSuccessorFeatures.networks.multigoalDQN.state_goal_output_like_paper as mdqn
+import universalSuccessorFeatures.envs.gridWorld as envs
 
 Experiences = namedtuple("Experiences", ("goal_batch", "state_batch", "action_batch", "reward_batch", "next_state_batch", "terminated_batch", "truncated_batch"))
 
@@ -20,13 +20,13 @@ class MultigoalDQN():
             device = "cuda", # "cuda" or "cpu"
             env = eu.AttrDict(
                 obs_space_size = 2,
-                num_actions = 4,
+                num_actions = 2,
             ),
             goal_size = 2,
-            discount_rate = 0.99,
+            discount_factor = 0.99,
             batch_size = 32,
             learning_rate = 5e-4,
-            train_for_n_iterations = 5,
+            train_for_n_iterations = 1,
             train_every_n_steps = 1,
             epsilon = eu.AttrDict(
                 decay_type = "none",  #"none","linear" or "exponential"
@@ -45,9 +45,9 @@ class MultigoalDQN():
                 ),
             ),
             target_network_update = eu.AttrDict(
-                rule = "soft",  # "hard" or "soft"
-                every_n_steps = 1, 
-                alpha = 0.999,  # taraget network params will be updated as P_t = alpha * P_t + (1-alpha) * P_p   where P_p are params of policy network
+                rule = "hard",  # "hard" or "soft"
+                every_n_steps = 10, 
+                alpha = 0.0,  # target network params will be updated as P_t = alpha * P_t + (1-alpha) * P_p   where P_p are params of policy network
             ),
             memory = eu.AttrDict(
                 type = "normal",
@@ -62,6 +62,7 @@ class MultigoalDQN():
                 epsilon_per_episode = True,
             ),
             save = eu.AttrDict(
+                # NEED TO HANDLE STILL
                 directory = None,
                 frequency = 10, # in episodes
             ),
@@ -82,7 +83,7 @@ class MultigoalDQN():
         else:
             self.device = torch.device("cpu")
 
-        self.policy_net = dnn.MultigoalDQNNetwork(state_size=self.config.env.obs_space_size, goal_size=self.config.goal_size, num_actions=self.config.env.num_actions)
+        self.policy_net = mdqn.StateGoalPaperDQN(state_size=self.config.env.obs_space_size, goal_size=self.config.goal_size, num_actions=self.config.env.num_actions)
         self.policy_net.to(self.device)
 
         self.target_net = copy.deepcopy(self.policy_net)
@@ -97,24 +98,24 @@ class MultigoalDQN():
 
         self.memory = mem.ExperienceReplayMemory(capacity = int(self.config.memory.size))
 
-        self.discount_rate = self.config.discount_rate
+        self.discount_factor = self.config.discount_factor
 
-        if self.config.epsilon.decay_type == "none":
+        self.epsilon_decay_type = self.config.epsilon.decay_type
+
+        if self.epsilon_decay_type == "none":
             self.current_epsilon = self.config.epsilon.no_decay_params.value
-        elif self.config.epsilon.decay_type == "linear":
+        elif self.epsilon_decay_type == "linear":
             self.eps_max = self.epsilon.linear_decay_params.max
             self.eps_min = self.epsilon.linear_decay_params.min
             self.curent_epsilon = self.eps_max
             self.scheduled_episodes = self.config.epsilon.linear_decay_params.scheduled_episodes
-        elif self.config.epsilon.decay_type == "exponential":
+        elif self.epsilon_decay_type == "exponential":
             self.eps_max = self.epsilon.exponential_decay_params.max
             self.eps_min = self.epsilon.exponential_decay_params.min
             self.curent_epsilon = self.eps_max
             self.epsilon_exponential_decay_factor = self.config.epsilon.exponential_decay_params.decay_factor
         else:
             raise ValueError("Unknown value for epsilon decay. Please select between none, linear, or exponential.")
-            
-        self.epsilon_decay_type = self.config.epsilon.decay_type
             
         if self.config.target_network_update.rule == "hard":
             if self.config.target_network_update.alpha != 0.0:
@@ -134,6 +135,9 @@ class MultigoalDQN():
         if self.config.log.epsilon_per_episode:
             log.add_value("agent_epsilon_per_episode", self.current_epsilon)
 
+    def end_episode(self):
+        self._decay_epsilon()
+
     def _decay_epsilon(self):
         if self.epsilon_decay_type == "none":
             return
@@ -149,39 +153,33 @@ class MultigoalDQN():
     def __decay_epsilon_exponentially(self):
         self.current_epsilon = min(self.eps_min, self.current_epsilon*self.epsilon_exponential_decay_factor) 
     
-    def end_episode(self):
-        self._decay_epsilon()
-        
-    def _remember(self, *args):
-        self.memory.push(*args)
-        return
-    
+    def choose_action(self, obs, goal, purpose):
+        if purpose == "training":
+            return self._epsilon_greedy_action_selection(obs, goal)
+        elif purpose == "testing":
+            return self._greedy_action_selection(obs, goal)
+        else:
+            raise ValueError("Unknown purpose. Choose either training or testing.")
+
     def _epsilon_greedy_action_selection(self, obs, goal):
         """Epsilon greedy action selection"""
         if torch.rand(1).item() > self.current_epsilon:
-            with torch.no_grad():
-                return torch.argmax(self.policy_net(torch.tensor(obs).unsqueeze(0).to(torch.float).to(self.device), torch.tensor(goal).unsqueeze(0).to(torch.float).to(self.device))).item()
+            return self._greedy_action_selection(obs, goal)
         else:
             return torch.randint(0,self.config.env.num_actions,(1,)).item() 
-            
+
     def _greedy_action_selection(self,obs,goal):
-            return torch.argmax(self.policy_net(torch.tensor(obs).unsqueeze(0).to(torch.float).to(self.device), torch.tensor(goal).unsqueeze(0).to(torch.float).to(self.device))).item()
+            with torch.no_grad():
+                return torch.argmax(
+                                    self.policy_net(
+                                                    self._make_compatible_with_nn(obs).to(self.device), 
+                                                    self._make_compatible_with_nn(goal).to(self.device)
+                                                    )
+                                    ).item()
 
-    def _sample_experiences(self):
-        experiences = self.memory.sample(self.batch_size)
-        return Experiences(*zip(*experiences))
+    def _make_compatible_with_nn(self, obs):
+        return torch.tensor(obs).unsqueeze(0).to(torch.float)
 
-    def _get_target_batch(self, next_state_batch, goal_batch, reward_batch, terminated_batch):
-        with torch.no_grad():
-            max_action = torch.argmax(self.policy_net(next_state_batch, goal_batch), axis = 1).unsqueeze(1).to(self.device)
-            target = reward_batch + self.discount_rate * torch.mul(self.target_net(next_state_batch, goal_batch).gather(1,max_action).squeeze(), ~terminated_batch)
-        return target
-
-    def _build_observation_tensor(self, state):
-        state = np.array(state)
-        state = torch.from_numpy(state)
-        return state
-        
     def _train_one_batch(self):
         experiences = self._sample_experiences()
 
@@ -216,22 +214,20 @@ class MultigoalDQN():
 
         return loss.item()
 
-    def _update_target_network(self):
-        target_net_state_dict = self.target_net.state_dict()
-        policy_net_state_dict = self.policy_net.state_dict()
-        for key in policy_net_state_dict:
-            target_net_state_dict[key] = policy_net_state_dict[key]*self.update_alpha + target_net_state_dict[key]*(1-self.update_alpha)
+    def _sample_experiences(self):
+        experiences = self.memory.sample(self.batch_size)
+        return Experiences(*zip(*experiences))
 
-        self.target_net.load_state_dict(target_net_state_dict)
+    def _build_observation_tensor(self, state):
+        state = np.array(state)
+        state = torch.from_numpy(state)
+        return state
 
-
-    def choose_action(self, obs, goal, purpose):
-        if purpose == "training":
-            return self._epsilon_greedy_action_selection(obs, goal)
-        elif purpose == "inference":
-            return self._greedy_action_selection(obs, goal)
-        else:
-            raise ValueError("Unknown purpose. Choose either inference or training.")
+    def _get_target_batch(self, next_state_batch, goal_batch, reward_batch, terminated_batch):
+        with torch.no_grad():
+            max_action = torch.argmax(self.policy_net(next_state_batch, goal_batch), axis = 1).unsqueeze(1).to(self.device)
+            target = reward_batch + self.discount_factor * torch.mul(self.target_net(next_state_batch, goal_batch).gather(1,max_action).squeeze(), ~terminated_batch)
+        return target
 
     def train(self, transition, step):
 
@@ -261,5 +257,18 @@ class MultigoalDQN():
         else:
             self.steps_since_last_network_update += 1
 
+    def _remember(self, *args):
+        self.memory.push(*args)
+        return
+
+    def _update_target_network(self):
+        target_net_state_dict = self.target_net.state_dict()
+        policy_net_state_dict = self.policy_net.state_dict()
+        for key in policy_net_state_dict:
+            target_net_state_dict[key] = policy_net_state_dict[key]*self.update_alpha + target_net_state_dict[key]*(1-self.update_alpha)
+
+        self.target_net.load_state_dict(target_net_state_dict)
+
+
 if __name__ == '__main__':
-    pass
+    my_dqn = MultigoalDQN()

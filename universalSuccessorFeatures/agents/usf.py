@@ -4,8 +4,6 @@ import exputils as eu
 import exputils.data.logger as log
 import warnings
 from collections import namedtuple
-import transferRL.memory.experienceReplayMemory
-
 
 class UniversalSuccessorFeatures():
 
