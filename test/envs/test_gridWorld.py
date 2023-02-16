@@ -1,4 +1,4 @@
-import transferRL.envs.gridWorld as env
+import universalSuccessorFeatures.envs.gridWorld as env
 import numpy as np
 
 my_env = env.GridWorld()

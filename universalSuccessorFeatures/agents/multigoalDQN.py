@@ -20,7 +20,7 @@ class MultigoalDQN():
             device = "cuda", # "cuda" or "cpu"
             env = eu.AttrDict(
                 obs_space_size = 2,
-                num_actions = 2,
+                num_actions = 4,
             ),
             goal_size = 2,
             discount_factor = 0.99,

@@ -1,15 +1,15 @@
 import torch
-import transferRL.networks.multigoalDQN.state_goal_output_like_paper as dqn
+import universalSuccessorFeatures.networks.multigoalDQN.state_goal_output_like_paper as dqn
+
+my_dqn = dqn.StateGoalPaperDQN()
 
 def test_input_of_network():
-    my_dqn = dqn.MultigoalDQNNetwork()
     s = torch.rand(1,2)
     g = torch.rand(1,2)
     assert my_dqn(s,g) is not None
 
 def test_output_size_of_network(N = 10, s_size = 2, g_size = 2, num_actions = 4):
     N = N
-    my_dqn = dqn.MultigoalDQNNetwork()
     s = torch.rand(N,s_size)
     g = torch.rand(N,g_size)
     output = my_dqn(s,g)
