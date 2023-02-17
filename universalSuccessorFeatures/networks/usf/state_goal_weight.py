@@ -1,7 +1,7 @@
 import torch
 
-class StateUSFNN(torch.nn.Module):
-    def __init__(self, state_size = 2, goal_size = 2, num_actions = 4, features_size = 100) -> None:
+class StateGoalWeightUSF(torch.nn.Module):
+    def __init__(self, state_size = 2, goal_size = 2, num_actions = 4, features_size = 100, **kwargs) -> None:
         super().__init__()
         self.num_actions = num_actions
         self.features_size = features_size
@@ -38,7 +38,7 @@ class StateUSFNN(torch.nn.Module):
 
 
 if __name__ == '__main__':
-    my_dqn = StateUSFNN()
+    my_dqn = StateGoalWeightUSF()
     print(my_dqn)
     
     rand_states = torch.rand(10,2)
