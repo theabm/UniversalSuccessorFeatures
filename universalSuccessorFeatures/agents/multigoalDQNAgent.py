@@ -23,20 +23,14 @@ class MultigoalDQNAgent():
             learning_rate = 5e-4,
             train_for_n_iterations = 1,
             train_every_n_steps = 1,
-            epsilon = eu.AttrDict(
-                decay_type = "none",  #"none","linear" or "exponential"
-                no_decay_params = eu.AttrDict(
-                    value = 0.25,
-                ),
-                linear_decay_params = eu.AttrDict(
+            epsilon = 0.25,
+            epsilon_decay = eu.AttrDict(
+                type = "none",  #"none","linear" or "exponential"
+                params = eu.AttrDict(
                     max = 1.0,
                     min = 0.1,
-                    scheduled_episodes = 1000,
-                ),
-                exponential_decay_params = eu.AttrDict(
-                    max = 1.0,
-                    min = 0.1,
-                    decay_factor = 0.99,
+                    scheduled_episodes = 1000, #only for linear decay
+                    decay_factor = 0.99, #only for exponential decay
                 ),
             ),
             target_network_update = eu.AttrDict(
@@ -108,19 +102,16 @@ class MultigoalDQNAgent():
 
         self.discount_factor = self.config.discount_factor
 
-        self.epsilon_decay_type = self.config.epsilon.decay_type
+        self.epsilon_decay_type = self.config.epsilon_decay.type
 
         if self.epsilon_decay_type == "none":
-            self.current_epsilon = self.config.epsilon.no_decay_params.value
-        elif self.epsilon_decay_type == "linear":
-            self.eps_max = self.epsilon.linear_decay_params.max
-            self.eps_min = self.epsilon.linear_decay_params.min
-            self.curent_epsilon = self.eps_max
-            self.scheduled_episodes = self.config.epsilon.linear_decay_params.scheduled_episodes
-        elif self.epsilon_decay_type == "exponential":
-            self.eps_max = self.epsilon.exponential_decay_params.max
-            self.eps_min = self.epsilon.exponential_decay_params.min
-            self.curent_epsilon = self.eps_max
+            self.current_epsilon = self.config.epsilon
+        elif self.epsilon_decay_type=="linear" or self.epsilon_decay_type == "exponential":
+            warnings.warn("This mode ignores epsilon by default... Using eps_max as current epsilon for episode 0.")
+            self.eps_max = self.epsilon_decay.param.max
+            self.eps_min = self.epsilon_decay.params.min
+            self.current_epsilon = self.eps_max
+            self.scheduled_episodes = self.config.epsilon_decay.params.scheduled_episodes
             self.epsilon_exponential_decay_factor = self.config.epsilon.exponential_decay_params.decay_factor
         else:
             raise ValueError("Unknown value for epsilon decay. Please select between none, linear, or exponential.")
@@ -158,7 +149,7 @@ class MultigoalDQNAgent():
 
     def __decay_epsilon_linearly(self):
         m = (self.eps_min-self.eps_max)/self.scheduled_episodes * (self.current_episode<=self.scheduled_episodes)
-        self.curent_epsilon += m
+        self.current_epsilon += m
 
     def __decay_epsilon_exponentially(self):
         self.current_epsilon = min(self.eps_min, self.current_epsilon*self.epsilon_exponential_decay_factor) 
@@ -189,7 +180,7 @@ class MultigoalDQNAgent():
 
     def _make_compatible_with_nn(self, obs):
         return torch.tensor(obs).unsqueeze(0).to(torch.float)
-
+#
     def _train_one_batch(self):
         experiences = self._sample_experiences()
 
