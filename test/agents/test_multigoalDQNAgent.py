@@ -10,5 +10,5 @@ def test_when_episode_starts_epsilon_defined():
     assert my_dqn.current_epsilon is not None
     
 def test_when_episode_starts_epsilon_is_correct_value(epsilon = 0.33):
-    my_dqn = dqn.MultigoalDQNAgent(epsilon = epsilon) 
+    my_dqn = dqn.MultigoalDQNAgent(epsilon = epsilon, epsilon_decay = {"type": "linear"}) 
     assert my_dqn.current_epsilon == epsilon

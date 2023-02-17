@@ -40,6 +40,7 @@ class MultigoalDQNAgent():
             ),
             memory = eu.AttrDict(
                 cls = mem.ExperienceReplayMemory,
+                #here i can add any other variable from the defaul config of the experience replay class.
             ),
             #With this implementation, the choice of network completely determine the input size (i.e. the state and any additional info)
             #and the output size (num actions)
@@ -108,8 +109,8 @@ class MultigoalDQNAgent():
             self.current_epsilon = self.config.epsilon
         elif self.epsilon_decay_type=="linear" or self.epsilon_decay_type == "exponential":
             warnings.warn("This mode ignores epsilon by default... Using eps_max as current epsilon for episode 0.")
-            self.eps_max = self.epsilon_decay.param.max
-            self.eps_min = self.epsilon_decay.params.min
+            self.eps_max = self.config.epsilon_decay.param.max
+            self.eps_min = self.config.epsilon_decay.params.min
             self.current_epsilon = self.eps_max
             self.scheduled_episodes = self.config.epsilon_decay.params.scheduled_episodes
             self.epsilon_exponential_decay_factor = self.config.epsilon.exponential_decay_params.decay_factor
