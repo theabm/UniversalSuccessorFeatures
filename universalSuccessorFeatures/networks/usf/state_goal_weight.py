@@ -23,7 +23,7 @@ class StateGoalWeightUSF(torch.nn.Module):
             torch.nn.Linear(in_features=256, out_features=num_actions*features_size),
         )
 
-    def forward(self,s,g,w):
+    def forward(self,s,g,w,**kwargs):
         #w is the reward weight vector which defines a task. It is the same size as the features
         s_rep = self.layer_state(s)
         g_rep = self.layer_goal(g)

@@ -32,7 +32,7 @@ class StateGoalUSF(torch.nn.Module):
             torch.nn.Linear(in_features=256, out_features=num_actions*features_size),
         )
 
-    def forward(self,s,g):
+    def forward(self,s,g,**kwargs):
         s_rep = self.layer_state(s)
         g_rep = self.layer_goal(g)
         rep = torch.cat((s_rep,g_rep),dim=1)
