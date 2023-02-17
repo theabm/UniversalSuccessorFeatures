@@ -2,7 +2,7 @@ import torch
 
 class FeatureGoalPaperDQN(torch.nn.Module):
 
-    def __init__(self, goal_size = 2, num_actions = 4, features_size = 100) -> None:
+    def __init__(self, goal_size = 2, num_actions = 4, features_size = 100, **kwargs) -> None:
         super().__init__()
         self.layer_goal = torch.nn.Sequential(
             torch.nn.Linear(in_features=goal_size, out_features=64),

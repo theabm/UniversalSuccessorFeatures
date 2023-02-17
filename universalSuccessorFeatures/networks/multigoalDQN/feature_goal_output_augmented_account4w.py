@@ -25,7 +25,7 @@ import torch
 
 class FeatureGoalAugumentedDQN(torch.nn.Module):
 
-    def __init__(self, goal_size = 2, num_actions = 4, features_size = 100, H2_size = 352, H3_size = 64) -> None:
+    def __init__(self, goal_size = 2, num_actions = 4, features_size = 100, H2_size = 352, H3_size = 64, **kwargs) -> None:
         super().__init__()
         self.goal_layer = torch.nn.Sequential(
             torch.nn.Linear(in_features=goal_size, out_features=64),

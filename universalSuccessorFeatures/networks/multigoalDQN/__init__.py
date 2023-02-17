@@ -1,0 +1,4 @@
+from .state_goal_output_like_paper import StateGoalPaperDQN
+from .feature_goal_output_like_paper import FeatureGoalPaperDQN
+from .state_goal_output_augmented_account4w import StateGoalAugmentedDQN
+from .feature_goal_output_augmented_account4w import FeatureGoalAugumentedDQN
