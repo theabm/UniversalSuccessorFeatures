@@ -5,14 +5,14 @@ import exputils.data.logging as log
 import warnings
 import copy
 from collections import namedtuple
-import universalSuccessorFeatures.memory.experienceReplayMemory as mem
-import universalSuccessorFeatures.networks.multigoalDQN.state_goal_output_like_paper as mdqn
+import universalSuccessorFeatures.memory as mem
+import universalSuccessorFeatures.networks.multigoalDQN as mdqn
 import universalSuccessorFeatures.envs.gridWorld as envs
 
 Experiences = namedtuple("Experiences", ("goal_batch", "state_batch", "action_batch", "reward_batch", "next_state_batch", "terminated_batch", "truncated_batch"))
 
 
-class MultigoalDQN():
+class MultigoalDQNAgent():
 
     @staticmethod
     def default_config():
@@ -271,4 +271,4 @@ class MultigoalDQN():
 
 
 if __name__ == '__main__':
-    my_dqn = MultigoalDQN()
+    my_dqn = MultigoalDQNAgent()

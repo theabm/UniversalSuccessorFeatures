@@ -5,7 +5,7 @@ import exputils.data.logger as log
 import warnings
 from collections import namedtuple
 
-class UniversalSuccessorFeatures():
+class USFAgent():
 
     @staticmethod
     def default_config():

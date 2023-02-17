@@ -1,35 +1,49 @@
 import torch
+import exputils as eu
 
 class StateGoalUSF(torch.nn.Module):
-    def __init__(self, state_size = 2, goal_size = 2, num_actions = 4, features_size = 100, **kwargs) -> None:
+    
+    @staticmethod
+    def default_config():
+        return eu.AttrDict(
+           state_size = 2,
+           goal_size = 2,
+           features_size = 100,
+           num_actions = 4,
+        )
+
+    def __init__(self, config = None, **kwargs) -> None:
         super().__init__()
-        self.num_actions = num_actions
-        self.features_size = features_size
+
+        self.config = eu.combine_dicts(kwargs, config, self.default_config())
+
+        self.num_actions = self.config.num_actions
+        self.features_size = self.config.features_size
 
         self.layer_goal_weights = torch.nn.Sequential(
-            torch.nn.Linear(in_features=goal_size, out_features=64),
+            torch.nn.Linear(in_features=self.config.goal_size, out_features=64),
             torch.nn.ReLU(),
             torch.nn.Linear(in_features=64, out_features=64),
             torch.nn.ReLU(),
-            torch.nn.Linear(in_features=64, out_features=features_size),
+            torch.nn.Linear(in_features=64, out_features=self.config.features_size),
         )
 
         self.layer_state = torch.nn.Sequential(
-            torch.nn.Linear(in_features=state_size, out_features=81),
+            torch.nn.Linear(in_features=self.config.state_size, out_features=81),
             torch.nn.ReLU(),
-            torch.nn.Linear(in_features=81, out_features=features_size),
+            torch.nn.Linear(in_features=81, out_features=self.config.features_size),
         )
 
         self.layer_goal = torch.nn.Sequential(
-            torch.nn.Linear(in_features=goal_size, out_features=64),
+            torch.nn.Linear(in_features=self.config.goal_size, out_features=64),
             torch.nn.ReLU(),
-            torch.nn.Linear(in_features=64, out_features=features_size),
+            torch.nn.Linear(in_features=64, out_features=self.config.features_size),
         )
 
         self.layer_concat = torch.nn.Sequential(
-            torch.nn.Linear(in_features=2*features_size, out_features=256),
+            torch.nn.Linear(in_features=2*self.config.features_size, out_features=256),
             torch.nn.ReLU(),
-            torch.nn.Linear(in_features=256, out_features=num_actions*features_size),
+            torch.nn.Linear(in_features=256, out_features=self.config.num_actions*self.config.features_size),
         )
 
     def forward(self,s,g,**kwargs):

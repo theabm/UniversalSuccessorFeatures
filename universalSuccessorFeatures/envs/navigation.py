@@ -5,7 +5,7 @@ import numpy as np
 import mpi_sim
 
 
-class MpiEnvNavigation(gym.Env):
+class MPINavigation(gym.Env):
     
     @staticmethod
     def default_config():
@@ -186,7 +186,7 @@ class MpiEnvNavigation(gym.Env):
 
 
 if __name__ == '__main__':
-    env = MpiEnvNavigation(show_gui = True, max_real_time_factor = 1)
+    env = MPINavigation(show_gui = True, max_real_time_factor = 1)
 
     # episodes
     num_episodes = 3

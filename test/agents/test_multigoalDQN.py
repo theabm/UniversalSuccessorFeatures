@@ -1,8 +1,8 @@
 import torch
-import universalSuccessorFeatures.agents.multigoalDQN as dqn
-import universalSuccessorFeatures.envs.gridWorld as env
+import universalSuccessorFeatures.agents as dqn
+import universalSuccessorFeatures.envs as env
 
-my_dqn = dqn.MultigoalDQN()
+my_dqn = dqn.MultigoalDQNAgent()
 my_env = env.GridWorld()
 
 

@@ -1,23 +1,36 @@
 import torch
+import exputils as eu
 
 class StateGoalPaperDQN(torch.nn.Module):
+    
+    @staticmethod
+    def default_config():
+        return eu.AttrDict(
+           state_size = 2,
+           goal_size = 2,
+           features_size = 100,
+           num_actions = 4,
+        )
 
-    def __init__(self, state_size = 2, goal_size = 2, num_actions = 4, features_size = 100, **kwargs) -> None:
+    def __init__(self, config = None, **kwargs) -> None:
         super().__init__()
+
+        self.config = eu.combine_dicts(kwargs, config, self.default_config())
+
         self.state_layer = torch.nn.Sequential(
-            torch.nn.Linear(in_features=state_size, out_features=81),
+            torch.nn.Linear(in_features=self.config.state_size, out_features=81),
             torch.nn.ReLU(),
-            torch.nn.Linear(in_features=81, out_features=features_size),
+            torch.nn.Linear(in_features=81, out_features=self.config.features_size),
         )   
         self.goal_layer = torch.nn.Sequential(
-            torch.nn.Linear(in_features=goal_size, out_features=64),
+            torch.nn.Linear(in_features=self.config.goal_size, out_features=64),
             torch.nn.ReLU(),
-            torch.nn.Linear(in_features=64, out_features=features_size),
+            torch.nn.Linear(in_features=64, out_features=self.config.features_size),
         )
         self.layer_concat = torch.nn.Sequential(
-            torch.nn.Linear(in_features=2*features_size, out_features=256),
+            torch.nn.Linear(in_features=2*self.config.features_size, out_features=256),
             torch.nn.ReLU(),
-            torch.nn.Linear(in_features=256, out_features=num_actions),
+            torch.nn.Linear(in_features=256, out_features=self.config.num_actions),
         )
     def forward(self,s,g):
         s_rep = self.state_layer(s)

@@ -1,4 +1,5 @@
 import torch
+import exputils as eu
 
 
 # This is augmented compared to what is described in the paper.
@@ -24,22 +25,36 @@ import torch
 # If we were to keep separate networks for the weights and the SF, this would not make sense anymore because the weights w are part of a different network.
 
 class FeatureGoalAugumentedDQN(torch.nn.Module):
+    
+    @staticmethod
+    def default_config():
+        return eu.AttrDict(
+           state_size = 2,
+           goal_size = 2,
+           features_size = 100,
+           num_actions = 4,
+           H2_size = 352,
+           H3_size = 64,
+        )
 
-    def __init__(self, goal_size = 2, num_actions = 4, features_size = 100, H2_size = 352, H3_size = 64, **kwargs) -> None:
+    def __init__(self, config = None, **kwargs) -> None:
         super().__init__()
+
+        self.config = eu.combine_dicts(kwargs, config, self.default_config())
+        
         self.goal_layer = torch.nn.Sequential(
-            torch.nn.Linear(in_features=goal_size, out_features=64),
+            torch.nn.Linear(in_features=self.config.goal_size, out_features=64),
             torch.nn.ReLU(),
-            torch.nn.Linear(in_features=64, out_features=features_size),
+            torch.nn.Linear(in_features=64, out_features=self.config.features_size),
         )
         self.layer_concat = torch.nn.Sequential(
-            torch.nn.Linear(in_features=2*features_size, out_features=256),
+            torch.nn.Linear(in_features=2*self.config.features_size, out_features=256),
             torch.nn.ReLU(),
-            torch.nn.Linear(in_features=256, out_features=H2_size),
+            torch.nn.Linear(in_features=256, out_features=self.config.H2_size),
             torch.nn.ReLU(),
-            torch.nn.Linear(in_features=H2_size, out_features=H3_size),
+            torch.nn.Linear(in_features=self.config.H2_size, out_features=self.config.H3_size),
             torch.nn.ReLU(),
-            torch.nn.Linear(in_features=H3_size, out_features=num_actions),
+            torch.nn.Linear(in_features=self.config.H3_size, out_features=self.config.num_actions),
         )
     def forward(self,phi_s,g):
         #phi_s is the feature state for s and it is assumed to be 100 dimensional
