@@ -18,11 +18,6 @@ class MultigoalDQNAgent():
     def default_config():
         cnf = eu.AttrDict(
             device = "cuda", # "cuda" or "cpu"
-            env = eu.AttrDict(
-                obs_space_size = 2,
-                num_actions = 4,
-            ),
-            goal_size = 2,
             discount_factor = 0.99,
             batch_size = 32,
             learning_rate = 5e-4,
@@ -50,10 +45,12 @@ class MultigoalDQNAgent():
                 alpha = 0.0,  # target network params will be updated as P_t = alpha * P_t + (1-alpha) * P_p   where P_p are params of policy network
             ),
             memory = eu.AttrDict(
-                type = "normal",
-                size = 1e6,
+                cls = mem.ExperienceReplayMemory,
             ),
+            #With this implementation, the choice of network completely determine the input size (i.e. the state and any additional info)
+            #and the output size (num actions)
             network = eu.AttrDict(
+                cls = mdqn.StateGoalPaperDQN,
                 optimizer = torch.optim.Adam,
                 loss = torch.nn.MSELoss,
             ),
@@ -74,6 +71,7 @@ class MultigoalDQNAgent():
         
         self.config = eu.combine_dicts(kwargs, config, self.default_config())
 
+        #Setting the device
         if self.config.device == "cuda":
             if torch.cuda.is_available():
                 self.device = torch.device("cuda")
@@ -82,11 +80,23 @@ class MultigoalDQNAgent():
                 warnings.warn('Cuda not available. Using CPU as device ...')
         else:
             self.device = torch.device("cpu")
+        
+        #Creating object instances
+        if isinstance(self.config.network, dict):
+            self.policy_net = eu.misc.create_object_from_config(self.config.network)
+        else:
+            raise ValueError("Network Config must be a dictionary.")
 
-        self.policy_net = mdqn.StateGoalPaperDQN(state_size=self.config.env.obs_space_size, goal_size=self.config.goal_size, num_actions=self.config.env.num_actions)
-        self.policy_net.to(self.device)
+        if isinstance(self.config.memory, dict):
+            self.memory = eu.misc.create_object_from_config(self.config.memory)
+        else:
+            raise ValueError("Memory config must be a dictionary.")
+
+        #Setting other attributes
 
         self.target_net = copy.deepcopy(self.policy_net)
+
+        self.policy_net.to(self.device)
         self.target_net.to(self.device)
 
         self.loss = self.config.network.loss()
@@ -95,8 +105,6 @@ class MultigoalDQNAgent():
         self.batch_size = self.config.batch_size      
         self.train_every_n_steps = self.config.train_every_n_steps
         self.steps_since_last_training = 0
-
-        self.memory = mem.ExperienceReplayMemory(capacity = int(self.config.memory.size))
 
         self.discount_factor = self.config.discount_factor
 
@@ -123,6 +131,8 @@ class MultigoalDQNAgent():
             self.update_alpha = 0.0
         elif self.config.target_network_update.rule == "soft":
             self.update_alpha = self.config.target_network_update.alpha
+        else:
+            raise ValueError("Unknown type of update rule.")
 
         self.update_target_network_every_n_steps = self.config.target_network_update.every_n_steps
         self.steps_since_last_network_update = 0
