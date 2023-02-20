@@ -188,12 +188,9 @@ class MultigoalDQNAgent():
     def _train_one_batch(self):
         experiences = self._sample_experiences()
 
-        next_state_batch = self._build_tensor_from_batch_of_np_arrays(experiences.next_state_batch)
-        goal_batch = self._build_tensor_from_batch_of_np_arrays(experiences.goal_batch)
-
         #Not sure I need to cast to torch.float each time since torch.tensor automatically handles this. But for now, this is more secure
-        next_state_batch = next_state_batch.to(torch.float).to(self.device) 
-        goal_batch = goal_batch.to(torch.float).to(self.device) 
+        next_state_batch = self._build_tensor_from_batch_of_np_arrays(experiences.next_state_batch).to(torch.float).to(self.device)
+        goal_batch = self._build_tensor_from_batch_of_np_arrays(experiences.goal_batch).to(torch.float).to(self.device)
 
         #reward and terminated batch are handled differently because they are a list of floats and bools respectively and not a list of np.arrays
         reward_batch = torch.tensor(experiences.reward_batch).to(torch.float).to(self.device)
@@ -205,8 +202,7 @@ class MultigoalDQNAgent():
         del reward_batch
         del terminated_batch
         
-        state_batch = self._build_tensor_from_batch_of_np_arrays(experiences.state_batch)
-        state_batch = state_batch.to(torch.float).to(self.device)
+        state_batch = self._build_tensor_from_batch_of_np_arrays(experiences.state_batch).to(torch.float).to(self.device)
 
         action_batch = torch.tensor(experiences.action_batch).unsqueeze(1).to(self.device)
 
@@ -242,8 +238,7 @@ class MultigoalDQNAgent():
 
     def train(self, transition, step):
         
-        #The first call to this will determine the names of the tuple
-        self.memory.push(**transition)
+        self.memory.push(transition)
         
         if len(self.memory) < self.learning_starts_after:
             return
