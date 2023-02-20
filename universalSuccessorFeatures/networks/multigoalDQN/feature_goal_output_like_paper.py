@@ -27,7 +27,7 @@ class FeatureGoalPaperDQN(torch.nn.Module):
             torch.nn.ReLU(),
             torch.nn.Linear(in_features=256, out_features=self.config.num_actions),
         )
-    def forward(self,phi_s,g):
+    def forward(self, phi_s, g, **kwargs):
         #phi_s is the feature state for s and it is assumed to be 100 dimensional
         g_rep = self.layer_goal(g)
         rep = torch.cat((phi_s,g_rep),dim=1)
