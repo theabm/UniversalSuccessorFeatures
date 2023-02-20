@@ -18,22 +18,9 @@ class ExperienceReplayMemory():
 
         self.memory = deque([],maxlen=self.config.capacity)
         
-        self._pusher_util = self._push_build
-    
-    def _push_build(self,**kwargs):
-        global Transition
-        Transition = namedtuple("Transition", kwargs.keys())
 
-        self._push(**kwargs)
-
-        self._pusher_util = self._push
-
-    def _push(self, **kwargs):
-        """Save a transition"""
-        self.memory.append(Transition(**kwargs))
-
-    def push(self, **kwargs):
-        self._pusher_util(**kwargs)
+    def push(self, transition):
+        self.memory.append(transition)
 
     def sample(self, batch_size):
         return random.sample(self.memory, batch_size)

@@ -1,20 +1,10 @@
 import universalSuccessorFeatures.memory as mem
+from collections import namedtuple
 
 
 def test_build_push():
-    transition = {
-        "state":[1,2],
-        "goal": [1,4],
-        "reward": [-5,8]
-    }
+    Transition = namedtuple("Transition", ("state,goal,reward"))
+    
     exp_repl = mem.ExperienceReplayMemory()
-    exp_repl.push(**transition)
-    assert len(exp_repl) == 1 and exp_repl[0].state == transition["state"] and exp_repl[0].goal == transition["goal"] and exp_repl[0].reward == transition["reward"]
-
-def test_build_push_kw():
-    state = [1,2]
-    goal= [1,4]
-    reward = [-5,8]
-    exp_repl = mem.ExperienceReplayMemory()
-    exp_repl.push(state = state, goal = goal, reward = reward)
-    assert len(exp_repl) == 1 and exp_repl[0].state == state and exp_repl[0].goal == goal and exp_repl[0].reward == reward 
+    exp_repl.push(Transition(1,2,3))
+    assert len(exp_repl) == 1 and exp_repl[0].state == 1 and exp_repl[0].goal == 2 and exp_repl[0].reward == 3

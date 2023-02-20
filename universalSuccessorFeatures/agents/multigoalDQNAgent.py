@@ -9,9 +9,6 @@ import universalSuccessorFeatures.memory as mem
 import universalSuccessorFeatures.networks.multigoalDQN as mdqn
 import universalSuccessorFeatures.envs.gridWorld as envs
 
-#note that the word "state" is used interchangeably with features or observation.
-Experiences = namedtuple("Experiences", ("state_batch", "goal_batch", "action_batch", "reward_batch", "next_state_batch", "terminated_batch", "truncated_batch"))
-
 
 class MultigoalDQNAgent():
 
@@ -224,7 +221,7 @@ class MultigoalDQNAgent():
 
     def _sample_experiences(self):
         experiences = self.memory.sample(self.batch_size)
-        return Experiences(*zip(*experiences))
+        return mem.Transition(*zip(*experiences))
 
     def _build_tensor_from_batch_of_np_arrays(self, batch_of_np_arrays):
         #make list of np.arrays into a single np.array
