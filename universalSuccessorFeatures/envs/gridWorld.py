@@ -48,6 +48,14 @@ class GridWorld(gym.Env):
         
         return i,j
     
+    def sample_a_goal_position(self, goal_list = None):
+        if goal_list is None:
+            return self._sample_position_in_matrix()
+        else:
+            goal_list = np.array(goal_list)
+            row = np.random.randint(goal_list.shape[0])
+            return goal_list[row]
+    
     def get_current_goal_position_in_matrix(self):
         return np.array([self.goal_i, self.goal_j])
 

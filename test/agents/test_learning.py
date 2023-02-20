@@ -1,12 +1,15 @@
 import universalSuccessorFeatures.envs as envs
+import numpy as np
 
 
 my_test_env = envs.GridWorld(lenght_x = 3, length_y = 3)
 
-start_position = [0,0]
+start_position = np.array([0,0])
 
-goal_1_position = [2,2]
-goal_2_position = [2,0]
+goal_1_position = np.array([2,2])
+goal_2_position = np.array([2,0])
+goal_list = [goal_1_position,goal_2_position]
+
 discount_factor = 0.5
 
 #Ground truth values for the following configuration (discount = 0.5)
@@ -38,3 +41,4 @@ q_gt_g2_s8 = [0.250,0.500,0.250,1.000]
 q_gt_g2_s9 = [0.125,0.250,0.250,0.500]
 
 
+def test_training(episodes = 20):
