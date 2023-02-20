@@ -155,32 +155,33 @@ class MultigoalDQNAgent():
     def __decay_epsilon_exponentially(self):
         self.current_epsilon = max(self.eps_min, self.current_epsilon*self.epsilon_exponential_decay_factor) 
 
-    def choose_action(self, obs, goal, purpose):
+    def choose_action(self, purpose, **kwargs):
         if purpose == "training":
-            return self._epsilon_greedy_action_selection(obs, goal)
+            return self._epsilon_greedy_action_selection(**kwargs)
         elif purpose == "testing":
-            return self._greedy_action_selection(obs, goal)
+            return self._greedy_action_selection(**kwargs)
         else:
             raise ValueError("Unknown purpose. Choose either training or testing.")
 
-    def _epsilon_greedy_action_selection(self, obs, goal):
+    def _epsilon_greedy_action_selection(self, **kwargs):
         """Epsilon greedy action selection"""
         if torch.rand(1).item() > self.current_epsilon:
-            return self._greedy_action_selection(obs, goal)
+            return self._greedy_action_selection(**kwargs)
         else:
             return torch.randint(0,self.config.env.num_actions,(1,)).item() 
 
-    def _greedy_action_selection(self,obs,goal):
+    def _greedy_action_selection(self, **kwargs):
             with torch.no_grad():
                 return torch.argmax(
                                     self.policy_net(
-                                                    self._make_compatible_with_nn(obs).to(self.device), 
-                                                    self._make_compatible_with_nn(goal).to(self.device)
+                                                    **self._make_compatible_with_nn(**kwargs)
                                                     )
                                     ).item()
 
-    def _make_compatible_with_nn(self, obs):
-        return torch.tensor(obs).unsqueeze(0).to(torch.float)
+    def _make_compatible_with_nn(self, **kwargs):
+        for key, value in kwargs.items():
+            kwargs[key] = torch.tensor(value).unsqueeze(0).to(torch.float).to(self.device)
+        return kwargs
 #
     def _train_one_batch(self):
         experiences = self._sample_experiences()
