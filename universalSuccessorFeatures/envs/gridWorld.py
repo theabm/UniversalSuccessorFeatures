@@ -2,6 +2,7 @@ import gymnasium as gym
 from gymnasium.utils.env_checker import check_env
 import numpy as np
 import exputils as eu
+import random
 
 class GridWorld(gym.Env):
     
@@ -52,10 +53,9 @@ class GridWorld(gym.Env):
         if goal_list is None:
             return self._sample_position_in_matrix()
         else:
-            goal_list = np.array(goal_list)
-            row = np.random.randint(goal_list.shape[0])
-            return goal_list[row]
-    
+            idx = random.randrange(len(goal_list))
+            return goal_list[idx]
+
     def get_current_goal_position_in_matrix(self):
         return np.array([self.goal_i, self.goal_j])
 

@@ -10,7 +10,7 @@ import universalSuccessorFeatures.networks.multigoalDQN as mdqn
 import universalSuccessorFeatures.envs.gridWorld as envs
 
 
-Experiences = namedtuple("Experiences", ("goal_batch", "state_batch", "action_batch", "reward_batch", "next_state_batch", "terminated_batch", "truncated_batch"))
+Experiences = namedtuple("Experiences", ("state_batch", "goal_batch", "action_batch", "reward_batch", "next_state_batch", "terminated_batch", "truncated_batch"))
 
 class MultigoalDQNAgent():
 
