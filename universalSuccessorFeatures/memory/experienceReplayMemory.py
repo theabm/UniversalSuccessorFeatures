@@ -40,6 +40,9 @@ class ExperienceReplayMemory():
 
     def __len__(self):
         return len(self.memory)
+    
+    def __getitem__(self,key):
+        return self.memory[key]
 
 
 if __name__ == '__main__':
