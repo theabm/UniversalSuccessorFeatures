@@ -2,12 +2,10 @@ import exputils as eu
 from collections import deque, namedtuple
 import random
 
-#This is okay for any type of agent, whether it be multigoalDQN or USF. No need to save weights or features since, if these are an input,
-#then is assumed that we are able to compute them with the information we are storing (s,a,s+) and (g).
+#Transition = namedtuple("Transition", ("state", "goal", "action", "reward", "next_state", "terminated", "truncated"))
 
-#Note that state represents any type of information that acts as input for the agent.
-Transition = namedtuple("Transition", ("goal", "state", "action", "reward", "next_state", "terminated", "truncated"))
-
+#This is a flexible class which automatically builds a namedtuple the first time that push is called and uses the keys of the arguments as keys for the tuple.
+#It stores the transitions as named tuples for better memory handling.
 class ExperienceReplayMemory():
 
     @staticmethod
@@ -19,10 +17,23 @@ class ExperienceReplayMemory():
         self.config = eu.combine_dicts(kwargs, config, self.default_config())
 
         self.memory = deque([],maxlen=self.config.capacity)
+        
+        self._pusher_util = self._push_build
+    
+    def _push_build(self,**kwargs):
+        global Transition
+        Transition = namedtuple("Transition", kwargs.keys())
 
-    def push(self, *args):
+        self._push(**kwargs)
+
+        self._pusher_util = self._push
+
+    def _push(self, **kwargs):
         """Save a transition"""
-        self.memory.append(Transition(*args))
+        self.memory.append(Transition(**kwargs))
+
+    def push(self, **kwargs):
+        self._pusher_util(**kwargs)
 
     def sample(self, batch_size):
         return random.sample(self.memory, batch_size)

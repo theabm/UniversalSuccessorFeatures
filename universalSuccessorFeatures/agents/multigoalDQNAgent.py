@@ -9,7 +9,8 @@ import universalSuccessorFeatures.memory as mem
 import universalSuccessorFeatures.networks.multigoalDQN as mdqn
 import universalSuccessorFeatures.envs.gridWorld as envs
 
-Experiences = namedtuple("Experiences", ("goal_batch", "state_batch", "action_batch", "reward_batch", "next_state_batch", "terminated_batch", "truncated_batch"))
+#note that the word "state" is used interchangeably with features or observation.
+Experiences = namedtuple("Experiences", ("state_batch", "goal_batch", "action_batch", "reward_batch", "next_state_batch", "terminated_batch", "truncated_batch"))
 
 
 class MultigoalDQNAgent():
@@ -184,18 +185,20 @@ class MultigoalDQNAgent():
         for key, value in kwargs.items():
             kwargs[key] = torch.tensor(value).unsqueeze(0).to(torch.float).to(self.device)
         return kwargs
-#
+#Working until here
     def _train_one_batch(self):
         experiences = self._sample_experiences()
 
-        next_state_batch = self._build_observation_tensor(experiences.next_state_batch)
-        goal_batch = self._build_observation_tensor(experiences.goal_batch)
+        next_state_batch = self._build_tensor_from_batch_of_np_arrays(experiences.next_state_batch)
+        goal_batch = self._build_tensor_from_batch_of_np_arrays(experiences.goal_batch)
 
+        #Not sure I need to cast to torch.float each time since torch.tensor automatically handles this. But for now, this is more secure
         next_state_batch = next_state_batch.to(torch.float).to(self.device) 
         goal_batch = goal_batch.to(torch.float).to(self.device) 
 
-        reward_batch = torch.tensor(experiences.reward_batch).to(self.device)
-        terminated_batch = torch.tensor(experiences.terminated_batch).to(self.device)
+        #reward and terminated batch are handled differently because they are a list of floats and bools respectively and not a list of np.arrays
+        reward_batch = torch.tensor(experiences.reward_batch).to(torch.float).to(self.device)
+        terminated_batch = torch.tensor(experiences.terminated_batch).to(torch.float).to(self.device)
 
         target_batch = self._get_target_batch(next_state_batch, goal_batch, reward_batch, terminated_batch)
     
@@ -203,7 +206,7 @@ class MultigoalDQNAgent():
         del reward_batch
         del terminated_batch
         
-        state_batch = self._build_observation_tensor(experiences.state_batch)
+        state_batch = self._build_tensor_from_batch_of_np_arrays(experiences.state_batch)
         state_batch = state_batch.to(torch.float).to(self.device)
 
         action_batch = torch.tensor(experiences.action_batch).unsqueeze(1).to(self.device)
@@ -223,15 +226,19 @@ class MultigoalDQNAgent():
         experiences = self.memory.sample(self.batch_size)
         return Experiences(*zip(*experiences))
 
-    def _build_observation_tensor(self, state):
-        state = np.array(state)
-        state = torch.from_numpy(state)
-        return state
+    def _build_tensor_from_batch_of_np_arrays(self, batch_of_np_arrays):
+        #make list of np.arrays into a single np.array
+        batch_of_np_arrays = np.array(batch_of_np_arrays)
+        #convert to torch.tensor
+        #batch_of_np_arrays = torch.from_numpy(batch_of_np_arrays) #previous working copy
+        batch_of_np_arrays = torch.tensor(batch_of_np_arrays)
+
+        return batch_of_np_arrays
 
     def _get_target_batch(self, next_state_batch, goal_batch, reward_batch, terminated_batch):
         with torch.no_grad():
-            max_action = torch.argmax(self.policy_net(next_state_batch, goal_batch), axis = 1).unsqueeze(1).to(self.device)
-            target = reward_batch + self.discount_factor * torch.mul(self.target_net(next_state_batch, goal_batch).gather(1,max_action).squeeze(), ~terminated_batch)
+            max_action = torch.argmax(self.policy_net(s = next_state_batch, g = goal_batch), axis = 1).unsqueeze(1).to(self.device)
+            target = reward_batch + self.discount_factor * torch.mul(self.target_net(s = next_state_batch, g = goal_batch).gather(1,max_action).squeeze(), ~terminated_batch)
         return target
 
     def train(self, transition, step):
