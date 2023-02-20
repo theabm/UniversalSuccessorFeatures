@@ -242,8 +242,9 @@ class MultigoalDQNAgent():
         return target
 
     def train(self, transition, step):
-
-        self._remember(*transition)
+        
+        #The first call to this will determine the names of the tuple
+        self.memory.push(**transition)
         
         if len(self.memory) < self.learning_starts_after:
             return
@@ -268,10 +269,6 @@ class MultigoalDQNAgent():
             self._update_target_network()
         else:
             self.steps_since_last_network_update += 1
-
-    def _remember(self, *args):
-        self.memory.push(*args)
-        return
 
     def _update_target_network(self):
         target_net_state_dict = self.target_net.state_dict()
