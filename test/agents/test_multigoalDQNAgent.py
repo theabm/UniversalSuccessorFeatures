@@ -1,4 +1,3 @@
-import torch
 import numpy as np
 import universalSuccessorFeatures.agents as dqn
 import universalSuccessorFeatures.envs as envo
