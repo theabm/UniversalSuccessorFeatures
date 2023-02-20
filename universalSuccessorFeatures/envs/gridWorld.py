@@ -8,9 +8,11 @@ class GridWorld(gym.Env):
     @staticmethod
     def default_config():
         return eu.AttrDict(
-            length_y = 10,
-            length_x = 10,
+            rows = 10,
+            columns = 10,
             nmax_steps = 1e6,
+            penalization = -0.1,
+            reward_at_goal_state = 0
             )
 
     def __init__(self, config = None, **kwargs):
@@ -20,40 +22,37 @@ class GridWorld(gym.Env):
         self.config = eu.combine_dicts(kwargs, config, self.default_config())
 
         #length and width of the grid
-        self.length_y = self.config.length_y 
-        self.length_x = self.config.length_x
+        self.rows = self.config.rows 
+        self.columns = self.config.columns
         
         #action space of the environment. Agent can only move up, down, left, right, or stay
         self.action_space = gym.spaces.Discrete(4)
 
         #observation space of the agent are the x,y coordinates 
-        self.observation_space = gym.spaces.MultiDiscrete([self.length_x, self.length_y])
+        self.observation_space = gym.spaces.MultiDiscrete([self.rows, self.columns])
 
         self.reward_range = (-np.inf, 0)
 
-        self.agent_x = None
-        self.agent_y = None
+        self.agent_i = None
+        self.agent_j = None
 
-        self.goal_x = None
-        self.goal_y = None
+        self.goal_i = None
+        self.goal_j = None
 
         self.cur_step = None 
         self.nmax_steps = self.config.nmax_steps
 
-    def _sample_xy_coordinates(self):
-        x = np.random.choice(self.length_x)
-        y = np.random.choice(self.length_y)
+    def _sample_position_in_matrix(self):
+        i = np.random.choice(self.rows)
+        j = np.random.choice(self.columns)
         
-        return x,y
+        return i,j
     
-    def get_current_goal_coordinates(self):
-        return np.array([self.goal_x, self.goal_y])
+    def get_current_goal_position_in_matrix(self):
+        return np.array([self.goal_i, self.goal_j])
 
-    def get_current_agent_coordinates(self):
-        return np.array([self.agent_x, self.agent_y])
-
-    def _goal_is_same_as_initial_position(self):
-        return (self.goal_x,self.goal_y) == (self.agent_x,self.agent_y)
+    def get_current_agent_position_in_matrix(self):
+        return np.array([self.agent_i, self.agent_j])
 
     def reset(self, start_position = None, goal = None, seed = None, **kwargs):
 
@@ -64,24 +63,24 @@ class GridWorld(gym.Env):
 
         #position of the agent and goal in x,y coordinates 
         if start_position is None:
-            self.agent_x, self.agent_y = self._sample_xy_coordinates()
+            self.agent_i, self.agent_j = self._sample_position_in_matrix()
         else:
-            self.agent_x, self.agent_y = start_position
+            self.agent_i, self.agent_j = start_position
 
         if goal is None:
-            self.goal_x, self.goal_y = self._sample_xy_coordinates()
+            self.goal_i, self.goal_j = self._sample_position_in_matrix()
 
-            while self._goal_is_same_as_initial_position():
-                self.goal_x, self.goal_y = self._sample_xy_coordinates()
+            while (self.agent_i,self.agent_j)==(self.goal_i,self.goal_j):
+                self.goal_i, self.goal_j = self._sample_position_in_matrix()
         else:
-            self.goal_x, self.goal_y = goal
+            self.goal_i, self.goal_j = goal
             
-        if self._goal_is_same_as_initial_position():
+        if (self.agent_i,self.agent_j)==(self.goal_i,self.goal_j):
             raise ValueError("Start and Goal position cannot be the same.")
 
         info = {}
 
-        return np.array([self.agent_x, self.agent_y]), info
+        return np.array([self.agent_i, self.agent_j]), info
 
     def step(self, action):
 
@@ -94,46 +93,46 @@ class GridWorld(gym.Env):
         #2 - right
         #3 - left
         if action == 0:
-            self.agent_y += 1
+            self.agent_i -= 1
         elif action == 1:
-            self.agent_y -= 1
+            self.agent_i += 1
         elif action == 2:
-            self.agent_x += 1
+            self.agent_j += 1
         elif action == 3:
-            self.agent_x -= 1
+            self.agent_j -= 1
         else: 
             raise ValueError("Unrecognized action. Agent can only perform the following actions: up:0, down:1, right:2, left:3.") 
 
-        if self.agent_x < 0: self.agent_x = 0
-        if self.agent_x > self.length_x - 1: self.agent_x = self.length_x - 1
+        if self.agent_i < 0: self.agent_i = 0
+        if self.agent_i > self.rows - 1: self.agent_i = self.rows - 1
         
-        if self.agent_y < 0: self.agent_y = 0
-        if self.agent_y > self.length_y - 1: self.agent_y = self.length_y - 1
+        if self.agent_j < 0: self.agent_j = 0
+        if self.agent_j > self.columns - 1: self.agent_j = self.columns - 1
 
-        terminated = self.agent_x == self.goal_x and self.agent_y == self.goal_y
+        terminated = (self.agent_i, self.agent_j) == (self.goal_i, self.goal_j)
 
         truncated = self.cur_step >= self.nmax_steps
 
-        reward = 0 if terminated else -0.1
+        reward = self.config.reward_at_goal_state if terminated else self.config.penalization
 
         info = {}
 
-        return np.array([self.agent_x, self.agent_y]), reward, terminated, truncated, info
+        return np.array([self.agent_i, self.agent_j]), reward, terminated, truncated, info
 
     def render(self, action, reward):
-        print(f"Action: {action}, position: ({self.agent_x},{self.agent_y}), reward: {reward}")
+        print(f"Action: {action}, position: ({self.agent_i},{self.agent_j}), reward: {reward}")
 
-    def _make_grid_and_place_one_in(self,x,y):
-        grd = np.zeros((self.length_x, self.length_y))
-        grd[x][y] = 1.
-        return grd.reshape(self.length_x*self.length_y)
+    def _make_grid_and_place_one_in(self,i,j):
+        grd = np.zeros((self.rows, self.columns))
+        grd[i][j] = 1.
+        return grd.reshape(self.rows*self.columns)
 
-    def get_state_features(self):
-        state_features = self._make_grid_and_place_one_in(self.agent_x, self.agent_y)
+    def get_current_state_features(self):
+        state_features = self._make_grid_and_place_one_in(self.agent_i, self.agent_j)
         return state_features
         
     def get_goal_weights(self):
-        goal_weights = self._make_grid_and_place_one_in(self.goal_x, self.goal_y)
+        goal_weights = self._make_grid_and_place_one_in(self.goal_i, self.goal_j)
         return goal_weights
 
 
