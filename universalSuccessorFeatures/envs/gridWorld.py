@@ -44,12 +44,19 @@ class GridWorld(gym.Env):
         self.nmax_steps = self.config.nmax_steps
 
     def _sample_position_in_matrix(self):
+        """Samples a row and a column from the predefined matrix dimensions.
+           Returns a tuple of int (row, col).
+        """
         i = np.random.choice(self.rows)
         j = np.random.choice(self.columns)
         
         return i,j
     
-    def sample_a_goal_position(self, goal_list = None):
+    def sample_a_goal_position(self, goal_list : list = None):
+        """Takes as input a list of goals and samples a goal position. If None, the sampling is done uniformly
+           rows and columns. 
+           Returns a tuple of int.
+        """
         if goal_list is None:
             return self._sample_position_in_matrix()
         else:
@@ -134,6 +141,8 @@ class GridWorld(gym.Env):
         grd = np.zeros((self.rows, self.columns))
         grd[i][j] = 1.
         return grd.reshape(self.rows*self.columns)
+    
+    #maybe add method which takes as input the state you want the features for
 
     def get_current_state_features(self):
         state_features = self._make_grid_and_place_one_in(self.agent_i, self.agent_j)

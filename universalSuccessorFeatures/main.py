@@ -1,47 +1,30 @@
+import exputils as eu
 import numpy as np
-import universalSuccessorFeatures.agents.multigoalDQNAgent as dqn
-import envs.gridWorld as env
-import exputils.data.logging as log
 
-dqn_agent = dqn.MultigoalDQN()
-my_env = env.GridWorld()
+def run_training(config = None, **kwargs):
 
+    default_config = eu.AttrDict(
+        seed = None, 
+        env = None,
+        agent = None,
+        log_functions = [],
+        save_log_automatically = False,
+        log_agent_after_each_episode = False,
+        log_name_episode = "episode",
+        log_name_step_per_episode = "step_per_episode",
+        log_name_reward_per_episode = "reward_per_episode",
+        log_name_total_reward = "total_reward",
+        log_name_step = "step",
 
-def train_agent(agent, my_env, episodes):
+    )
 
-    step = 0
+    if config == "get_default_config":
+        return default_config
     
-    for episode in range(episodes):
-        
-        total_reward = 0
-        agent_state, _ = my_env.reset()
-        goal_state = my_env.get_current_goal_coordinates()
+    config = eu.combine_dicts(kwargs, default_config, copy_mode="copy")
 
-        agent.start_episode(episode = episode)
-        
-        while True:
-        
-            action = agent.choose_action(agent_state, goal_state, purpose = "training")
-            
-            agent_next_state, reward, terminated, truncated, _ = my_env.step(action)
-
-            total_reward += reward
-
-            transition = goal_state, agent_state, action, reward, agent_next_state, terminated, truncated
-
-            agent.train(transition, step)
-
-            agent_state = agent_next_state
-
-            if terminated or truncated:
-                break
-
-        #     log.add_value("reward_per_step", total_reward)
-        # log.add_value("reward_per_episode", total_reward, tb_global_step=episode)
-        # log.save()
-
-
-
-train_agent(dqn_agent, my_env, 10)
+    if config.env is None:
+        raise ValueError("Environment must be defined")
     
-
+    if config.agent is None:
+        raise ValueError("Agent must be defined")

@@ -18,6 +18,9 @@ class MultigoalDQNAgent():
     def default_config():
         cnf = eu.AttrDict(
             device = "cuda", # "cuda" or "cpu"
+            env = eu.AttrDict(
+                cls = envs.GridWorld,
+            ),
             discount_factor = 0.99,
             batch_size = 32,
             learning_rate = 5e-4,
@@ -89,8 +92,13 @@ class MultigoalDQNAgent():
         else:
             raise ValueError("Memory config must be a dictionary.")
 
-        #Setting other attributes
+        if isinstance(self.config.env, dict):
+            self.env = eu.misc.create_object_from_config(self.config.env)
+        else:
+            raise ValueError("Network Config must be a dictionary.")
 
+
+        #Setting other attributes
         self.target_net = copy.deepcopy(self.policy_net)
 
         self.policy_net.to(self.device)
