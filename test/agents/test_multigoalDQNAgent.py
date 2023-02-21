@@ -41,6 +41,14 @@ def test_decay_type(decay, epsilon_expected, num_episodes = 10):
         my_dqn.end_episode()
     assert isclose(my_dqn.current_epsilon, epsilon_expected, abs_tol=0.0001)
 
+def test_coherency_of_types():
+    my_dqn = dqn.MultigoalDQNAgent(network = {"cls":mdqn.StateGoalPaperDQN})
+    state = np.array([2,2])
+    goal = np.array([5,5])
+    assert my_dqn.policy_net(**my_dqn._make_compatible_with_nn(s = state, g = goal)) is not None
+    assert my_dqn.choose_action(s = state, g = goal, purpose="testing") is not None
+    
+    
 def test_choose_action():
     ##Test if I can use DQN agent with MDQN network
     my_dqn = dqn.MultigoalDQNAgent(network = {"cls":mdqn.StateGoalPaperDQN})

@@ -170,21 +170,22 @@ class MultigoalDQNAgent():
         if torch.rand(1).item() > self.current_epsilon:
             return self._greedy_action_selection(**kwargs)
         else:
-            return torch.randint(0,self.config.env.num_actions,(1,)).item() 
+            ## Need to think about better way of not hardcoding the value 4 (num actions.)
+            return torch.randint(0,4,(1,)).item() 
 
     def _greedy_action_selection(self, **kwargs):
-            with torch.no_grad():
-                return torch.argmax(
-                                    self.policy_net(
-                                                    **self._make_compatible_with_nn(**kwargs)
-                                                    )
-                                    ).item()
+        with torch.no_grad():
+            return torch.argmax(
+                self.policy_net(
+                    **self._make_compatible_with_nn(**kwargs)
+                )
+            ).item()
 
     def _make_compatible_with_nn(self, **kwargs):
         for key, value in kwargs.items():
             kwargs[key] = torch.tensor(value).unsqueeze(0).to(torch.float).to(self.device)
         return kwargs
-#Working until here
+
     def _train_one_batch(self):
         experiences = self._sample_experiences()
 
@@ -194,7 +195,7 @@ class MultigoalDQNAgent():
 
         #reward and terminated batch are handled differently because they are a list of floats and bools respectively and not a list of np.arrays
         reward_batch = torch.tensor(experiences.reward_batch).to(torch.float).to(self.device)
-        terminated_batch = torch.tensor(experiences.terminated_batch).to(torch.float).to(self.device)
+        terminated_batch = torch.tensor(experiences.terminated_batch).to(self.device)
 
         target_batch = self._get_target_batch(next_state_batch, goal_batch, reward_batch, terminated_batch)
     
@@ -230,9 +231,17 @@ class MultigoalDQNAgent():
 
         return batch_of_np_arrays
 
+#DOUBLE DEEP Q LEARNING
+    # def _get_target_batch(self, next_state_batch, goal_batch, reward_batch, terminated_batch):
+    #     with torch.no_grad():
+    #         max_action = torch.argmax(self.policy_net(s = next_state_batch, g = goal_batch), axis = 1).unsqueeze(1).to(self.device)
+    #         target = reward_batch + self.discount_factor * torch.mul(self.target_net(s = next_state_batch, g = goal_batch).gather(1,max_action).squeeze(), ~terminated_batch)
+    #     return target
+
+#NORMAL DEEP Q LEARNING
     def _get_target_batch(self, next_state_batch, goal_batch, reward_batch, terminated_batch):
         with torch.no_grad():
-            max_action = torch.argmax(self.policy_net(s = next_state_batch, g = goal_batch), axis = 1).unsqueeze(1).to(self.device)
+            max_action = torch.argmax(self.target_net(s = next_state_batch, g = goal_batch), axis = 1).unsqueeze(1).to(self.device)
             target = reward_batch + self.discount_factor * torch.mul(self.target_net(s = next_state_batch, g = goal_batch).gather(1,max_action).squeeze(), ~terminated_batch)
         return target
 
@@ -268,7 +277,7 @@ class MultigoalDQNAgent():
         target_net_state_dict = self.target_net.state_dict()
         policy_net_state_dict = self.policy_net.state_dict()
         for key in policy_net_state_dict:
-            target_net_state_dict[key] = policy_net_state_dict[key]*self.update_alpha + target_net_state_dict[key]*(1-self.update_alpha)
+            target_net_state_dict[key] = target_net_state_dict[key]*self.update_alpha + policy_net_state_dict[key]*(1-self.update_alpha)
 
         self.target_net.load_state_dict(target_net_state_dict)
 
