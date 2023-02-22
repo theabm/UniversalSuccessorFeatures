@@ -193,37 +193,40 @@ class MultigoalAgentBase():
         for key, value in kwargs.items():
             kwargs[key] = torch.tensor(value).unsqueeze(0).to(torch.float).to(self.device)
         return kwargs
-
-    def __build_target_and_predicted_batch(self, experiences):
+    
+    def __build_target_batch(self,experiences, goal_batch):
         #Not sure I need to cast to torch.float each time since torch.tensor automatically handles this. But for now, this is more secure
         next_state_batch = self._build_tensor_from_batch_of_np_arrays(experiences.next_state_batch).to(torch.float).to(self.device)
-        goal_batch = self._build_tensor_from_batch_of_np_arrays(experiences.goal_batch).to(torch.float).to(self.device)
 
         #reward and terminated batch are handled differently because they are a list of floats and bools respectively and not a list of np.arrays
         reward_batch = torch.tensor(experiences.reward_batch).to(torch.float).to(self.device)
         terminated_batch = torch.tensor(experiences.terminated_batch).to(self.device)
 
-        target_batch = self._get_target_batch(next_state_batch, goal_batch, reward_batch, terminated_batch)
+        target_batch = self._get_dql_target_batch(next_state_batch, goal_batch, reward_batch, terminated_batch)
     
         del next_state_batch
         del reward_batch
         del terminated_batch
-        
+
+        return target_batch
+
+    def __build_predicted_batch(self, experiences, goal_batch):
         state_batch = self._build_tensor_from_batch_of_np_arrays(experiences.state_batch).to(torch.float).to(self.device)
-
         action_batch = torch.tensor(experiences.action_batch).unsqueeze(1).to(self.device)
-
         predicted_batch = self.policy_net(state_batch, goal_batch).gather(1, action_batch).squeeze()
 
         del state_batch
         del action_batch
 
-        return target_batch, predicted_batch
+        return predicted_batch
 
     def _train_one_batch(self):
         experiences = self._sample_experiences()
+        goal_batch = self._build_tensor_from_batch_of_np_arrays(experiences.goal_batch).to(torch.float).to(self.device)
 
-        target_batch, predicted_batch = self.__build_target_and_predicted_batch(experiences=experiences)
+        target_batch = self.__build_target_batch(experiences=experiences, goal_batch=goal_batch)
+        predicted_batch = self.__build_predicted_batch(experiences=experiences, goal_batch=goal_batch)
+
         self.optimizer.zero_grad()
         loss = self.loss(target_batch, predicted_batch)
         
@@ -246,14 +249,14 @@ class MultigoalAgentBase():
         return batch_of_np_arrays
 
 #DOUBLE DEEP Q LEARNING
-    # def _get_target_batch(self, next_state_batch, goal_batch, reward_batch, terminated_batch):
-    #     with torch.no_grad():
-    #         max_action = torch.argmax(self.policy_net(s = next_state_batch, g = goal_batch), axis = 1).unsqueeze(1).to(self.device)
-    #         target = reward_batch + self.discount_factor * torch.mul(self.target_net(s = next_state_batch, g = goal_batch).gather(1,max_action).squeeze(), ~terminated_batch)
-    #     return target
+    def _get_ddql_target_batch(self, next_state_batch, goal_batch, reward_batch, terminated_batch):
+        with torch.no_grad():
+            max_action = torch.argmax(self.policy_net(s = next_state_batch, g = goal_batch), axis = 1).unsqueeze(1).to(self.device)
+            target = reward_batch + self.discount_factor * torch.mul(self.target_net(s = next_state_batch, g = goal_batch).gather(1,max_action).squeeze(), ~terminated_batch)
+        return target
 
 #NORMAL DEEP Q LEARNING
-    def _get_target_batch(self, next_state_batch, goal_batch, reward_batch, terminated_batch):
+    def _get_dql_target_batch(self, next_state_batch, goal_batch, reward_batch, terminated_batch):
         with torch.no_grad():
             max_action = torch.argmax(self.target_net(s = next_state_batch, g = goal_batch), axis = 1).unsqueeze(1).to(self.device)
             target = reward_batch + self.discount_factor * torch.mul(self.target_net(s = next_state_batch, g = goal_batch).gather(1,max_action).squeeze(), ~terminated_batch)
