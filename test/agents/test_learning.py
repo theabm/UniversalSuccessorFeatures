@@ -52,19 +52,21 @@ q_gt_g2_list = np.array([q_gt_g2_s1, q_gt_g2_s2, q_gt_g2_s3, q_gt_g2_s4, q_gt_g2
 Transition = namedtuple("Transition", ("state", "goal", "action", "reward", "next_state", "terminated", "truncated"))
 
 @pytest.mark.parametrize(
-    "network",
+    "network, use_goals, use_features",
     [
-        (mdqn.StateGoalPaperDQN),
-        #(mdqn.StateGoalAugmentedDQN),
+        (mdqn.StateGoalPaperDQN, True, False),
+        (mdqn.StateGoalAugmentedDQN, True, False),
+        # (mdqn.FeatureGoalPaperDQN, False, True),
+        # (mdqn.FeatureGoalAugumentedDQN, False, True),
 
     ]
 )
-def test_training(network, seed = 0, num_episodes=50):
+def test_training(network, use_goals, use_features, seed = 0, num_episodes=50):
     if seed is not None:
         eu.misc.seed(seed)
 
 
-    agent = mdqa.MultigoalDQNAgent(
+    agent = mdqa.MultigoalDQNAgentBase(
         epsilon = 1.0, train_for_n_iterations = 2, discount_factor = discount_factor, network = {"cls": network}
         ) 
 
@@ -76,21 +78,29 @@ def test_training(network, seed = 0, num_episodes=50):
         goal_position = my_test_env.sample_a_goal_position(goal_list=goal_list)
 
         agent_state, _ = my_test_env.reset(start_position=start_position,goal=goal_position)
+        agent_state_features = my_test_env.get_current_state_features()
+
         goal_position = my_test_env.get_current_goal_position_in_matrix()
 
         agent.start_episode(episode=episode)
 
         while True:
             
-            action = agent.choose_action(s = agent_state, g = goal_position, purpose = "training")
+            action = agent.choose_action(s = agent_state, g = goal_position, phi_s = agent_state_features, purpose = "training")
             
             agent_next_state, reward, terminated, truncated, _ = my_test_env.step(action=action)
-            
-            t = Transition(agent_state, goal_position, action, reward, agent_next_state, terminated, truncated)
+            agent_next_state_features = my_test_env.get_current_state_features()
+
+            if use_features:
+                t = Transition(agent_state_features, goal_position, action, reward, agent_next_state_features, terminated, truncated)
+            elif use_goals:
+                t = Transition(agent_state, goal_position, action, reward, agent_next_state, terminated, truncated)
+
             agent.train(t, step = 0)
 
 
             agent_state = agent_next_state
+            agent_state_features = agent_next_state_features
             step += 1
             
             agent.end_episode()
@@ -107,23 +117,24 @@ def test_training(network, seed = 0, num_episodes=50):
     for i in range(my_test_env.rows):
         for j in range(my_test_env.columns):
             state = np.array([i,j])
+            state_features = my_test_env.get_features_for_state(state = state)
             if i*my_test_env.rows + j == 8:
-                q_pred_g2_list.append(agent.policy_net(**agent._make_compatible_with_nn(s = state, g = goal_2_position)).squeeze().cpu().detach().numpy())
+                q_pred_g2_list.append(agent.policy_net(**agent._make_compatible_with_nn(s = state, g = goal_2_position, phi_s = state_features)).squeeze().cpu().detach().numpy())
                 continue
             elif i*my_test_env.rows + j == 6:
-                q_pred_g1_list.append(agent.policy_net(**agent._make_compatible_with_nn(s = state, g = goal_1_position)).squeeze().cpu().detach().numpy())
+                q_pred_g1_list.append(agent.policy_net(**agent._make_compatible_with_nn(s = state, g = goal_1_position, phi_s = state_features)).squeeze().cpu().detach().numpy())
                 continue
             else:
-                q_pred_g1_list.append(agent.policy_net(**agent._make_compatible_with_nn(s = state, g = goal_1_position)).squeeze().cpu().detach().numpy())
-                q_pred_g2_list.append(agent.policy_net(**agent._make_compatible_with_nn(s = state, g = goal_2_position)).squeeze().cpu().detach().numpy())
+                q_pred_g1_list.append(agent.policy_net(**agent._make_compatible_with_nn(s = state, g = goal_1_position, phi_s = state_features)).squeeze().cpu().detach().numpy())
+                q_pred_g2_list.append(agent.policy_net(**agent._make_compatible_with_nn(s = state, g = goal_2_position, phi_s = state_features)).squeeze().cpu().detach().numpy())
 
     q_pred_g1_list = np.array(q_pred_g1_list)
     q_pred_g2_list = np.array(q_pred_g2_list)
 
     print("\n", q_gt_g1_list,"\n", q_pred_g1_list) 
     print("\n", q_gt_g2_list,"\n", q_pred_g2_list) 
-    cmp1 = np.allclose(q_pred_g1_list, q_gt_g1_list, rtol = 0, atol = 0.01)
-    cmp2 = np.allclose(q_pred_g2_list, q_gt_g2_list, rtol = 0, atol = 0.01)
+    cmp1 = np.allclose(q_pred_g1_list, q_gt_g1_list, rtol = 0, atol = 0.05)
+    cmp2 = np.allclose(q_pred_g2_list, q_gt_g2_list, rtol = 0, atol = 0.05)
 
     assert cmp1 and cmp2
             

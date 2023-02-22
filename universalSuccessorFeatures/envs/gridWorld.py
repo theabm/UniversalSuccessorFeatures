@@ -142,6 +142,10 @@ class GridWorld(gym.Env):
         return grd.reshape(self.rows*self.columns)
     
     #maybe add method which takes as input the state you want the features for
+    def get_features_for_state(self,state):
+        i = state[0]
+        j = state[1]
+        return self._make_grid_and_place_one_in(i,j)
 
     def get_current_state_features(self):
         state_features = self._make_grid_and_place_one_in(self.agent_i, self.agent_j)

@@ -12,7 +12,7 @@ import universalSuccessorFeatures.envs.gridWorld as envs
 
 Experiences = namedtuple("Experiences", ("state_batch", "goal_batch", "action_batch", "reward_batch", "next_state_batch", "terminated_batch", "truncated_batch"))
 
-class MultigoalDQNAgent():
+class MultigoalDQNAgentBase():
 
     @staticmethod
     def default_config():
@@ -291,4 +291,4 @@ class MultigoalDQNAgent():
 
 
 if __name__ == '__main__':
-    my_dqn = MultigoalDQNAgent()
+    my_dqn = MultigoalDQNAgentBase()
