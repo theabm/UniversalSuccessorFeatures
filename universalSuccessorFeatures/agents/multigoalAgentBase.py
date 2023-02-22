@@ -6,8 +6,8 @@ import warnings
 import copy
 from collections import namedtuple
 import universalSuccessorFeatures.memory as mem
-import universalSuccessorFeatures.networks.multigoalDQN as mdqn
-import universalSuccessorFeatures.envs.gridWorld as envs
+import universalSuccessorFeatures.networks as nn
+import universalSuccessorFeatures.envs as envs
 
 
 Experiences = namedtuple("Experiences", ("state_batch", "goal_batch", "action_batch", "reward_batch", "next_state_batch", "terminated_batch", "truncated_batch"))
@@ -48,7 +48,7 @@ class MultigoalAgentBase():
             #With this implementation, the choice of network completely determine the input size (i.e. the state and any additional info)
             #and the output size (num actions)
             network = eu.AttrDict(
-                cls = mdqn.StateGoalPaperDQN,
+                cls = nn.StateGoalPaperDQN,
                 optimizer = torch.optim.Adam,
                 loss = torch.nn.MSELoss,
             ),
@@ -194,9 +194,7 @@ class MultigoalAgentBase():
             kwargs[key] = torch.tensor(value).unsqueeze(0).to(torch.float).to(self.device)
         return kwargs
 
-    def _train_one_batch(self):
-        experiences = self._sample_experiences()
-
+    def __build_target_and_predicted_batch(self, experiences):
         #Not sure I need to cast to torch.float each time since torch.tensor automatically handles this. But for now, this is more secure
         next_state_batch = self._build_tensor_from_batch_of_np_arrays(experiences.next_state_batch).to(torch.float).to(self.device)
         goal_batch = self._build_tensor_from_batch_of_np_arrays(experiences.goal_batch).to(torch.float).to(self.device)
@@ -215,15 +213,23 @@ class MultigoalAgentBase():
 
         action_batch = torch.tensor(experiences.action_batch).unsqueeze(1).to(self.device)
 
+        predicted_batch = self.policy_net(state_batch, goal_batch).gather(1, action_batch).squeeze()
+
+        del state_batch
+        del action_batch
+
+        return target_batch, predicted_batch
+
+    def _train_one_batch(self):
+        experiences = self._sample_experiences()
+
+        target_batch, predicted_batch = self.__build_target_and_predicted_batch(experiences=experiences)
         self.optimizer.zero_grad()
-        loss = self.loss(target_batch, self.policy_net(state_batch, goal_batch).gather(1, action_batch).squeeze())
+        loss = self.loss(target_batch, predicted_batch)
         
         loss.backward()
         self.optimizer.step()
         
-        del state_batch
-        del action_batch
-
         return loss.item()
 
     def _sample_experiences(self):
