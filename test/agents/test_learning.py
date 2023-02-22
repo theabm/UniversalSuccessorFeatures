@@ -3,7 +3,9 @@ import universalSuccessorFeatures.agents as mdqa
 import universalSuccessorFeatures.networks.multigoalDQN as mdqn
 import numpy as np
 from collections import namedtuple
-import torch
+import pytest
+import exputils as eu
+
 
 my_test_env = envs.GridWorld(rows = 3, columns = 3, penalization = 0, reward_at_goal_state = 1)
 
@@ -27,7 +29,6 @@ q_gt_g1_s5 = [0.125,0.500,0.500,0.125]
 q_gt_g1_s6 = [0.250,1.000,0.500,0.250]
 q_gt_g1_s7 = [0.125,0.250,0.500,0.250]
 q_gt_g1_s8 = [0.250,0.500,1.000,0.250]
-# q_gt_g1_s9 = [np.nan,np.nan,np.nan,np.nan] 
 # q_gt_g1_s9 = [0.500,1.000,1.000,0.500] #corresponding Q(goal state, actions)
 
 q_gt_g1_list = np.array([q_gt_g1_s1, q_gt_g1_s2, q_gt_g1_s3, q_gt_g1_s4, q_gt_g1_s5, q_gt_g1_s6, q_gt_g1_s7, q_gt_g1_s8])
@@ -42,7 +43,6 @@ q_gt_g2_s3 = [0.0625,0.125,0.0625,0.125]
 q_gt_g2_s4 = [0.250,1.000,0.250,0.500]
 q_gt_g2_s5 = [0.125,0.500,0.125,0.500]
 q_gt_g2_s6 = [0.0625,0.250,0.125,0.250] 
-#q_gt_g2_s7 = [np.nan,np.nan,np.nan,np.nan] 
 # q_gt_g2_s7 = [0.500,1.000,0.500,1.000]
 q_gt_g2_s8 = [0.250,0.500,0.250,1.000]
 q_gt_g2_s9 = [0.125,0.250,0.250,0.500]
@@ -51,12 +51,23 @@ q_gt_g2_list = np.array([q_gt_g2_s1, q_gt_g2_s2, q_gt_g2_s3, q_gt_g2_s4, q_gt_g2
 
 Transition = namedtuple("Transition", ("state", "goal", "action", "reward", "next_state", "terminated", "truncated"))
 
-def test_training(
-    num_episodes=50,
+@pytest.mark.parametrize(
+    "network",
+    [
+        (mdqn.StateGoalPaperDQN),
+        #(mdqn.StateGoalAugmentedDQN),
+
+    ]
+)
+def test_training(network, seed = 0, num_episodes=50):
+    if seed is not None:
+        eu.misc.seed(seed)
+
+
     agent = mdqa.MultigoalDQNAgent(
-        epsilon = 1.0, train_for_n_iterations = 2, discount_factor = discount_factor, network = {"cls": mdqn.StateGoalPaperDQN}
+        epsilon = 1.0, train_for_n_iterations = 2, discount_factor = discount_factor, network = {"cls": network}
         ) 
-):
+
     reward_per_episode = 0
     step = 0
 
@@ -116,8 +127,3 @@ def test_training(
 
     assert cmp1 and cmp2
             
-    
-def build_q_table(goal_position, *args):
-    assert len(args) == 9
-
-    

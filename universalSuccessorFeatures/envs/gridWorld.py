@@ -72,7 +72,6 @@ class GridWorld(gym.Env):
     def reset(self, start_position = None, goal = None, seed = None, **kwargs):
 
         super().reset(seed=seed)
-        np.random.seed(seed=seed)
 
         self.cur_step = 0
 
