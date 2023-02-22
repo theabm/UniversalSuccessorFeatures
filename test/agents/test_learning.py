@@ -1,6 +1,6 @@
 import universalSuccessorFeatures.envs as envs
-import universalSuccessorFeatures.agents as mdqa
-import universalSuccessorFeatures.networks.multigoalDQN as mdqn
+import universalSuccessorFeatures.agents as a
+import universalSuccessorFeatures.networks as nn
 import numpy as np
 from collections import namedtuple
 import pytest
@@ -54,8 +54,8 @@ Transition = namedtuple("Transition", ("state", "goal", "action", "reward", "nex
 @pytest.mark.parametrize(
     "network, use_goals, use_features",
     [
-        (mdqn.StateGoalPaperDQN, True, False),
-        (mdqn.StateGoalAugmentedDQN, True, False),
+        (nn.StateGoalPaperDQN, True, False),
+        (nn.StateGoalAugmentedDQN, True, False),
         # (mdqn.FeatureGoalPaperDQN, False, True),
         # (mdqn.FeatureGoalAugumentedDQN, False, True),
 
@@ -66,7 +66,7 @@ def test_training(network, use_goals, use_features, seed = 0, num_episodes=50):
         eu.misc.seed(seed)
 
 
-    agent = mdqa.MultigoalDQNAgentBase(
+    agent = a.MultigoalAgentBase(
         epsilon = 1.0, train_for_n_iterations = 2, discount_factor = discount_factor, network = {"cls": network}
         ) 
 

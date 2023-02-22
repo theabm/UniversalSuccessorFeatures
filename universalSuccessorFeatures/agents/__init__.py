@@ -1,1 +1,1 @@
-from .multigoalDQNAgentBase import MultigoalDQNAgentBase
+from .multigoalAgentBase import MultigoalAgentBase
