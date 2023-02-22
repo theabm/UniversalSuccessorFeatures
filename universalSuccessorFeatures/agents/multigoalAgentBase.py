@@ -291,4 +291,4 @@ class MultigoalAgentBase():
 
 
 if __name__ == '__main__':
-    my_dqn = MultigoalDQNAgentBase()
+    my_dqn = MultigoalAgentBase()
