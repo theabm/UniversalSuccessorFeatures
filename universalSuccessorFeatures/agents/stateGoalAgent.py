@@ -135,20 +135,20 @@ class StateGoalAgent():
     def end_episode(self):
         self.epsilon.decay()
 
-    def choose_action(self, *, agent_position, goal_position, training = True):
+    def choose_action(self, agent_position, goal_position, training = True):
         if training:
             return self._epsilon_greedy_action_selection(agent_position = agent_position, goal_position = goal_position)
         else:
             self._greedy_action_selection(agent_position = agent_position, goal_position = goal_position)
 
-    def _epsilon_greedy_action_selection(self, *, agent_position, goal_position):
+    def _epsilon_greedy_action_selection(self, agent_position, goal_position):
         """Epsilon greedy action selection"""
         if torch.rand(1).item() > self.epsilon.value:
             return self._greedy_action_selection(agent_position = agent_position, goal_position = goal_position)
         else:
             return torch.randint(0,self.env.action_space.shape[0],(1,)).item() 
 
-    def _greedy_action_selection(self, *, agent_position, goal_position):
+    def _greedy_action_selection(self, agent_position, goal_position):
         with torch.no_grad():
             return torch.argmax(
                 self.policy_net(
@@ -161,32 +161,6 @@ class StateGoalAgent():
         position = torch.tensor(position).to(self.device)
         return position
     
-    def __build_target_batch(self,experiences, goal_batch):
-        #Not sure I need to cast to torch.float each time since torch.tensor automatically handles this. But for now, this is more secure
-        next_agent_position_batch = self._build_tensor_from_batch_of_np_arrays(experiences.next_agent_position_batch).to(torch.float).to(self.device)
-
-        #reward and terminated batch are handled differently because they are a list of floats and bools respectively and not a list of np.arrays
-        reward_batch = torch.tensor(experiences.reward_batch).to(torch.float).to(self.device)
-        terminated_batch = torch.tensor(experiences.terminated_batch).to(self.device)
-
-        target_batch = self._get_dql_target_batch(next_agent_position_batch, goal_batch, reward_batch, terminated_batch)
-    
-        del next_agent_position_batch
-        del reward_batch
-        del terminated_batch
-
-        return target_batch
-
-    def __build_predicted_batch(self, experiences, goal_batch):
-        agent_position_batch = self._build_tensor_from_batch_of_np_arrays(experiences.agent_position_batch).to(torch.float).to(self.device)
-        action_batch = torch.tensor(experiences.action_batch).unsqueeze(1).to(self.device)
-        predicted_batch = self.policy_net(agent_position_batch, goal_batch).gather(1, action_batch).squeeze()
-
-        del agent_position_batch
-        del action_batch
-
-        return predicted_batch
-
     def _train_one_batch(self):
         experiences = self._sample_experiences()
         goal_batch = self._build_tensor_from_batch_of_np_arrays(experiences.goal_batch).to(torch.float).to(self.device)
@@ -214,6 +188,32 @@ class StateGoalAgent():
         batch_of_np_arrays = torch.tensor(batch_of_np_arrays)
 
         return batch_of_np_arrays
+
+    def __build_target_batch(self, experiences, goal_batch):
+        #Not sure I need to cast to torch.float each time since torch.tensor automatically handles this. But for now, this is more secure
+        next_agent_position_batch = self._build_tensor_from_batch_of_np_arrays(experiences.next_agent_position_batch).to(torch.float).to(self.device)
+
+        #reward and terminated batch are handled differently because they are a list of floats and bools respectively and not a list of np.arrays
+        reward_batch = torch.tensor(experiences.reward_batch).to(torch.float).to(self.device)
+        terminated_batch = torch.tensor(experiences.terminated_batch).to(self.device)
+
+        target_batch = self._get_dql_target_batch(next_agent_position_batch, goal_batch, reward_batch, terminated_batch)
+    
+        del next_agent_position_batch
+        del reward_batch
+        del terminated_batch
+
+        return target_batch
+
+    def __build_predicted_batch(self, experiences, goal_batch):
+        agent_position_batch = self._build_tensor_from_batch_of_np_arrays(experiences.agent_position_batch).to(torch.float).to(self.device)
+        action_batch = torch.tensor(experiences.action_batch).unsqueeze(1).to(self.device)
+        predicted_batch = self.policy_net(agent_position_batch, goal_batch).gather(1, action_batch).squeeze()
+
+        del agent_position_batch
+        del action_batch
+
+        return predicted_batch
 
 #DOUBLE DEEP Q LEARNING
     def _get_ddql_target_batch(self, next_agent_position_batch, goal_batch, reward_batch, terminated_batch):

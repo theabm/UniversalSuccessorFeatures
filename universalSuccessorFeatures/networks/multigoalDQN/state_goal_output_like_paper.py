@@ -32,7 +32,7 @@ class StateGoalPaperDQN(torch.nn.Module):
             torch.nn.ReLU(),
             torch.nn.Linear(in_features=256, out_features=self.config.num_actions),
         )
-    def forward(self, *, agent_position, goal_position):
+    def forward(self, agent_position, goal_position):
         s_rep = self.state_layer(agent_position)
         g_rep = self.goal_layer(goal_position)
         rep = torch.cat((s_rep,g_rep),dim=1)
