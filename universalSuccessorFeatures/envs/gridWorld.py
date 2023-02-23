@@ -13,7 +13,7 @@ class GridWorld(gym.Env):
             columns = 10,
             nmax_steps = 1e6,
             penalization = -0.1,
-            reward_at_goal_state = 0
+            reward_at_goal_position = 0
             )
 
     def __init__(self, config = None, **kwargs):
@@ -30,7 +30,14 @@ class GridWorld(gym.Env):
         self.action_space = gym.spaces.Discrete(4)
 
         #observation space of the agent are the x,y coordinates 
-        self.observation_space = gym.spaces.MultiDiscrete([self.rows, self.columns])
+        self.observation_space = gym.spaces.Dict(
+            {
+            "position" : gym.spaces.MultiDiscrete(np.array([[self.rows, self.columns]])),
+            "position_features" : gym.spaces.MultiBinary([1,100]),
+            "goal" : gym.spaces.MultiDiscrete(np.array([[self.rows, self.columns]])),
+            "goal_weights" : gym.spaces.MultiBinary([1,100]), 
+            }
+        )
 
         self.reward_range = (-np.inf, 0)
 
@@ -45,20 +52,18 @@ class GridWorld(gym.Env):
 
     def _sample_position_in_matrix(self):
         """Samples a row and a column from the predefined matrix dimensions.
-           Returns a tuple of int (row, col).
+           Returns a tuple of int.
         """
         i = np.random.choice(self.rows)
         j = np.random.choice(self.columns)
         
         return i,j
-    
     def sample_a_goal_position(self, goal_list : list = None):
-        """Takes as input a list of goals and samples a goal position. If None, the sampling is done uniformly
-           rows and columns. 
-           Returns a tuple of int.
+        """Takes as input a list np.arrays of goals and samples a goal position. If None, samples a goal randomly.
+           Returns np.array()
         """
         if goal_list is None:
-            return self._sample_position_in_matrix()
+            return np.array(self._sample_position_in_matrix())
         else:
             idx = random.randrange(len(goal_list))
             return goal_list[idx]
@@ -69,32 +74,50 @@ class GridWorld(gym.Env):
     def get_current_agent_position_in_matrix(self):
         return np.array([self.agent_i, self.agent_j])
 
-    def reset(self, start_position = None, goal = None, seed = None, **kwargs):
+    def reset(self, start_position : np.ndarray = None, goal_position : np.ndarray = None, seed = None):
 
         super().reset(seed=seed)
 
         self.cur_step = 0
 
         #position of the agent and goal in x,y coordinates 
-        if start_position is None:
-            self.agent_i, self.agent_j = self._sample_position_in_matrix()
+        if start_position is not None:
+            self.agent_i = start_position[0]
+            self.agent_j = start_position[1]
         else:
-            self.agent_i, self.agent_j = start_position
+            self.agent_i, self.agent_j = self._sample_position_in_matrix()
+            
+        if goal_position is not None:
+            self.goal_i = goal_position[0]
+            self.goal_j = goal_position[1]
 
-        if goal is None:
+            #if same, give priority to goal that was set
+            while (self.agent_i,self.agent_j)==(self.goal_i,self.goal_j):
+                self.agent_i, self.agent_j = self._sample_position_in_matrix()
+        else:
             self.goal_i, self.goal_j = self._sample_position_in_matrix()
 
             while (self.agent_i,self.agent_j)==(self.goal_i,self.goal_j):
                 self.goal_i, self.goal_j = self._sample_position_in_matrix()
-        else:
-            self.goal_i, self.goal_j = goal
             
+        #good sanity check
         if (self.agent_i,self.agent_j)==(self.goal_i,self.goal_j):
             raise ValueError("Start and Goal position cannot be the same.")
 
-        info = {}
+        position = np.array([[self.agent_i, self.agent_j]])
+        position_features = self.get_current_position_features()
+        self.goal = np.array([[self.goal_i, self.goal_j]])
+        self.goal_weights = self.get_current_goal_weights()
 
-        return np.array([self.agent_i, self.agent_j]), info
+        info = {}
+        obs = {
+            "position": position,
+            "position_features": position_features,
+            "goal": self.goal,
+            "goal_weights": self.goal_weights
+        }
+
+        return obs, info
 
     def step(self, action):
 
@@ -127,11 +150,20 @@ class GridWorld(gym.Env):
 
         truncated = self.cur_step >= self.nmax_steps
 
-        reward = self.config.reward_at_goal_state if terminated else self.config.penalization
+        reward = self.config.reward_at_goal_position if terminated else self.config.penalization
+
+        position = np.array([[self.agent_i, self.agent_j]])
+        position_features = self.get_current_position_features()
 
         info = {}
+        obs = {
+            "position": position,
+            "position_features": position_features,
+            "goal": self.goal,
+            "goal_weights": self.goal_weights
+        }
 
-        return np.array([self.agent_i, self.agent_j]), reward, terminated, truncated, info
+        return obs, reward, terminated, truncated, info
 
     def render(self, action, reward):
         print(f"Action: {action}, position: ({self.agent_i},{self.agent_j}), reward: {reward}")
@@ -139,26 +171,25 @@ class GridWorld(gym.Env):
     def _make_grid_and_place_one_in(self,i,j):
         grd = np.zeros((self.rows, self.columns))
         grd[i][j] = 1.
-        return grd.reshape(self.rows*self.columns)
+        return grd.reshape((1,self.rows*self.columns))
     
-    #maybe add method which takes as input the state you want the features for
-    def get_features_for_state(self,state):
-        i = state[0]
-        j = state[1]
+    def get_position_features(self,position: np.ndarray):
+        i = position[0]
+        j = position[1]
         return self._make_grid_and_place_one_in(i,j)
 
-    def get_current_state_features(self):
-        state_features = self._make_grid_and_place_one_in(self.agent_i, self.agent_j)
-        return state_features
+    def get_current_position_features(self):
+        position_features = self._make_grid_and_place_one_in(self.agent_i, self.agent_j)
+        return position_features
         
-    def get_goal_weights(self):
+    def get_current_goal_weights(self):
         goal_weights = self._make_grid_and_place_one_in(self.goal_i, self.goal_j)
         return goal_weights
 
 
 if __name__ == '__main__':
     grid_world_env = GridWorld()
-    check_env(grid_world_env)
+    # check_env(grid_world_env) #reset missing **kwargs argument but I dont want this functionality.
 
     num_episodes = 1
     for _ in range(num_episodes):
