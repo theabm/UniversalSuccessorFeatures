@@ -91,6 +91,11 @@ class StateGoalAgent():
         else:
             raise ValueError("Network Config must be a dictionary.")
 
+        if isinstance(self.config.epsilon, dict):
+            self.epsilon = eu.misc.create_object_from_config(self.config.epsilon)
+        else:
+            raise ValueError("Network Config must be a dictionary.")
+
 
         #Setting other attributes
         self.target_net = copy.deepcopy(self.policy_net)
@@ -107,20 +112,6 @@ class StateGoalAgent():
 
         self.discount_factor = self.config.discount_factor
 
-        self.epsilon_decay_type = self.config.epsilon_decay.type
-        self.eps_max = self.config.epsilon_decay.params.max
-        self.eps_min = self.config.epsilon_decay.params.min
-        self.scheduled_episodes = self.config.epsilon_decay.params.scheduled_episodes
-        self.epsilon_exponential_decay_factor = self.config.epsilon_decay.params.decay_factor
-
-        if self.epsilon_decay_type == "none":
-            self.current_epsilon = self.config.epsilon
-        elif self.epsilon_decay_type=="linear" or self.epsilon_decay_type == "exponential":
-            warnings.warn("This mode ignores epsilon by default... Using eps_max as current epsilon for episode 0.")
-            self.current_epsilon = self.eps_max
-        else:
-            raise ValueError("Unknown value for epsilon decay. Please select between none, linear, or exponential.")
-            
         if self.config.target_network_update.rule == "hard":
             if self.config.target_network_update.alpha != 0.0:
                 warnings.warn("For hard update, alpha should be set to 0.0 ... proceeding with alpha = 0.0")
@@ -139,7 +130,7 @@ class StateGoalAgent():
     def start_episode(self, episode):
         self.current_episode = episode
         if self.config.log.epsilon_per_episode:
-            log.add_value("agent_epsilon_per_episode", self.current_epsilon)
+            log.add_value("agent_epsilon_per_episode", self.epsilon.value)
 
     def end_episode(self):
         self._decay_epsilon()
