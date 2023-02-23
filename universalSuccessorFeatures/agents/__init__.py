@@ -1,1 +1,1 @@
-from .multigoalAgentBase import MultigoalAgentBase
+from .stateGoalAgent import StateGoalAgent

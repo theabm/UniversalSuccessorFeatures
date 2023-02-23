@@ -66,7 +66,7 @@ def test_training(network, use_goals, use_features, seed = 0, num_episodes=50):
         eu.misc.seed(seed)
 
 
-    agent = a.MultigoalAgentBase(
+    agent = a.StateGoalAgent(
         epsilon = 1.0, train_for_n_iterations = 2, discount_factor = discount_factor, network = {"cls": network}
         ) 
 
