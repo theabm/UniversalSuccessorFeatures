@@ -133,34 +133,17 @@ class StateGoalAgent():
             log.add_value("agent_epsilon_per_episode", self.epsilon.value)
 
     def end_episode(self):
-        self._decay_epsilon()
+        self.epsilon.decay()
 
-    def _decay_epsilon(self):
-        if self.epsilon_decay_type == "none":
-            return
-        elif self.epsilon_decay_type == "linear":
-            self.__decay_epsilon_linearly()
-        elif self.epsilon_decay_type == "exponential":
-            self.__decay_epsilon_exponentially()
-
-    def __decay_epsilon_linearly(self):
-        m = (self.eps_min-self.eps_max)/self.scheduled_episodes * (self.current_episode<=self.scheduled_episodes)
-        self.current_epsilon += m
-
-    def __decay_epsilon_exponentially(self):
-        self.current_epsilon = max(self.eps_min, self.current_epsilon*self.epsilon_exponential_decay_factor) 
-
-    def choose_action(self, purpose, **kwargs):
-        if purpose == "training":
+    def choose_action(self, training = True, **kwargs):
+        if training:
             return self._epsilon_greedy_action_selection(**kwargs)
-        elif purpose == "testing":
-            return self._greedy_action_selection(**kwargs)
         else:
-            raise ValueError("Unknown purpose. Choose either training or testing.")
+            self._greedy_action_selection(**kwargs)
 
     def _epsilon_greedy_action_selection(self, **kwargs):
         """Epsilon greedy action selection"""
-        if torch.rand(1).item() > self.current_epsilon:
+        if torch.rand(1).item() > self.epsilon.value:
             return self._greedy_action_selection(**kwargs)
         else:
             ## Need to think about better way of not hardcoding the value 4 (num actions.)
