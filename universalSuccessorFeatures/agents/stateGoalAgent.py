@@ -135,32 +135,31 @@ class StateGoalAgent():
     def end_episode(self):
         self.epsilon.decay()
 
-    def choose_action(self, training = True, **kwargs):
+    def choose_action(self, *, agent_position, goal_position, training = True):
         if training:
-            return self._epsilon_greedy_action_selection(**kwargs)
+            return self._epsilon_greedy_action_selection(agent_position = agent_position, goal_position = goal_position)
         else:
-            self._greedy_action_selection(**kwargs)
+            self._greedy_action_selection(agent_position = agent_position, goal_position = goal_position)
 
-    def _epsilon_greedy_action_selection(self, **kwargs):
+    def _epsilon_greedy_action_selection(self, *, agent_position, goal_position):
         """Epsilon greedy action selection"""
         if torch.rand(1).item() > self.epsilon.value:
-            return self._greedy_action_selection(**kwargs)
+            return self._greedy_action_selection(agent_position = agent_position, goal_position = goal_position)
         else:
-            ## Need to think about better way of not hardcoding the value 4 (num actions.)
-            return torch.randint(0,4,(1,)).item() 
+            return torch.randint(0,self.env.action_space.shape[0],(1,)).item() 
 
-    def _greedy_action_selection(self, **kwargs):
+    def _greedy_action_selection(self, *, agent_position, goal_position):
         with torch.no_grad():
             return torch.argmax(
                 self.policy_net(
-                    **self._make_compatible_with_nn(**kwargs)
+                    position = self._make_compatible_with_nn(agent_position),
+                    goal_position = self._make_compatible_with_nn(goal_position)
                 )
             ).item()
 
-    def _make_compatible_with_nn(self, **kwargs):
-        for key, value in kwargs.items():
-            kwargs[key] = torch.tensor(value).unsqueeze(0).to(torch.float).to(self.device)
-        return kwargs
+    def _make_compatible_with_nn(self, position):
+        position = torch.tensor(position).to(self.device)
+        return position
     
     def __build_target_batch(self,experiences, goal_batch):
         #Not sure I need to cast to torch.float each time since torch.tensor automatically handles this. But for now, this is more secure
