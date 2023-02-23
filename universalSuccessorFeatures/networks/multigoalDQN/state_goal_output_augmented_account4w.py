@@ -59,9 +59,9 @@ class StateGoalAugmentedDQN(torch.nn.Module):
             torch.nn.ReLU(),
             torch.nn.Linear(in_features=self.config.H3_size, out_features=self.config.num_actions),
         )
-    def forward(self, s, g, **kwargs):
-        s_rep = self.state_layer(s)
-        g_rep = self.goal_layer(g)
+    def forward(self, agent_position, goal_position):
+        s_rep = self.state_layer(agent_position)
+        g_rep = self.goal_layer(goal_position)
         rep = torch.cat((s_rep,g_rep),dim=1)
         q = self.layer_concat(rep)
         

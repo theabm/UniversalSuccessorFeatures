@@ -46,13 +46,13 @@ class StateGoalUSF(torch.nn.Module):
             torch.nn.Linear(in_features=256, out_features=self.config.num_actions*self.config.features_size),
         )
 
-    def forward(self, s, g, **kwargs):
-        s_rep = self.layer_state(s)
-        g_rep = self.layer_goal(g)
+    def forward(self, agent_position, goal_position):
+        s_rep = self.layer_state(agent_position)
+        g_rep = self.layer_goal(goal_position)
         rep = torch.cat((s_rep,g_rep),dim=1)
         sf_s_g = self.layer_concat(rep)
         
-        w = self.layer_goal_weights(g)
+        w = self.layer_goal_weights(goal_position)
         
         N = sf_s_g.shape[0]
         sf_s_g = sf_s_g.reshape(N, self.num_actions, self.features_size)
