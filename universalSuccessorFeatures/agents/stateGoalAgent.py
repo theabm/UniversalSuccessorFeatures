@@ -137,14 +137,14 @@ class StateGoalAgent():
 
     def choose_action(self, agent_position, goal_position, training = True):
         if training:
-            return self._epsilon_greedy_action_selection(agent_position = agent_position, goal_position = goal_position)
+            return self._epsilon_greedy_action_selection(agent_position, goal_position)
         else:
-            self._greedy_action_selection(agent_position = agent_position, goal_position = goal_position)
+            self._greedy_action_selection(agent_position, goal_position)
 
     def _epsilon_greedy_action_selection(self, agent_position, goal_position):
         """Epsilon greedy action selection"""
         if torch.rand(1).item() > self.epsilon.value:
-            return self._greedy_action_selection(agent_position = agent_position, goal_position = goal_position)
+            return self._greedy_action_selection(agent_position, goal_position)
         else:
             return torch.randint(0,self.env.action_space.shape[0],(1,)).item() 
 
@@ -152,21 +152,17 @@ class StateGoalAgent():
         with torch.no_grad():
             return torch.argmax(
                 self.policy_net(
-                    agent_position = self._make_compatible_with_nn(agent_position),
-                    goal_position = self._make_compatible_with_nn(goal_position)
+                    torch.tensor(agent_position).to(self.device),
+                    torch.tensor(goal_position).to(self.device)
                 )
             ).item()
 
-    def _make_compatible_with_nn(self, position):
-        position = torch.tensor(position).to(self.device)
-        return position
-    
     def _train_one_batch(self):
         experiences = self._sample_experiences()
-        goal_batch = self._build_tensor_from_batch_of_np_arrays(experiences.goal_batch).to(torch.float).to(self.device)
+        goal_batch = self._build_tensor_from_batch_of_np_arrays(experiences.goal_batch).to(self.device)
 
-        target_batch = self.__build_target_batch(experiences=experiences, goal_batch=goal_batch)
-        predicted_batch = self.__build_predicted_batch(experiences=experiences, goal_batch=goal_batch)
+        target_batch = self.__build_target_batch(experiences, goal_batch)
+        predicted_batch = self.__build_predicted_batch(experiences, goal_batch)
 
         self.optimizer.zero_grad()
         loss = self.loss(target_batch, predicted_batch)
@@ -181,21 +177,19 @@ class StateGoalAgent():
         return Experiences(*zip(*experiences))
 
     def _build_tensor_from_batch_of_np_arrays(self, batch_of_np_arrays):
-        #make list of np.arrays into a single np.array
+        # expected shape: [(1,n), (1,n), ..., (1,n)] where in total we have batch_size elements
         batch_of_np_arrays = np.array(batch_of_np_arrays)
-        #convert to torch.tensor
-        #batch_of_np_arrays = torch.from_numpy(batch_of_np_arrays) #previous working copy
-        batch_of_np_arrays = torch.tensor(batch_of_np_arrays)
+        # batch of np_arrays has form (batch_size, 1, n) so after squeeze() we have (batch_size, n)
+        batch_of_np_arrays = torch.tensor(batch_of_np_arrays).squeeze()
 
         return batch_of_np_arrays
 
     def __build_target_batch(self, experiences, goal_batch):
-        #Not sure I need to cast to torch.float each time since torch.tensor automatically handles this. But for now, this is more secure
-        next_agent_position_batch = self._build_tensor_from_batch_of_np_arrays(experiences.next_agent_position_batch).to(torch.float).to(self.device)
+        next_agent_position_batch = self._build_tensor_from_batch_of_np_arrays(experiences.next_agent_position_batch).to(self.device) # shape (batch_size, n)
 
-        #reward and terminated batch are handled differently because they are a list of floats and bools respectively and not a list of np.arrays
-        reward_batch = torch.tensor(experiences.reward_batch).to(torch.float).to(self.device)
-        terminated_batch = torch.tensor(experiences.terminated_batch).to(self.device)
+        # reward and terminated batch are handled differently because they are a list of floats and bools respectively and not a list of np.arrays
+        reward_batch = torch.tensor(experiences.reward_batch).to(self.device) # shape (n)
+        terminated_batch = torch.tensor(experiences.terminated_batch).to(self.device) # shape (n)
 
         target_batch = self._get_dql_target_batch(next_agent_position_batch, goal_batch, reward_batch, terminated_batch)
     
@@ -206,7 +200,7 @@ class StateGoalAgent():
         return target_batch
 
     def __build_predicted_batch(self, experiences, goal_batch):
-        agent_position_batch = self._build_tensor_from_batch_of_np_arrays(experiences.agent_position_batch).to(torch.float).to(self.device)
+        agent_position_batch = self._build_tensor_from_batch_of_np_arrays(experiences.agent_position_batch).to(self.device)
         action_batch = torch.tensor(experiences.action_batch).unsqueeze(1).to(self.device)
         predicted_batch = self.policy_net(agent_position_batch, goal_batch).gather(1, action_batch).squeeze()
 
@@ -218,15 +212,15 @@ class StateGoalAgent():
 #DOUBLE DEEP Q LEARNING
     def _get_ddql_target_batch(self, next_agent_position_batch, goal_batch, reward_batch, terminated_batch):
         with torch.no_grad():
-            max_action = torch.argmax(self.policy_net(s = next_agent_position_batch, g = goal_batch), axis = 1).unsqueeze(1).to(self.device)
-            target = reward_batch + self.discount_factor * torch.mul(self.target_net(s = next_agent_position_batch, g = goal_batch).gather(1,max_action).squeeze(), ~terminated_batch)
+            max_action = torch.argmax(self.policy_net(next_agent_position_batch, goal_batch), axis = 1).unsqueeze(1).to(self.device)
+            target = reward_batch + self.discount_factor * torch.mul(self.target_net(next_agent_position_batch, goal_batch).gather(1,max_action).squeeze(), ~terminated_batch)
         return target
 
 #NORMAL DEEP Q LEARNING
     def _get_dql_target_batch(self, next_agent_position_batch, goal_batch, reward_batch, terminated_batch):
         with torch.no_grad():
-            max_action = torch.argmax(self.target_net(s = next_agent_position_batch, g = goal_batch), axis = 1).unsqueeze(1).to(self.device)
-            target = reward_batch + self.discount_factor * torch.mul(self.target_net(s = next_agent_position_batch, g = goal_batch).gather(1,max_action).squeeze(), ~terminated_batch)
+            max_action = torch.argmax(self.target_net(next_agent_position_batch, goal_batch), axis = 1).unsqueeze(1).to(self.device)
+            target = reward_batch + self.discount_factor * torch.mul(self.target_net(next_agent_position_batch, goal_batch).gather(1,max_action).squeeze(), ~terminated_batch)
         return target
 
     def train(self, transition, step):
