@@ -11,7 +11,7 @@ import universalSuccessorFeatures.envs as envs
 import universalSuccessorFeatures.epsilon as eps
 
 
-Experiences = namedtuple("Experiences", ("state_batch", "goal_batch", "action_batch", "reward_batch", "next_state_batch", "terminated_batch", "truncated_batch"))
+Experiences = namedtuple("Experiences", ("agent_position_batch", "goal_batch", "action_batch", "reward_batch", "next_agent_position_batch", "terminated_batch", "truncated_batch"))
 
 class StateGoalAgent():
 
@@ -152,7 +152,7 @@ class StateGoalAgent():
         with torch.no_grad():
             return torch.argmax(
                 self.policy_net(
-                    position = self._make_compatible_with_nn(agent_position),
+                    agent_position = self._make_compatible_with_nn(agent_position),
                     goal_position = self._make_compatible_with_nn(goal_position)
                 )
             ).item()
@@ -163,26 +163,26 @@ class StateGoalAgent():
     
     def __build_target_batch(self,experiences, goal_batch):
         #Not sure I need to cast to torch.float each time since torch.tensor automatically handles this. But for now, this is more secure
-        next_state_batch = self._build_tensor_from_batch_of_np_arrays(experiences.next_state_batch).to(torch.float).to(self.device)
+        next_agent_position_batch = self._build_tensor_from_batch_of_np_arrays(experiences.next_agent_position_batch).to(torch.float).to(self.device)
 
         #reward and terminated batch are handled differently because they are a list of floats and bools respectively and not a list of np.arrays
         reward_batch = torch.tensor(experiences.reward_batch).to(torch.float).to(self.device)
         terminated_batch = torch.tensor(experiences.terminated_batch).to(self.device)
 
-        target_batch = self._get_dql_target_batch(next_state_batch, goal_batch, reward_batch, terminated_batch)
+        target_batch = self._get_dql_target_batch(next_agent_position_batch, goal_batch, reward_batch, terminated_batch)
     
-        del next_state_batch
+        del next_agent_position_batch
         del reward_batch
         del terminated_batch
 
         return target_batch
 
     def __build_predicted_batch(self, experiences, goal_batch):
-        state_batch = self._build_tensor_from_batch_of_np_arrays(experiences.state_batch).to(torch.float).to(self.device)
+        agent_position_batch = self._build_tensor_from_batch_of_np_arrays(experiences.agent_position_batch).to(torch.float).to(self.device)
         action_batch = torch.tensor(experiences.action_batch).unsqueeze(1).to(self.device)
-        predicted_batch = self.policy_net(state_batch, goal_batch).gather(1, action_batch).squeeze()
+        predicted_batch = self.policy_net(agent_position_batch, goal_batch).gather(1, action_batch).squeeze()
 
-        del state_batch
+        del agent_position_batch
         del action_batch
 
         return predicted_batch
@@ -216,17 +216,17 @@ class StateGoalAgent():
         return batch_of_np_arrays
 
 #DOUBLE DEEP Q LEARNING
-    def _get_ddql_target_batch(self, next_state_batch, goal_batch, reward_batch, terminated_batch):
+    def _get_ddql_target_batch(self, next_agent_position_batch, goal_batch, reward_batch, terminated_batch):
         with torch.no_grad():
-            max_action = torch.argmax(self.policy_net(s = next_state_batch, g = goal_batch), axis = 1).unsqueeze(1).to(self.device)
-            target = reward_batch + self.discount_factor * torch.mul(self.target_net(s = next_state_batch, g = goal_batch).gather(1,max_action).squeeze(), ~terminated_batch)
+            max_action = torch.argmax(self.policy_net(s = next_agent_position_batch, g = goal_batch), axis = 1).unsqueeze(1).to(self.device)
+            target = reward_batch + self.discount_factor * torch.mul(self.target_net(s = next_agent_position_batch, g = goal_batch).gather(1,max_action).squeeze(), ~terminated_batch)
         return target
 
 #NORMAL DEEP Q LEARNING
-    def _get_dql_target_batch(self, next_state_batch, goal_batch, reward_batch, terminated_batch):
+    def _get_dql_target_batch(self, next_agent_position_batch, goal_batch, reward_batch, terminated_batch):
         with torch.no_grad():
-            max_action = torch.argmax(self.target_net(s = next_state_batch, g = goal_batch), axis = 1).unsqueeze(1).to(self.device)
-            target = reward_batch + self.discount_factor * torch.mul(self.target_net(s = next_state_batch, g = goal_batch).gather(1,max_action).squeeze(), ~terminated_batch)
+            max_action = torch.argmax(self.target_net(s = next_agent_position_batch, g = goal_batch), axis = 1).unsqueeze(1).to(self.device)
+            target = reward_batch + self.discount_factor * torch.mul(self.target_net(s = next_agent_position_batch, g = goal_batch).gather(1,max_action).squeeze(), ~terminated_batch)
         return target
 
     def train(self, transition, step):
