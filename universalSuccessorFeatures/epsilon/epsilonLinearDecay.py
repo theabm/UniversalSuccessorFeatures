@@ -17,8 +17,8 @@ class EpsilonLinearDecay():
         self.eps_min = self.config.eps_max
         self.scheduled_episodes = self.config.scheduled_episodes
 
-        self.current_epsilon = self.eps_max
+        self.value = self.eps_max
 
     def decay(self, episode):
         m = (self.eps_min-self.eps_max)/self.scheduled_episodes * (episode<=self.scheduled_episodes)
-        self.current_epsilon += m
+        self.value += m

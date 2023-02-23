@@ -18,7 +18,7 @@ class EpsilonExponentialDecay():
         self.eps_min = self.config.eps_max
         self.decay_factor = self.config.decay_factor
 
-        self.current_epsilon = self.eps_max
+        self.value = self.eps_max
 
     def decay(self):
-        self.current_epsilon = max(self.eps_min, self.current_epsilon*self.epsilon_exponential_decay_factor) 
+        self.value = max(self.eps_min, self.value*self.decay_factor) 
