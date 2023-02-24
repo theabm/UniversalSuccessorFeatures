@@ -3,6 +3,7 @@ import universalSuccessorFeatures.agents as a
 import universalSuccessorFeatures.networks as nn
 import universalSuccessorFeatures.epsilon as eps
 import universalSuccessorFeatures.envs as envs
+import torch
 import pytest
 from math import isclose
 
@@ -31,4 +32,16 @@ def test_choose_action():
     assert action is not None 
     assert isinstance(action, int) 
     
+def test_build_tensor_from_batch_of_np_arrays(batch_size = 32):
+    agent = a.StateGoalAgent()
+
+    batch = []
+    for i in range(batch_size):
+        batch.append(np.random.rand(1,2))
+    batch = agent._build_tensor_from_batch_of_np_arrays(batch)
+
+    assert tuple(batch.shape) == (batch_size, 2) 
+    assert batch.dtype == torch.float
+
+
     
