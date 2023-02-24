@@ -178,7 +178,7 @@ class StateGoalAgent():
         # expected shape: [(1,n), (1,n), ..., (1,n)] where in total we have batch_size elements
         batch_of_np_arrays = np.array(batch_of_np_arrays)
         # batch of np_arrays has form (batch_size, 1, n) so after squeeze() we have (batch_size, n)
-        batch_of_np_arrays = torch.tensor(batch_of_np_arrays).squeeze()
+        batch_of_np_arrays = torch.tensor(batch_of_np_arrays).squeeze().to(torch.float)
 
         return batch_of_np_arrays
 
