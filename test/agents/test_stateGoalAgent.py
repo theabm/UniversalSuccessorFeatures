@@ -27,7 +27,7 @@ def test_choose_action():
 
     obs, *_ = my_env.step(action = my_env.action_space.sample())
 
-    action = agent.choose_action(training=False ,agent_position=obs["position"], goal_position=obs["goal"]) is not None
+    action = agent.choose_action(training=False ,agent_position=obs["agent_position"], goal_position=obs["goal_position"]) is not None
     assert action is not None 
     assert isinstance(action, int) 
     
