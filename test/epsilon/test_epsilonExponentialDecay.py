@@ -5,7 +5,7 @@ def test_epsilon_is_correct_value(max = 0.5, min = 0.1 ):
     assert decaying_eps.max == max and decaying_eps.min == min and decaying_eps.value == max
 
 def test_epsilon_decays_properly(decay_factor = 0.5):
-    decaying_eps = eps.EpsilonExponentialDecay(decay_factor = decay_factor)
+    decaying_eps = eps.EpsilonExponentialDecay(decay_factor = decay_factor, min = 0)
     for _ in range(4):
         decaying_eps.decay()
     
