@@ -32,9 +32,9 @@ class GridWorld(gym.Env):
         #observation space of the agent are the x,y coordinates 
         self.observation_space = gym.spaces.Dict(
             {
-            "position" : gym.spaces.MultiDiscrete(np.array([[self.rows, self.columns]])),
-            "position_features" : gym.spaces.MultiBinary([1,100]),
-            "goal" : gym.spaces.MultiDiscrete(np.array([[self.rows, self.columns]])),
+            "agent_position" : gym.spaces.MultiDiscrete(np.array([[self.rows, self.columns]])),
+            "agent_position_features" : gym.spaces.MultiBinary([1,100]),
+            "goal_position" : gym.spaces.MultiDiscrete(np.array([[self.rows, self.columns]])),
             "goal_weights" : gym.spaces.MultiBinary([1,100]), 
             }
         )
@@ -111,9 +111,9 @@ class GridWorld(gym.Env):
 
         info = {}
         obs = {
-            "position": position,
-            "position_features": position_features,
-            "goal": self.goal,
+            "agent_position": position,
+            "agent_position_features": position_features,
+            "goal_position": self.goal,
             "goal_weights": self.goal_weights
         }
 
@@ -157,9 +157,9 @@ class GridWorld(gym.Env):
 
         info = {}
         obs = {
-            "position": position,
-            "position_features": position_features,
-            "goal": self.goal,
+            "agent_position": position,
+            "agent_position_features": position_features,
+            "goal_position": self.goal,
             "goal_weights": self.goal_weights
         }
 

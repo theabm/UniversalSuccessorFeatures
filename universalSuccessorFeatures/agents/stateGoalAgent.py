@@ -67,12 +67,10 @@ class StateGoalAgent():
         if self.config.device == "cuda":
             if torch.cuda.is_available():
                 self.device = torch.device("cuda")
-                # print("Working on Cuda...")
             else:
                 self.device = torch.device("cpu")
                 warnings.warn('Cuda not available. Using CPU as device ...')
         else:
-            # print("Working on CPU ...")
             self.device = torch.device("cpu")
         
         #Creating object instances
