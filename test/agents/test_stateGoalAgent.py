@@ -2,7 +2,8 @@ import numpy as np
 import universalSuccessorFeatures.agents as a
 import universalSuccessorFeatures.networks as nn
 import universalSuccessorFeatures.epsilon as eps
-import universalSuccessorFeatures.envs as envs
+import universalSuccessorFeatures.envs.gridWorld as env
+import random
 import torch
 import pytest
 from math import isclose
@@ -21,14 +22,14 @@ def test_epsilon_is_instatiated(eps_type):
     assert my_dqn.epsilon.value is not None
 
 def test_choose_action():
-    my_env = envs.GridWorld()
+    my_env = env.GridWorld()
     my_env.reset()
 
     agent = a.StateGoalAgent()
 
-    obs, *_ = my_env.step(action = my_env.action_space.sample())
+    obs, *_ = my_env.step(my_env.action_space.sample())
 
-    action = agent.choose_action(training=False ,agent_position=obs["agent_position"], goal_position=obs["goal_position"]) is not None
+    action = agent.choose_action(training=False ,agent_position=obs["agent_position"], goal_position=obs["goal_position"])
     assert action is not None 
     assert isinstance(action, int) 
     
@@ -42,6 +43,36 @@ def test_build_tensor_from_batch_of_np_arrays(batch_size = 32):
 
     assert tuple(batch.shape) == (batch_size, 2) 
     assert batch.dtype == torch.float
+
+def build_dummy_buffer(size = 100):
+    buffer = []
+    for i in range(size):
+        buffer.append(np.random.rand(1,2), np.random.rand(1,2), random.randint(0,3), random.random(), np.random.rand(1,2), random.choice([True, False], random.choice([True, False])) )
+
+    return buffer
+        
+def test_few_rounds_of_training(num_episodes = 20):
+    my_env = env.GridWorld()
+    agent = a.StateGoalAgent()
+
+    step = 0
+    for episode in range(num_episodes):
+        obs, _ = my_env.reset()
+        agent.start_episode(episode = episode)
+        while True:
+            action = agent.choose_action(agent_position = obs["agent_position"], goal_position = obs["goal_position"], training= False)
+            next_obs, reward, terminated, truncated, _ = my_env.step(action=action)
+
+            transition = (obs["agent_position"], obs["goal_position"], action, reward, next_obs["agent_position"], terminated, truncated)
+
+            agent.train(transition=transition, step = 0)
+
+            if terminated or truncated:
+                break
+            obs = next_obs
+            step += 1
+        agent.end_episode()
+
 
 
     

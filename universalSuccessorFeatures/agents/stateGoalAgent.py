@@ -137,7 +137,7 @@ class StateGoalAgent():
         if training:
             return self._epsilon_greedy_action_selection(agent_position, goal_position)
         else:
-            self._greedy_action_selection(agent_position, goal_position)
+            return self._greedy_action_selection(agent_position, goal_position)
 
     def _epsilon_greedy_action_selection(self, agent_position, goal_position):
         """Epsilon greedy action selection"""
@@ -186,7 +186,7 @@ class StateGoalAgent():
         next_agent_position_batch = self._build_tensor_from_batch_of_np_arrays(experiences.next_agent_position_batch).to(self.device) # shape (batch_size, n)
 
         # reward and terminated batch are handled differently because they are a list of floats and bools respectively and not a list of np.arrays
-        reward_batch = torch.tensor(experiences.reward_batch).to(self.device) # shape (n)
+        reward_batch = torch.tensor(experiences.reward_batch).to(torch.float).to(self.device) # shape (n)
         terminated_batch = torch.tensor(experiences.terminated_batch).to(self.device) # shape (n)
 
         target_batch = self._get_dql_target_batch(next_agent_position_batch, goal_batch, reward_batch, terminated_batch)

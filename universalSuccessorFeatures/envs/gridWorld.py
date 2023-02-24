@@ -120,7 +120,7 @@ class GridWorld(gym.Env):
         return obs, info
 
     def step(self, action):
-
+        
         self.cur_step += 1
 
         #Actions:                   o o o o o               o x o o o               
