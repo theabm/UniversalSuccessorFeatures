@@ -53,16 +53,24 @@ def test_training(network, discount_factor = 0.5, num_episodes=50, seed=0):
 
     my_env = envs.GridWorld(rows = 3, columns = 3, penalization = 0, reward_at_goal_position = 1)
 
-    agent = a.StateGoalAgent(
-        epsilon = {"value" : 1.0}, train_for_n_iterations = 2, discount_factor = discount_factor, network = {"cls":network}
+    agent = a.StateGoalWeightAgent(
+        epsilon = {"value" : 1.0}, train_for_n_iterations = 2, discount_factor = discount_factor, network = {"cls":network, "features_size":9}
         )
     device = agent.device
 
-    start_position = np.array([0,0])
+    start_position = np.array([[0,0]])
     
-    goal_1_position = np.array([2,2])
-    goal_2_position = np.array([2,0])
+    goal_1_position = np.array([[2,2]])
+    goal_2_position = np.array([[2,0]])
     goal_list = [goal_1_position,goal_2_position]
+
+    grd = np.zeros((my_env.rows,my_env.columns))
+    grd[2][2] = 1
+    goal_1_weights = grd.reshape((1,my_env.rows*my_env.columns)) 
+
+    grd = np.zeros((my_env.rows,my_env.columns))
+    grd[2][0] = 1
+    goal_2_weights = grd.reshape((1,my_env.rows*my_env.columns)) 
 
     step = 0
 
@@ -89,24 +97,27 @@ def test_training(network, discount_factor = 0.5, num_episodes=50, seed=0):
             obs = next_obs
             step += 1
     
-    goal_1_position = torch.tensor(goal_1_position).to(torch.float).unsqueeze(0).to(device)
-    goal_2_position = torch.tensor(goal_2_position).to(torch.float).unsqueeze(0).to(device)
+    goal_1_position = torch.tensor(goal_1_position).to(torch.float).to(device)
+    goal_2_position = torch.tensor(goal_2_position).to(torch.float).to(device)
+
+    goal_1_weights = torch.tensor(goal_1_weights).to(torch.float).to(device)
+    goal_2_weights = torch.tensor(goal_2_weights).to(torch.float).to(device)
             
     q_pred_g1_array = []
     q_pred_g2_array = []
     for i in range(my_env.rows):
         for j in range(my_env.columns):
-            agent_position = torch.tensor([i,j]).to(torch.float).unsqueeze(0).to(device)
+            agent_position = torch.tensor([[i,j]]).to(torch.float).to(device)
             idx = i*my_env.rows + j
             if idx == 8:
-                q_pred_g2_array.append(agent.policy_net(agent_position=agent_position, goal_position=goal_2_position).cpu().squeeze().detach().numpy())
+                q_pred_g2_array.append(agent.policy_net(agent_position=agent_position, goal_position=goal_2_position, goal_weights = goal_2_weights).cpu().squeeze().detach().numpy())
                 continue
             elif idx == 6:
-                q_pred_g1_array.append(agent.policy_net(agent_position=agent_position, goal_position=goal_1_position).cpu().squeeze().detach().numpy())
+                q_pred_g1_array.append(agent.policy_net(agent_position=agent_position, goal_position=goal_1_position, goal_weights = goal_1_weights).cpu().squeeze().detach().numpy())
                 continue
             else:
-                q_pred_g1_array.append(agent.policy_net(agent_position=agent_position, goal_position=goal_1_position).cpu().squeeze().detach().numpy())
-                q_pred_g2_array.append(agent.policy_net(agent_position=agent_position, goal_position=goal_2_position).cpu().squeeze().detach().numpy())
+                q_pred_g1_array.append(agent.policy_net(agent_position=agent_position, goal_position=goal_1_position, goal_weights = goal_1_weights).cpu().squeeze().detach().numpy())
+                q_pred_g2_array.append(agent.policy_net(agent_position=agent_position, goal_position=goal_2_position, goal_weights = goal_2_weights).cpu().squeeze().detach().numpy())
 
 
     q_pred_g1_array = np.array(q_pred_g1_array)

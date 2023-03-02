@@ -15,9 +15,9 @@ def test_observation_space():
     my_env.step(0)
     
 
-def test_goal_weights(goal = np.array([0,0])):
+def test_goal_weights(goal_position = np.array([[0,0]])):
     my_env = env.GridWorld()
-    obs, *_ = my_env.reset(goal_position=goal) 
+    obs, *_ = my_env.reset(goal_position=goal_position) 
 
     theoretical_goal_w = np.zeros((1,my_env.rows*my_env.columns))
     theoretical_goal_w[0][0] = 1
@@ -26,10 +26,10 @@ def test_goal_weights(goal = np.array([0,0])):
 
     assert comp.all() 
 
-def test_position_features(start_position = np.array([0,0])):
+def test_position_features(start_agent_position = np.array([[0,0]])):
     my_env = env.GridWorld()
 
-    obs, *_ = my_env.reset(start_agent_position= start_position)
+    obs, *_ = my_env.reset(start_agent_position= start_agent_position)
     theoretical_features = np.zeros((1,my_env.rows*my_env.columns))
     theoretical_features[0][0] = 1
 
@@ -37,18 +37,18 @@ def test_position_features(start_position = np.array([0,0])):
 
     assert comp.all()
 
-def test_boundaries_going_up_left(start_position = np.array([0,0])):
+def test_boundaries_going_up_left(start_agent_position = np.array([[0,0]])):
     my_env = env.GridWorld()
-    my_env.reset(start_agent_position=start_position)
+    my_env.reset(start_agent_position=start_agent_position)
     obs, *_ = my_env.step(0)
-    assert (obs["agent_position"] == start_position).all()
+    assert (obs["agent_position"] == start_agent_position).all()
     obs, *_ = my_env.step(3)
-    assert (obs["agent_position"] == start_position).all()
+    assert (obs["agent_position"] == start_agent_position).all()
 
-def test_boundaries_going_down_right(start_position = np.array([9,9])):
+def test_boundaries_going_down_right(start_agent_position = np.array([[9,9]])):
     my_env = env.GridWorld()
-    my_env.reset(start_agent_position=start_position)
+    my_env.reset(start_agent_position=start_agent_position)
     obs, *_ = my_env.step(1)
-    assert (obs["agent_position"] == start_position).all()
+    assert (obs["agent_position"] == start_agent_position).all()
     obs, *_ = my_env.step(2)
-    assert (obs["agent_position"] == start_position).all()
+    assert (obs["agent_position"] == start_agent_position).all()

@@ -13,7 +13,7 @@ import universalSuccessorFeatures.epsilon as eps
 
 Experiences = namedtuple("Experiences", ("agent_position_batch", "goal_batch", "goal_weights_batch", "action_batch", "reward_batch", "next_agent_position_batch", "terminated_batch", "truncated_batch"))
 
-class StateGoalAgent():
+class StateGoalWeightAgent():
 
     @staticmethod
     def default_config():
@@ -42,7 +42,7 @@ class StateGoalAgent():
             #With this implementation, the choice of network completely determine the input size (i.e. the state and any additional info)
             #and the output size (num actions)
             network = eu.AttrDict(
-                cls = nn.StateGoalPaperDQN,
+                cls = nn.StateGoalWeightUSF,
                 optimizer = torch.optim.Adam,
                 loss = torch.nn.MSELoss,
             ),
@@ -61,7 +61,7 @@ class StateGoalAgent():
 
     def __init__(self, config = None, **kwargs):
         
-        self.config = eu.combine_dicts(kwargs, config, StateGoalAgent.default_config())
+        self.config = eu.combine_dicts(kwargs, config, StateGoalWeightAgent.default_config())
 
         #Setting the device
         if self.config.device == "cuda":
@@ -253,4 +253,4 @@ class StateGoalAgent():
 
 
 if __name__ == '__main__':
-    my_dqn = StateGoalAgent()
+    my_dqn = StateGoalWeightAgent()
