@@ -61,11 +61,11 @@ def test_few_rounds_of_training(num_episodes = 20):
             agent.train(transition=transition, step = step)
 
             if terminated or truncated:
+                agent.end_episode()
                 break
 
             obs = next_obs
             step += 1
-        agent.end_episode()
 
 
 

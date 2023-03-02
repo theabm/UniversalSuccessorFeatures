@@ -65,11 +65,6 @@ class GridWorld(gym.Env):
         idx = random.randrange(len(goal_list))
         return goal_list[idx]
 
-    def get_current_goal_position_in_grid(self):
-        return np.array([self.goal_i, self.goal_j])
-
-    def get_current_agent_position_in_grid(self):
-        return np.array([self.agent_i, self.agent_j])
 
     def reset(self, start_agent_position : np.ndarray = None, goal_position : np.ndarray = None, seed = None):
 
@@ -171,9 +166,9 @@ class GridWorld(gym.Env):
         grd[i][j] = 1.
         return grd.reshape((1,self.rows*self.columns))
     
-    def get_position_features(self,position: np.ndarray):
-        i = position[0]
-        j = position[1]
+    def get_agent_position_features_at(self,position: np.ndarray):
+        i = position[0][0]
+        j = position[0][1]
         return self._make_grid_and_place_one_in(i,j)
 
     def _get_current_agent_position_features(self):
