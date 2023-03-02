@@ -3,6 +3,7 @@ from gymnasium.utils.env_checker import check_env
 import numpy as np
 import exputils as eu
 import random
+import warnings
 
 class GridWorld(gym.Env):
     
@@ -58,32 +59,28 @@ class GridWorld(gym.Env):
         j = np.random.choice(self.columns)
         
         return i,j
-    def sample_a_goal_position(self, goal_list : list = None):
-        """Takes as input a list np.arrays of goals and samples a goal position. If None, samples a goal randomly.
-           Returns np.array()
+    def sample_a_goal_position_from_list(self, goal_list : list):
+        """Takes as input a list np.arrays of goals and samples a goal position. 
         """
-        if goal_list is None:
-            return np.array(self._sample_position_in_matrix())
-        else:
-            idx = random.randrange(len(goal_list))
-            return goal_list[idx]
+        idx = random.randrange(len(goal_list))
+        return goal_list[idx]
 
-    def get_current_goal_position_in_matrix(self):
+    def get_current_goal_position_in_grid(self):
         return np.array([self.goal_i, self.goal_j])
 
-    def get_current_agent_position_in_matrix(self):
+    def get_current_agent_position_in_grid(self):
         return np.array([self.agent_i, self.agent_j])
 
-    def reset(self, start_position : np.ndarray = None, goal_position : np.ndarray = None, seed = None):
+    def reset(self, start_agent_position : np.ndarray = None, goal_position : np.ndarray = None, seed = None):
 
         super().reset(seed=seed)
 
         self.cur_step = 0
 
         #position of the agent and goal in x,y coordinates 
-        if start_position is not None:
-            self.agent_i = start_position[0]
-            self.agent_j = start_position[1]
+        if start_agent_position is not None:
+            self.agent_i = start_agent_position[0]
+            self.agent_j = start_agent_position[1]
         else:
             self.agent_i, self.agent_j = self._sample_position_in_matrix()
             
@@ -93,6 +90,7 @@ class GridWorld(gym.Env):
 
             #if same, give priority to goal that was set
             while (self.agent_i,self.agent_j)==(self.goal_i,self.goal_j):
+                warnings.warn("Start position and goal position cannot be the same. Proceeding with different start position...")
                 self.agent_i, self.agent_j = self._sample_position_in_matrix()
         else:
             self.goal_i, self.goal_j = self._sample_position_in_matrix()
@@ -105,9 +103,9 @@ class GridWorld(gym.Env):
             raise ValueError("Start and Goal position cannot be the same.")
 
         position = np.array([[self.agent_i, self.agent_j]])
-        position_features = self.get_current_position_features()
+        position_features = self._get_current_agent_position_features()
         self.goal = np.array([[self.goal_i, self.goal_j]])
-        self.goal_weights = self.get_current_goal_weights()
+        self.goal_weights = self._get_current_goal_weights()
 
         info = {}
         obs = {
@@ -153,7 +151,7 @@ class GridWorld(gym.Env):
         reward = self.config.reward_at_goal_position if terminated else self.config.penalization
 
         position = np.array([[self.agent_i, self.agent_j]])
-        position_features = self.get_current_position_features()
+        position_features = self._get_current_agent_position_features()
 
         info = {}
         obs = {
@@ -178,13 +176,13 @@ class GridWorld(gym.Env):
         j = position[1]
         return self._make_grid_and_place_one_in(i,j)
 
-    def get_current_position_features(self):
+    def _get_current_agent_position_features(self):
         position_features = self._make_grid_and_place_one_in(self.agent_i, self.agent_j)
         return position_features
         
-    def get_current_goal_weights(self):
-        goal_weights = self._make_grid_and_place_one_in(self.goal_i, self.goal_j)
-        return goal_weights
+    def _get_current_goal_weights(self):
+        task_weights = self._make_grid_and_place_one_in(self.goal_i, self.goal_j)
+        return task_weights
 
 
 if __name__ == '__main__':

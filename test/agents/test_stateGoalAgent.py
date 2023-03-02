@@ -29,7 +29,7 @@ def test_choose_action():
 
     obs, *_ = my_env.step(my_env.action_space.sample())
 
-    action = agent.choose_action(training=False ,agent_position=obs["agent_position"], goal_position=obs["goal_position"])
+    action = agent.choose_action(training=False,agent_position=obs["agent_position"], goal_position=obs["goal_position"])
     assert action is not None 
     assert isinstance(action, int) 
     
@@ -44,13 +44,6 @@ def test_build_tensor_from_batch_of_np_arrays(batch_size = 32):
     assert tuple(batch.shape) == (batch_size, 2) 
     assert batch.dtype == torch.float
 
-def build_dummy_buffer(size = 100):
-    buffer = []
-    for i in range(size):
-        buffer.append(np.random.rand(1,2), np.random.rand(1,2), random.randint(0,3), random.random(), np.random.rand(1,2), random.choice([True, False], random.choice([True, False])) )
-
-    return buffer
-        
 def test_few_rounds_of_training(num_episodes = 20):
     my_env = env.GridWorld()
     agent = a.StateGoalAgent()
@@ -65,10 +58,11 @@ def test_few_rounds_of_training(num_episodes = 20):
 
             transition = (obs["agent_position"], obs["goal_position"], action, reward, next_obs["agent_position"], terminated, truncated)
 
-            agent.train(transition=transition, step = 0)
+            agent.train(transition=transition, step = step)
 
             if terminated or truncated:
                 break
+
             obs = next_obs
             step += 1
         agent.end_episode()

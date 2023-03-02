@@ -17,32 +17,29 @@ def test_observation_space():
 
 def test_goal_weights(goal = np.array([0,0])):
     my_env = env.GridWorld()
-    my_env.reset(goal_position= goal) 
+    obs, *_ = my_env.reset(goal_position=goal) 
 
     theoretical_goal_w = np.zeros((1,my_env.rows*my_env.columns))
     theoretical_goal_w[0][0] = 1
-    print(my_env.goal_i,my_env.goal_j)
-    print(theoretical_goal_w)
-    print(my_env.get_current_goal_weights())
 
-    comp = theoretical_goal_w == my_env.get_current_goal_weights()
+    comp = theoretical_goal_w == obs["goal_weights"]
 
     assert comp.all() 
 
-def test_position_features(state = np.array([0,0])):
+def test_position_features(start_position = np.array([0,0])):
     my_env = env.GridWorld()
 
-    my_env.reset(start_position= state)
-    theoretical_features = np.zeros(my_env.rows*my_env.columns)
-    theoretical_features[0] = 1
+    obs, *_ = my_env.reset(start_agent_position= start_position)
+    theoretical_features = np.zeros((1,my_env.rows*my_env.columns))
+    theoretical_features[0][0] = 1
 
-    comp = theoretical_features == my_env.get_current_position_features()
+    comp = theoretical_features == obs["agent_position_features"]
 
     assert comp.all()
 
 def test_boundaries_going_up_left(start_position = np.array([0,0])):
     my_env = env.GridWorld()
-    my_env.reset(start_position=start_position)
+    my_env.reset(start_agent_position=start_position)
     obs, *_ = my_env.step(0)
     assert (obs["agent_position"] == start_position).all()
     obs, *_ = my_env.step(3)
@@ -50,7 +47,7 @@ def test_boundaries_going_up_left(start_position = np.array([0,0])):
 
 def test_boundaries_going_down_right(start_position = np.array([9,9])):
     my_env = env.GridWorld()
-    my_env.reset(start_position= start_position)
+    my_env.reset(start_agent_position=start_position)
     obs, *_ = my_env.step(1)
     assert (obs["agent_position"] == start_position).all()
     obs, *_ = my_env.step(2)

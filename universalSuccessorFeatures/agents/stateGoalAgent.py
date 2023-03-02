@@ -61,7 +61,7 @@ class StateGoalAgent():
 
     def __init__(self, config = None, **kwargs):
         
-        self.config = eu.combine_dicts(kwargs, config, self.default_config())
+        self.config = eu.combine_dicts(kwargs, config, StateGoalAgent.default_config())
 
         #Setting the device
         if self.config.device == "cuda":
@@ -87,7 +87,7 @@ class StateGoalAgent():
         if isinstance(self.config.env, dict):
             self.env = eu.misc.create_object_from_config(self.config.env)
         else:
-            raise ValueError("Network Config must be a dictionary.")
+            raise ValueError("Environment Config must be a dictionary.")
 
         if isinstance(self.config.epsilon, dict):
             self.epsilon = eu.misc.create_object_from_config(self.config.epsilon)
@@ -135,16 +135,16 @@ class StateGoalAgent():
 
     def choose_action(self, agent_position, goal_position, training = True):
         if training:
-            return self._epsilon_greedy_action_selection(agent_position, goal_position)
+            return self._epsilon_greedy_action_selection(agent_position, goal_position).item()
         else:
-            return self._greedy_action_selection(agent_position, goal_position)
+            return self._greedy_action_selection(agent_position, goal_position).item()
 
     def _epsilon_greedy_action_selection(self, agent_position, goal_position):
         """Epsilon greedy action selection"""
         if torch.rand(1).item() > self.epsilon.value:
             return self._greedy_action_selection(agent_position, goal_position)
         else:
-            return torch.randint(0,self.env.action_space.shape[0],(1,)).item() 
+            return torch.randint(0,self.env.action_space.n,(1,)) 
 
     def _greedy_action_selection(self, agent_position, goal_position):
         with torch.no_grad():
@@ -153,7 +153,7 @@ class StateGoalAgent():
                     torch.tensor(agent_position).to(torch.float).to(self.device),
                     torch.tensor(goal_position).to(torch.float).to(self.device)
                 )
-            ).item()
+            )
 
     def _train_one_batch(self):
         experiences = self._sample_experiences()
@@ -207,14 +207,6 @@ class StateGoalAgent():
 
         return predicted_batch
 
-#DOUBLE DEEP Q LEARNING
-    def _get_ddql_target_batch(self, next_agent_position_batch, goal_batch, reward_batch, terminated_batch):
-        with torch.no_grad():
-            max_action = torch.argmax(self.policy_net(next_agent_position_batch, goal_batch), axis = 1).unsqueeze(1).to(self.device)
-            target = reward_batch + self.discount_factor * torch.mul(self.target_net(next_agent_position_batch, goal_batch).gather(1,max_action).squeeze(), ~terminated_batch)
-        return target
-
-#NORMAL DEEP Q LEARNING
     def _get_dql_target_batch(self, next_agent_position_batch, goal_batch, reward_batch, terminated_batch):
         with torch.no_grad():
             max_action = torch.argmax(self.target_net(next_agent_position_batch, goal_batch), axis = 1).unsqueeze(1).to(self.device)
