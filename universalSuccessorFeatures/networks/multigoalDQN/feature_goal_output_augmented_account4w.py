@@ -56,10 +56,9 @@ class FeatureGoalAugumentedDQN(torch.nn.Module):
             torch.nn.ReLU(),
             torch.nn.Linear(in_features=self.config.H3_size, out_features=self.config.num_actions),
         )
-    def forward(self, phi_s, g, **kwargs):
-        #phi_s is the feature state for s and it is assumed to be 100 dimensional
-        g_rep = self.goal_layer(g)
-        rep = torch.cat((phi_s,g_rep),dim=1)
+    def forward(self, agent_position_features, goal_position):
+        g_rep = self.goal_layer(goal_position)
+        rep = torch.cat((agent_position_features,g_rep),dim=1)
         q = self.layer_concat(rep)
         
         return q
