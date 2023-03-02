@@ -74,14 +74,14 @@ class GridWorld(gym.Env):
 
         #position of the agent and goal in x,y coordinates 
         if start_agent_position is not None:
-            self.agent_i = start_agent_position[0]
-            self.agent_j = start_agent_position[1]
+            self.agent_i = start_agent_position[0][0]
+            self.agent_j = start_agent_position[0][1]
         else:
             self.agent_i, self.agent_j = self._sample_position_in_matrix()
             
         if goal_position is not None:
-            self.goal_i = goal_position[0]
-            self.goal_j = goal_position[1]
+            self.goal_i = goal_position[0][0]
+            self.goal_j = goal_position[0][1]
 
             #if same, give priority to goal that was set
             while (self.agent_i,self.agent_j)==(self.goal_i,self.goal_j):

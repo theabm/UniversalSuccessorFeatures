@@ -60,10 +60,10 @@ def test_training(network, discount_factor = 0.5, num_episodes=50, seed=0):
         )
     device = agent.device
 
-    start_position = np.array([0,0])
+    start_position = np.array([[0,0]])
     
-    goal_1_position = np.array([2,2])
-    goal_2_position = np.array([2,0])
+    goal_1_position = np.array([[2,2]])
+    goal_2_position = np.array([[2,0]])
     goal_list = [goal_1_position,goal_2_position]
 
     step = 0
@@ -91,8 +91,8 @@ def test_training(network, discount_factor = 0.5, num_episodes=50, seed=0):
             obs = next_obs
             step += 1
     
-    goal_1_position = torch.tensor(goal_1_position).to(torch.float).unsqueeze(0).to(device)
-    goal_2_position = torch.tensor(goal_2_position).to(torch.float).unsqueeze(0).to(device)
+    goal_1_position = torch.tensor(goal_1_position).to(torch.float).to(device)
+    goal_2_position = torch.tensor(goal_2_position).to(torch.float).to(device)
             
     q_pred_g1_array = []
     q_pred_g2_array = []
