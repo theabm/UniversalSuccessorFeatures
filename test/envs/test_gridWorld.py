@@ -1,9 +1,17 @@
 import universalSuccessorFeatures.envs.gridWorld as env
 import numpy as np
 
+def test_setup_is_as_expected(rows = 5, columns = 8, nmax_steps = 100, penalization = 3, reward_at_goal_position = 4):
+    my_env = env.GridWorld(rows = rows, columns = columns, nmax_steps = nmax_steps, penalization = penalization, reward_at_goal_position = reward_at_goal_position)
+    assert my_env.rows == rows
+    assert my_env.columns == columns
+    assert my_env.nmax_steps == nmax_steps
+    assert my_env.config.penalization == penalization
+    assert my_env.config.reward_at_goal_position == reward_at_goal_position
+
 def test_action_space_size():
     my_env = env.GridWorld()
-    assert my_env.action_space.shape == 4
+    assert my_env.action_space.n == 4
 
 def test_observation_space():
     my_env = env.GridWorld()
