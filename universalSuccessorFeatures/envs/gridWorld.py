@@ -34,9 +34,9 @@ class GridWorld(gym.Env):
         self.observation_space = gym.spaces.Dict(
             {
             "agent_position" : gym.spaces.MultiDiscrete(np.array([[self.rows, self.columns]])),
-            "agent_position_features" : gym.spaces.MultiBinary([1,100]),
+            "agent_position_features" : gym.spaces.MultiBinary([1,self.rows*self.columns]),
             "goal_position" : gym.spaces.MultiDiscrete(np.array([[self.rows, self.columns]])),
-            "goal_weights" : gym.spaces.MultiBinary([1,100]), 
+            "goal_weights" : gym.spaces.MultiBinary([1,self.rows*self.columns]), 
             }
         )
 
