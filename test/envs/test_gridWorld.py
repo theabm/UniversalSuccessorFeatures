@@ -3,7 +3,7 @@ import numpy as np
 
 def test_action_space_size():
     my_env = env.GridWorld()
-    my_env.action_space.shape == 4
+    assert my_env.action_space.shape == 4
 
 def test_observation_space():
     my_env = env.GridWorld()
