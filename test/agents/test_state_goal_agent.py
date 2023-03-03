@@ -1,12 +1,10 @@
 import numpy as np
-import universalSuccessorFeatures.agents as a
-import universalSuccessorFeatures.networks as nn
-import universalSuccessorFeatures.epsilon as eps
-import universalSuccessorFeatures.envs.gridWorld as env
-import random
+import universal_successor_features.agents as a
+import universal_successor_features.networks as nn
+import universal_successor_features.epsilon as eps
+import universal_successor_features.envs.grid_world as env
 import torch
 import pytest
-from math import isclose
 
 @pytest.mark.parametrize(
     "eps_type",

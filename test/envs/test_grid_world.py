@@ -1,4 +1,4 @@
-import universalSuccessorFeatures.envs.gridWorld as env
+import universal_successor_features.envs.grid_world as env
 import numpy as np
 
 def test_setup_is_as_expected(rows = 5, columns = 8, nmax_steps = 100, penalization = 3, reward_at_goal_position = 4):

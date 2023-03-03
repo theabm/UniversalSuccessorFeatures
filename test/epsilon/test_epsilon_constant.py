@@ -1,4 +1,4 @@
-import universalSuccessorFeatures.epsilon as eps
+import universal_successor_features.epsilon as eps
 
 def test_epsilon_is_correct_value(value = 0.3):
     lineareps = eps.EpsilonConstant(value = value) 

@@ -1,2 +1,2 @@
-from .gridWorld import GridWorld
+from .grid_world import GridWorld
 from .navigation import MPINavigation

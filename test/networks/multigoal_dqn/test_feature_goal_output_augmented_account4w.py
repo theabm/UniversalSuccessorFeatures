@@ -1,5 +1,5 @@
 import torch
-import universalSuccessorFeatures.networks.multigoalDQN as mdqn
+import universal_successor_features.networks.multigoal_dqn as mdqn
 
 state_size = 2
 goal_size = 2

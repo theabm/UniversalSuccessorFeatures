@@ -1,4 +1,4 @@
-import universalSuccessorFeatures.epsilon as eps
+import universal_successor_features.epsilon as eps
 from math import isclose
 
 def test_epsilon_is_correct_value(max = 0.5, min = 0.1 ):

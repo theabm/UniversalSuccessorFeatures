@@ -5,10 +5,10 @@ import exputils.data.logging as log
 import warnings
 import copy
 from collections import namedtuple
-import universalSuccessorFeatures.memory as mem
-import universalSuccessorFeatures.networks as nn
-import universalSuccessorFeatures.envs as envs
-import universalSuccessorFeatures.epsilon as eps
+import universal_successor_features.memory as mem
+import universal_successor_features.networks as nn
+import universal_successor_features.envs as envs
+import universal_successor_features.epsilon as eps
 
 
 Experiences = namedtuple("Experiences", ("agent_position_features_batch", "goal_batch", "goal_weights_batch", "action_batch", "reward_batch", "next_agent_position_features_batch", "terminated_batch", "truncated_batch"))

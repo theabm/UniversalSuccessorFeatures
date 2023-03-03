@@ -1,5 +1,5 @@
 import torch
-import universalSuccessorFeatures.networks.usf as usf
+import universal_successor_features.networks.usf as usf
 
 state_size = 2
 goal_size = 2

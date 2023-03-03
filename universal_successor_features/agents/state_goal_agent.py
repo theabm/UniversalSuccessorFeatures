@@ -5,15 +5,15 @@ import exputils.data.logging as log
 import warnings
 import copy
 from collections import namedtuple
-import universalSuccessorFeatures.memory as mem
-import universalSuccessorFeatures.networks as nn
-import universalSuccessorFeatures.envs as envs
-import universalSuccessorFeatures.epsilon as eps
+import universal_successor_features.memory as mem
+import universal_successor_features.networks as nn
+import universal_successor_features.envs as envs
+import universal_successor_features.epsilon as eps
 
 
-Experiences = namedtuple("Experiences", ("agent_position_features_batch", "goal_batch", "action_batch", "reward_batch", "next_agent_position_features_batch", "terminated_batch", "truncated_batch"))
+Experiences = namedtuple("Experiences", ("agent_position_batch", "goal_batch", "action_batch", "reward_batch", "next_agent_position_batch", "terminated_batch", "truncated_batch"))
 
-class FeatureGoalAgent():
+class StateGoalAgent():
 
     @staticmethod
     def default_config():
@@ -42,7 +42,7 @@ class FeatureGoalAgent():
             #With this implementation, the choice of network completely determine the input size (i.e. the state and any additional info)
             #and the output size (num actions)
             network = eu.AttrDict(
-                cls = nn.FeatureGoalPaperDQN,
+                cls = nn.StateGoalPaperDQN,
                 optimizer = torch.optim.Adam,
                 loss = torch.nn.MSELoss,
             ),
@@ -61,7 +61,7 @@ class FeatureGoalAgent():
 
     def __init__(self, config = None, **kwargs):
         
-        self.config = eu.combine_dicts(kwargs, config, FeatureGoalAgent.default_config())
+        self.config = eu.combine_dicts(kwargs, config, StateGoalAgent.default_config())
 
         #Setting the device
         if self.config.device == "cuda":
@@ -133,24 +133,24 @@ class FeatureGoalAgent():
     def end_episode(self):
         self.epsilon.decay()
 
-    def choose_action(self, agent_position_features, goal_position, training = True):
+    def choose_action(self, agent_position, goal_position, training = True):
         if training:
-            return self._epsilon_greedy_action_selection(agent_position_features, goal_position).item()
+            return self._epsilon_greedy_action_selection(agent_position, goal_position).item()
         else:
-            return self._greedy_action_selection(agent_position_features, goal_position).item()
+            return self._greedy_action_selection(agent_position, goal_position).item()
 
-    def _epsilon_greedy_action_selection(self, agent_position_features, goal_position):
+    def _epsilon_greedy_action_selection(self, agent_position, goal_position):
         """Epsilon greedy action selection"""
         if torch.rand(1).item() > self.epsilon.value:
-            return self._greedy_action_selection(agent_position_features, goal_position)
+            return self._greedy_action_selection(agent_position, goal_position)
         else:
             return torch.randint(0,self.env.action_space.n,(1,)) 
 
-    def _greedy_action_selection(self, agent_position_features, goal_position):
+    def _greedy_action_selection(self, agent_position, goal_position):
         with torch.no_grad():
             return torch.argmax(
                 self.policy_net(
-                    torch.tensor(agent_position_features).to(torch.float).to(self.device),
+                    torch.tensor(agent_position).to(torch.float).to(self.device),
                     torch.tensor(goal_position).to(torch.float).to(self.device)
                 )
             )
@@ -183,35 +183,34 @@ class FeatureGoalAgent():
         return batch_of_np_arrays
 
     def __build_target_batch(self, experiences, goal_batch):
-        next_agent_position_features_batch = self._build_tensor_from_batch_of_np_arrays(experiences.next_agent_position_features_batch).to(self.device) # shape (batch_size, n)
+        next_agent_position_batch = self._build_tensor_from_batch_of_np_arrays(experiences.next_agent_position_batch).to(self.device) # shape (batch_size, n)
 
         # reward and terminated batch are handled differently because they are a list of floats and bools respectively and not a list of np.arrays
         reward_batch = torch.tensor(experiences.reward_batch).to(torch.float).to(self.device) # shape (n)
         terminated_batch = torch.tensor(experiences.terminated_batch).to(self.device) # shape (n)
 
-        target_batch = self._get_dql_target_batch(next_agent_position_features_batch, goal_batch, reward_batch, terminated_batch)
+        target_batch = self._get_dql_target_batch(next_agent_position_batch, goal_batch, reward_batch, terminated_batch)
     
-        del next_agent_position_features_batch
+        del next_agent_position_batch
         del reward_batch
         del terminated_batch
 
         return target_batch
 
     def __build_predicted_batch(self, experiences, goal_batch):
-        agent_position_features_batch = self._build_tensor_from_batch_of_np_arrays(experiences.agent_position_features_batch).to(self.device)
+        agent_position_batch = self._build_tensor_from_batch_of_np_arrays(experiences.agent_position_batch).to(self.device)
         action_batch = torch.tensor(experiences.action_batch).unsqueeze(1).to(self.device)
-        predicted_batch = self.policy_net(agent_position_features_batch, goal_batch).gather(1, action_batch).squeeze()
+        predicted_batch = self.policy_net(agent_position_batch, goal_batch).gather(1, action_batch).squeeze()
 
-        del agent_position_features_batch
+        del agent_position_batch
         del action_batch
 
         return predicted_batch
 
-    def _get_dql_target_batch(self, next_agent_position_features_batch, goal_batch, reward_batch, terminated_batch):
+    def _get_dql_target_batch(self, next_agent_position_batch, goal_batch, reward_batch, terminated_batch):
         with torch.no_grad():
-
-            max_action = torch.argmax(self.target_net(next_agent_position_features_batch, goal_batch), axis = 1).unsqueeze(1).to(self.device)
-            target = reward_batch + self.discount_factor * torch.mul(self.target_net(next_agent_position_features_batch, goal_batch).gather(1,max_action).squeeze(), ~terminated_batch)
+            max_action = torch.argmax(self.target_net(next_agent_position_batch, goal_batch), axis = 1).unsqueeze(1).to(self.device)
+            target = reward_batch + self.discount_factor * torch.mul(self.target_net(next_agent_position_batch, goal_batch).gather(1,max_action).squeeze(), ~terminated_batch)
         return target
 
     def train(self, transition, step):
@@ -252,4 +251,4 @@ class FeatureGoalAgent():
 
 
 if __name__ == '__main__':
-    my_dqn = FeatureGoalAgent()
+    my_dqn = StateGoalAgent()

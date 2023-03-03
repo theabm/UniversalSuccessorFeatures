@@ -1,11 +1,7 @@
 import exputils as eu
-from collections import deque, namedtuple
+from collections import deque
 import random
 
-#Transition = namedtuple("Transition", ("state", "goal", "action", "reward", "next_state", "terminated", "truncated"))
-
-#This is a flexible class which automatically builds a namedtuple the first time that push is called and uses the keys of the arguments as keys for the tuple.
-#It stores the transitions as named tuples for better memory handling.
 class ExperienceReplayMemory():
 
     @staticmethod

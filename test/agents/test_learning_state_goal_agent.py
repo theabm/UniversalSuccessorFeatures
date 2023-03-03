@@ -1,6 +1,6 @@
-import universalSuccessorFeatures.envs as envs
-import universalSuccessorFeatures.agents as a
-import universalSuccessorFeatures.networks as nn
+import universal_successor_features.envs as envs
+import universal_successor_features.agents as a
+import universal_successor_features.networks as nn
 import numpy as np
 import pytest
 import exputils as eu

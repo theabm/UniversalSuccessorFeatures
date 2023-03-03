@@ -1,4 +1,4 @@
-import universalSuccessorFeatures.memory as mem
+import universal_successor_features.memory as mem
 import numpy as np
 
 

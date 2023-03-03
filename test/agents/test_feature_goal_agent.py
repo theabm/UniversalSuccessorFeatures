@@ -1,8 +1,7 @@
 import numpy as np
-import universalSuccessorFeatures.agents as a
-import universalSuccessorFeatures.envs.gridWorld as env
+import universal_successor_features.agents as a
+import universal_successor_features.envs.grid_world as env
 import torch
-import pytest
 
 def test_choose_action():
     my_env = env.GridWorld()
