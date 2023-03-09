@@ -73,7 +73,7 @@ class StateGoalWeightAgent():
         
         #Creating object instances
         if isinstance(self.config.network, dict):
-            self.config.network.features_size = env.rows * env.columns
+            self.config.network.features_size = env.rows*env.columns
             self.policy_net = eu.misc.create_object_from_config(self.config.network)
         else:
             raise ValueError("Network Config must be a dictionary.")
