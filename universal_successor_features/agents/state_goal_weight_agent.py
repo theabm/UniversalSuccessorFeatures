@@ -24,9 +24,6 @@ class StateGoalWeightAgent():
             learning_rate = 5e-4,
             train_for_n_iterations = 1,
             train_every_n_steps = 1,
-            env = eu.AttrDict(
-                cls = envs.GridWorld,
-            ),
             epsilon = eu.AttrDict(
                 cls = eps.EpsilonConstant, 
             ),
@@ -59,9 +56,10 @@ class StateGoalWeightAgent():
         return cnf
 
 
-    def __init__(self, config = None, **kwargs):
+    def __init__(self, env, config = None, **kwargs):
         
         self.config = eu.combine_dicts(kwargs, config, StateGoalWeightAgent.default_config())
+        self.action_space = env.action_space.n
 
         #Setting the device
         if self.config.device == "cuda":
@@ -75,6 +73,7 @@ class StateGoalWeightAgent():
         
         #Creating object instances
         if isinstance(self.config.network, dict):
+            self.config.network.features_size = env.rows * env.columns
             self.policy_net = eu.misc.create_object_from_config(self.config.network)
         else:
             raise ValueError("Network Config must be a dictionary.")
@@ -83,11 +82,6 @@ class StateGoalWeightAgent():
             self.memory = eu.misc.create_object_from_config(self.config.memory)
         else:
             raise ValueError("Memory config must be a dictionary.")
-
-        if isinstance(self.config.env, dict):
-            self.env = eu.misc.create_object_from_config(self.config.env)
-        else:
-            raise ValueError("Environment Config must be a dictionary.")
 
         if isinstance(self.config.epsilon, dict):
             self.epsilon = eu.misc.create_object_from_config(self.config.epsilon)
@@ -144,7 +138,7 @@ class StateGoalWeightAgent():
         if torch.rand(1).item() > self.epsilon.value:
             return self._greedy_action_selection(agent_position, goal_position, goal_weights)
         else:
-            return torch.randint(0,self.env.action_space.n,(1,)) 
+            return torch.randint(0,self.action_space,(1,)) 
 
     def _greedy_action_selection(self, agent_position, goal_position, goal_weights):
         with torch.no_grad():

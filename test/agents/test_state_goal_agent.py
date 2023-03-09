@@ -15,7 +15,8 @@ import pytest
     ]
 )
 def test_epsilon_is_instatiated(eps_type):
-    my_dqn = a.StateGoalAgent(epsilon = {"cls" : eps_type})
+    my_env = env.GridWorld()
+    my_dqn = a.StateGoalAgent(env = my_env, epsilon = {"cls" : eps_type})
     assert isinstance(my_dqn.epsilon, eps_type)
     assert my_dqn.epsilon.value is not None
 
@@ -23,7 +24,7 @@ def test_choose_action():
     my_env = env.GridWorld()
     my_env.reset()
 
-    agent = a.StateGoalAgent()
+    agent = a.StateGoalAgent(env = my_env)
 
     obs, *_ = my_env.step(my_env.action_space.sample())
 
@@ -32,7 +33,8 @@ def test_choose_action():
     assert isinstance(action, int) 
     
 def test_build_tensor_from_batch_of_np_arrays(batch_size = 32):
-    agent = a.StateGoalAgent()
+    my_env = env.GridWorld()
+    agent = a.StateGoalAgent(env = my_env)
 
     batch = []
     for i in range(batch_size):
@@ -44,7 +46,7 @@ def test_build_tensor_from_batch_of_np_arrays(batch_size = 32):
 
 def test_few_rounds_of_training(num_episodes = 20):
     my_env = env.GridWorld()
-    agent = a.StateGoalAgent()
+    agent = a.StateGoalAgent(env = my_env)
 
     step = 0
     for episode in range(num_episodes):
