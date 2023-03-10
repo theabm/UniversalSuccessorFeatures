@@ -1,1 +1,2 @@
 from .core import run_rl_training
+from .core import step_feature_goal_agent, step_feature_goal_weight_agent, step_state_goal_agent, step_state_goal_weight_agent

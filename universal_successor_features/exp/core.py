@@ -2,17 +2,23 @@ import numpy as np
 import exputils as eu
 import exputils.data.logging as log
 
-def run_rl_training(step_function, config = None, **kwargs):
+def run_rl_training(config = None, **kwargs):
 
     # default config
     default_config = eu.AttrDict(
         seed = None, 
-        env = eu.AttrDict(cls = None),
-        agent = eu.AttrDict(cls = None),
+        env=eu.AttrDict(
+            cls=None,
+            nmax_steps=np.inf,
+        ),
+        agent = eu.AttrDict(
+            cls = None,
+            network = eu.AttrDict(cls = None),
+        ),
         goal_list = None,
+        step_function = None,
         n_max_steps = np.inf,
         n_max_episodes = np.inf,
-        n_max_steps_per_episode = np.inf,
         log_name_episode = 'episode',
         log_name_step = 'step',
         log_name_step_per_episode = 'step_per_episode',
@@ -30,7 +36,6 @@ def run_rl_training(step_function, config = None, **kwargs):
     # build instances
     my_env = eu.misc.create_object_from_config(
         config.env,
-        nmax_steps = config.n_max_steps_per_episode
     )
     
     agent = eu.misc.create_object_from_config(
@@ -57,7 +62,7 @@ def run_rl_training(step_function, config = None, **kwargs):
         
         while not terminated and not truncated and step < config.n_max_steps:
 
-            next_obs, reward, terminated, truncated, transition = step_function(obs = obs)
+            next_obs, reward, terminated, truncated, transition = config.step_function(obs = obs)
 
             if config.update_agent:
                 agent.train(transition = transition, step = step)
