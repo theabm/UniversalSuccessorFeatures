@@ -2,7 +2,7 @@ import numpy as np
 import exputils as eu
 import exputils.data.logging as log
 
-def run_rl_training_feature_goal_agent(step_function, config = None, **kwargs):
+def run_rl_training(step_function, config = None, **kwargs):
 
     # default config
     default_config = eu.AttrDict(
