@@ -24,6 +24,8 @@ class FeatureGoalAgent():
             learning_rate = 5e-4,
             train_for_n_iterations = 1,
             train_every_n_steps = 1,
+            is_a_usf = False,
+            loss_weight = 0.9,
             epsilon = eu.AttrDict(
                 cls = eps.EpsilonConstant, 
             ),
@@ -96,6 +98,7 @@ class FeatureGoalAgent():
         self.target_net.to(self.device)
 
         self.loss = self.config.network.loss()
+        self.loss_weight = self.config.loss_weight
         self.optimizer = self.config.network.optimizer(self.policy_net.parameters(), lr = self.config.learning_rate)
         
         self.batch_size = self.config.batch_size      
@@ -118,6 +121,8 @@ class FeatureGoalAgent():
 
         self.current_episode = 0
         self.learning_starts_after = self.batch_size*2
+
+        self.is_a_usf = self.config.is_a_usf
 
     def start_episode(self, episode):
         self.current_episode = episode
@@ -157,12 +162,48 @@ class FeatureGoalAgent():
         predicted_batch = self.__build_predicted_batch(experiences, goal_batch)
 
         self.optimizer.zero_grad()
+
         loss = self.loss(target_batch, predicted_batch)
+        if self.is_a_usf:
+            sf_target_batch = self._build_sf_target_batch(experiences, goal_batch)
+            sf_predicted_batch = self._build_sf_predicted_batch(experiences, goal_batch)
+            loss += self.loss_weight * self.loss(sf_target_batch, sf_predicted_batch)
         
         loss.backward()
         self.optimizer.step()
         
         return loss.item()
+
+    def _build_sf_target_batch(self, experiences, goal_batch):
+        next_agent_position_features_batch = self._build_tensor_from_batch_of_np_arrays(experiences.next_agent_position_features_batch).to(self.device) # shape (batch_size, n)
+        reward_batch = next_agent_position_features_batch # shape (batch_size, n)
+
+        terminated_batch = torch.tensor(experiences.terminated_batch).unsqueeze(1).to(self.device) # shape (n,1)
+
+        target_batch = self._get_sf_target_batch(next_agent_position_features_batch, goal_batch, reward_batch, terminated_batch)
+    
+        del next_agent_position_features_batch
+        del reward_batch
+        del terminated_batch
+
+        return target_batch
+
+    def _get_sf_target_batch(self, next_agent_position_features_batch, goal_batch, reward_batch, terminated_batch):
+        with torch.no_grad():
+            sf_s_g, _ = self.target_net.incomplete_forward(next_agent_position_features_batch, goal_batch)
+            max_sf, _= torch.max(sf_s_g, axis = 1).squeeze().to(self.device) # shape (batch_size, n)
+            target = reward_batch + self.discount_factor * torch.mul(max_sf, ~terminated_batch)
+        return target
+    
+    def _build_sf_predicted_batch(self, experiences, goal_batch):
+        agent_position_features_batch = self._build_tensor_from_batch_of_np_arrays(experiences.agent_position_features_batch).to(self.device)
+        action_batch = torch.tensor(experiences.action_batch).reshape(self.batch_size, 1, 1).tile(100).to(self.device)
+        predicted_batch = self.policy_net.incomplete_forward(agent_position_features_batch, goal_batch).gather(1, action_batch).squeeze()
+
+        del agent_position_features_batch
+        del action_batch
+
+        return predicted_batch
 
     def _sample_experiences(self):
         experiences = self.memory.sample(self.batch_size)
