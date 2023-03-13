@@ -159,8 +159,8 @@ class FeatureGoalAgent():
         experiences = self._sample_experiences()
         goal_batch = self._build_tensor_from_batch_of_np_arrays(experiences.goal_batch).to(self.device)
 
-        target_batch = self.__build_target_batch(experiences, goal_batch)
-        predicted_batch = self.__build_predicted_batch(experiences, goal_batch)
+        target_batch = self._build_target_batch(experiences, goal_batch)
+        predicted_batch = self._build_predicted_batch(experiences, goal_batch)
 
         self.optimizer.zero_grad()
 
@@ -234,12 +234,12 @@ class FeatureGoalAgent():
 
         return batch_of_np_arrays
 
-    def __build_target_batch(self, experiences, goal_batch):
+    def _build_target_batch(self, experiences, goal_batch):
         next_agent_position_features_batch = self._build_tensor_from_batch_of_np_arrays(experiences.next_agent_position_features_batch).to(self.device) # shape (batch_size, n)
 
         # reward and terminated batch are handled differently because they are a list of floats and bools respectively and not a list of np.arrays
-        reward_batch = torch.tensor(experiences.reward_batch).to(torch.float).to(self.device) # shape (n)
-        terminated_batch = torch.tensor(experiences.terminated_batch).to(self.device) # shape (n)
+        reward_batch = torch.tensor(experiences.reward_batch).to(torch.float).to(self.device) # shape (batch_size,)
+        terminated_batch = torch.tensor(experiences.terminated_batch).to(self.device) # shape (batch_size,)
 
         target_batch = self._get_dql_target_batch(next_agent_position_features_batch, goal_batch, reward_batch, terminated_batch)
     
@@ -249,7 +249,7 @@ class FeatureGoalAgent():
 
         return target_batch
 
-    def __build_predicted_batch(self, experiences, goal_batch):
+    def _build_predicted_batch(self, experiences, goal_batch):
         agent_position_features_batch = self._build_tensor_from_batch_of_np_arrays(experiences.agent_position_features_batch).to(self.device)
         action_batch = torch.tensor(experiences.action_batch).unsqueeze(1).to(self.device)
         predicted_batch = self.policy_net(agent_position_features_batch, goal_batch).gather(1, action_batch).squeeze()
@@ -262,8 +262,11 @@ class FeatureGoalAgent():
     def _get_dql_target_batch(self, next_agent_position_features_batch, goal_batch, reward_batch, terminated_batch):
         with torch.no_grad():
 
-            max_action = torch.argmax(self.target_net(next_agent_position_features_batch, goal_batch), axis = 1).unsqueeze(1).to(self.device)
-            target = reward_batch + self.discount_factor * torch.mul(self.target_net(next_agent_position_features_batch, goal_batch).gather(1,max_action).squeeze(), ~terminated_batch)
+            q, _ = torch.max(self.target_net(next_agent_position_features_batch, goal_batch), axis = 1) # shape of q is (batch_size,)
+            q.to(self.device)
+            target = reward_batch + self.discount_factor * torch.mul(q, ~terminated_batch)
+            #max_action = torch.argmax(self.target_net(next_agent_position_features_batch, goal_batch), axis = 1).unsqueeze(1).to(self.device)
+            #target = reward_batch + self.discount_factor * torch.mul(self.target_net(next_agent_position_features_batch, goal_batch).gather(1,max_action).squeeze(), ~terminated_batch)
         return target
 
     def train(self, transition, step):

@@ -44,7 +44,6 @@ q_gt_g2_array = np.array([q_gt_g2_s1, q_gt_g2_s2, q_gt_g2_s3, q_gt_g2_s4, q_gt_g
         "network",
         [
             (nn.FeatureGoalPaperDQN),
-            (nn.FeatureGoalUSF),
             (nn.FeatureGoalAugumentedDQN)
         ]
 )
