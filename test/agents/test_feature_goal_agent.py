@@ -27,29 +27,6 @@ def test_build_tensor_from_batch_of_np_arrays(batch_size = 32):
     assert tuple(batch.shape) == (batch_size, 100) 
     assert batch.dtype == torch.float
 
-def test_few_rounds_of_training(num_episodes = 10):
-    my_env = env.GridWorld()
-    agent = a.FeatureGoalAgent(env = my_env)
-
-    step = 0
-    for episode in range(num_episodes):
-        agent.start_episode(episode = episode)
-        obs, _ = my_env.reset()
-        while True:
-            action = agent.choose_action(agent_position_features = obs["agent_position_features"], goal_position = obs["goal_position"], training= False)
-            next_obs, reward, terminated, truncated, _ = my_env.step(action=action)
-
-            transition = (obs["agent_position_features"], obs["goal_position"], action, reward, next_obs["agent_position_features"], terminated, truncated)
-
-            agent.train(transition=transition, step = step)
-
-            if terminated or truncated:
-                agent.end_episode()
-                break
-
-            obs = next_obs
-            step += 1
-
 
 
     

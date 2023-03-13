@@ -54,7 +54,13 @@ def test_training(network, discount_factor = 0.5, num_episodes=50, seed=0):
     my_env = envs.GridWorld(rows = 3, columns = 3, penalization = 0, reward_at_goal_position = 1)
 
     agent = a.FeatureGoalWeightAgent(
-        env = my_env, epsilon = {"value" : 1.0}, train_for_n_iterations = 2, discount_factor = discount_factor, network = {"cls":network}
+        env = my_env, 
+        epsilon = {"value" : 1.0}, 
+        train_for_n_iterations = 2, 
+        discount_factor = discount_factor, 
+        network = {"cls":network},
+        is_a_usf = True,
+        loss_weight = 0.1
         )
     device = agent.device
 
