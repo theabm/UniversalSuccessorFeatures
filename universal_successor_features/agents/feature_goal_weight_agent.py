@@ -263,8 +263,9 @@ class FeatureGoalWeightAgent():
 
     def _get_dql_target_batch(self, next_agent_position_features_batch, goal_batch, goal_weights_batch, reward_batch, terminated_batch):
         with torch.no_grad():
-            max_action = torch.argmax(self.target_net(agent_position_features = next_agent_position_features_batch, goal_position = goal_batch, goal_weights = goal_weights_batch), axis = 1).unsqueeze(1).to(self.device)
-            target = reward_batch + self.discount_factor * torch.mul(self.target_net(agent_position_features = next_agent_position_features_batch, goal_position = goal_batch, goal_weights = goal_weights_batch).gather(1,max_action).squeeze(), ~terminated_batch)
+            q, _ = torch.max(self.target_net(agent_position_features = next_agent_position_features_batch, goal_position = goal_batch, goal_weights = goal_weights_batch), axis = 1)  # shape of q is (batch_size,)
+            q.to(self.device)
+            target = reward_batch + self.discount_factor * torch.mul(q, ~terminated_batch)
         return target
 
     def train(self, transition, step):

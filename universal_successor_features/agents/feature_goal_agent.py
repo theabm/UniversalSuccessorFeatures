@@ -261,7 +261,6 @@ class FeatureGoalAgent():
 
     def _get_dql_target_batch(self, next_agent_position_features_batch, goal_batch, reward_batch, terminated_batch):
         with torch.no_grad():
-
             q, _ = torch.max(self.target_net(next_agent_position_features_batch, goal_batch), axis = 1) # shape of q is (batch_size,)
             q.to(self.device)
             target = reward_batch + self.discount_factor * torch.mul(q, ~terminated_batch)
