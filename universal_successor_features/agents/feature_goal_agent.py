@@ -265,8 +265,6 @@ class FeatureGoalAgent():
             q, _ = torch.max(self.target_net(next_agent_position_features_batch, goal_batch), axis = 1) # shape of q is (batch_size,)
             q.to(self.device)
             target = reward_batch + self.discount_factor * torch.mul(q, ~terminated_batch)
-            #max_action = torch.argmax(self.target_net(next_agent_position_features_batch, goal_batch), axis = 1).unsqueeze(1).to(self.device)
-            #target = reward_batch + self.discount_factor * torch.mul(self.target_net(next_agent_position_features_batch, goal_batch).gather(1,max_action).squeeze(), ~terminated_batch)
         return target
 
     def train(self, transition, step):
