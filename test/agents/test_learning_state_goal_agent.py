@@ -44,7 +44,6 @@ q_gt_g2_array = np.array([q_gt_g2_s1, q_gt_g2_s2, q_gt_g2_s3, q_gt_g2_s4, q_gt_g
         "network",
         [
             (nn.StateGoalPaperDQN),
-            (nn.StateGoalUSF),
             (nn.StateGoalAugmentedDQN)
         ]
 )
@@ -56,7 +55,11 @@ def test_training(network, discount_factor = 0.5, num_episodes=50, seed=0):
     my_env = envs.GridWorld(rows = 3, columns = 3, penalization = 0, reward_at_goal_position = 1)
 
     agent = a.StateGoalAgent(
-        env = my_env, epsilon = {"value" : 1.0}, train_for_n_iterations = 2, discount_factor = discount_factor, network = {"cls":network}
+        env = my_env, 
+        epsilon = {"value" : 1.0},
+        train_for_n_iterations = 2, 
+        discount_factor = discount_factor, 
+        network = {"cls":network}
         )
     device = agent.device
 
@@ -118,3 +121,86 @@ def test_training(network, discount_factor = 0.5, num_episodes=50, seed=0):
 
     assert cmp1 and cmp2
             
+
+@pytest.mark.parametrize(
+        "network",
+        [
+            (nn.StateGoalUSF),
+        ]
+)
+def test_training_usf(network, discount_factor = 0.5, num_episodes=50, seed=0):
+
+    if seed is not None:
+        eu.misc.seed(seed)
+
+    my_env = envs.GridWorld(rows = 3, columns = 3, penalization = 0, reward_at_goal_position = 1)
+
+    agent = a.StateGoalAgent(
+        env = my_env, 
+        epsilon = {"value" : 1.0}, 
+        train_for_n_iterations = 2, 
+        discount_factor = discount_factor, 
+        network = {"cls":network},
+        is_a_usf = True,
+        loss_weight = 0.01
+        )
+    device = agent.device
+
+    start_position = np.array([[0,0]])
+    
+    goal_1_position = np.array([[2,2]])
+    goal_2_position = np.array([[2,0]])
+    goal_list = [goal_1_position,goal_2_position]
+
+    step = 0
+
+    for episode in range(num_episodes):
+
+        goal_position = my_env.sample_a_goal_position_from_list(goal_list=goal_list)
+        obs, _ = my_env.reset(start_agent_position = start_position, goal_position=goal_position)
+        agent.start_episode(episode=episode)
+
+        while True:
+            
+            action = agent.choose_action(agent_position=obs["agent_position"], goal_position=obs["goal_position"], training=True)
+            
+            next_obs, reward, terminated, truncated, _ = my_env.step(action=action)
+
+            transition = (obs["agent_position"], obs["goal_position"], action, reward, next_obs["agent_position"], terminated, truncated)
+
+            agent.train(transition=transition, step = step)
+
+            if terminated or truncated:
+                agent.end_episode()
+                break
+
+            obs = next_obs
+            step += 1
+    
+    goal_1_position = torch.tensor(goal_1_position).to(torch.float).to(device)
+    goal_2_position = torch.tensor(goal_2_position).to(torch.float).to(device)
+            
+    q_pred_g1_array = []
+    q_pred_g2_array = []
+    for i in range(my_env.rows):
+        for j in range(my_env.columns):
+            agent_position = torch.tensor([i,j]).to(torch.float).unsqueeze(0).to(device)
+            idx = i*my_env.rows + j
+            if idx == 8:
+                q_pred_g2_array.append(agent.policy_net(agent_position=agent_position, goal_position=goal_2_position).cpu().squeeze().detach().numpy())
+                continue
+            elif idx == 6:
+                q_pred_g1_array.append(agent.policy_net(agent_position=agent_position, goal_position=goal_1_position).cpu().squeeze().detach().numpy())
+                continue
+            else:
+                q_pred_g1_array.append(agent.policy_net(agent_position=agent_position, goal_position=goal_1_position).cpu().squeeze().detach().numpy())
+                q_pred_g2_array.append(agent.policy_net(agent_position=agent_position, goal_position=goal_2_position).cpu().squeeze().detach().numpy())
+
+
+    q_pred_g1_array = np.array(q_pred_g1_array)
+    q_pred_g2_array = np.array(q_pred_g2_array)
+    print("\n", q_gt_g1_array, "\n", q_pred_g1_array)
+    cmp1 = np.allclose(q_pred_g1_array, q_gt_g1_array, rtol = 0, atol = 0.05)
+    cmp2 = np.allclose(q_pred_g2_array, q_gt_g2_array, rtol = 0, atol = 0.05)
+
+    assert cmp1 and cmp2

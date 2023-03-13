@@ -201,7 +201,7 @@ class FeatureGoalAgent():
             sf_s_g, w = self.target_net.incomplete_forward(next_agent_position_features_batch, goal_batch) # shape (batch_size, num_actions, n) = (32, 4, 100)
             # complete forward takes sf_s_g and w, and multiplies them in the correct way to ouput the Q values of shape (batch_size, num_actions)
             q = self.target_net.complete_forward(sf_s_g, w)
-            # we now take the max of the q function. Axis = 1 makes it so we collapse columns dimension to 1 - this results in (batch, 1). 
+            # we now take the max of the q function. Axis = 1 makes it so we collapse columns dimension to 1 - this results in (batch,). 
             _, action = torch.max(q, axis = 1)
             # Then, we reshape to (batch, 1, 1) and tile (duplicate) features_size times along the last dim. This is needed for the gather function to work later.
             action = action.reshape(self.batch_size, 1, 1).tile(self.features_size).to(self.device) # shape (batch_size,1,n)

@@ -58,13 +58,15 @@ class StateGoalUSF(torch.nn.Module):
         sf_s_g = sf_s_g.reshape(N, self.num_actions, self.features_size)
 
         return sf_s_g, w
+    
+    def complete_forward(self, sf_s_g, w):
+        return torch.matmul(sf_s_g, w.unsqueeze(2)).squeeze(dim=2)
+
 
     def forward(self, agent_position, goal_position):
         sf_s_g, w = self.incomplete_forward(agent_position=agent_position, goal_position=goal_position)
 
-        Q_s_g = torch.matmul(sf_s_g, w.unsqueeze(2)).squeeze(dim=2)
-
-        return Q_s_g
+        return self.complete_forward(sf_s_g=sf_s_g, w=w)
 
 
 if __name__ == '__main__':

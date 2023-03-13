@@ -105,6 +105,7 @@ class StateGoalAgent():
         self.target_net.to(self.device)
 
         self.loss = self.config.network.loss()
+        self.loss_weight = self.config.loss_weight
         self.optimizer = self.config.network.optimizer(self.policy_net.parameters(), lr = self.config.learning_rate)
         
         self.batch_size = self.config.batch_size      
@@ -127,6 +128,8 @@ class StateGoalAgent():
 
         self.current_episode = 0
         self.learning_starts_after = self.batch_size*2
+
+        self.is_a_usf = self.config.is_a_usf
 
     def start_episode(self, episode):
         self.current_episode = episode
@@ -162,16 +165,69 @@ class StateGoalAgent():
         experiences = self._sample_experiences()
         goal_batch = self._build_tensor_from_batch_of_np_arrays(experiences.goal_batch).to(self.device)
 
-        target_batch = self.__build_target_batch(experiences, goal_batch)
-        predicted_batch = self.__build_predicted_batch(experiences, goal_batch)
+        target_batch = self._build_target_batch(experiences, goal_batch)
+        predicted_batch = self._build_predicted_batch(experiences, goal_batch)
 
         self.optimizer.zero_grad()
+
         loss = self.loss(target_batch, predicted_batch)
+        if self.is_a_usf:
+            sf_target_batch = self._build_sf_target_batch(experiences, goal_batch)
+            sf_predicted_batch = self._build_sf_predicted_batch(experiences, goal_batch)
+            loss += self.loss_weight * self.loss(sf_target_batch, sf_predicted_batch)
         
         loss.backward()
         self.optimizer.step()
         
         return loss.item()
+
+    def _build_sf_target_batch(self, experiences, goal_batch):
+        next_agent_position_batch = self._build_tensor_from_batch_of_np_arrays(experiences.next_agent_position_batch).to(self.device) # shape (batch_size, n)
+        with torch.no_grad():
+            reward_batch = self.target_net.layer_state(next_agent_position_batch).to(self.device) # shape (batch_size, n)
+
+        # Needs to be shape (batch_size, 1) so that broadcasting duplicates to (batch_size, n). Without this, torch.mul later will not work.
+        # Also, (1, batch_size) is wrong because it will not broadcast in the correct way - it will broadcast to be (batch_size, batch_size) which will give error for torch.mul. 
+        terminated_batch = torch.tensor(experiences.terminated_batch).unsqueeze(1).to(self.device) # shape (batch_size,1)
+
+        target_batch = self._get_sf_target_batch(next_agent_position_batch, goal_batch, reward_batch, terminated_batch)
+    
+        del next_agent_position_batch
+        del reward_batch
+        del terminated_batch
+
+        return target_batch
+
+    def _get_sf_target_batch(self, next_agent_position_batch, goal_batch, reward_batch, terminated_batch):
+        with torch.no_grad():
+            # incomplete forward outputs only successor features of shape (batch_size, num_actions, features_size) and weights of shape (batch_size, features_size)
+            sf_s_g, w = self.target_net.incomplete_forward(next_agent_position_batch, goal_batch) # shape (batch_size, num_actions, n) = (32, 4, 100)
+            # complete forward takes sf_s_g and w, and multiplies them in the correct way to ouput the Q values of shape (batch_size, num_actions)
+            q = self.target_net.complete_forward(sf_s_g, w)
+            # we now take the max of the q function. Axis = 1 makes it so we collapse columns dimension to 1 - this results in shape (batch,). 
+            _, action = torch.max(q, axis = 1)
+            # Then, we reshape to (batch, 1, 1) and tile (duplicate) features_size times along the last dim. This is needed for the gather function to work later.
+            action = action.reshape(self.batch_size, 1, 1).tile(self.features_size).to(self.device) # shape (batch_size,1,n)
+            # The reward batch will have shape (batch, features_size), sf_s_g will have size (batch, num_actions, features_size), terminated will have (batch, 1)
+            # The gather function is a fancy slicing operation. We use it to select the sf's corresponding to the action index we found before. i.e, if for batch 1 the 
+            # max action is action 2, then we will pick the second (features_size,) matrix in that batch. 
+            # The gather operator requires that sf_s_g and action be the same shape (so 3D) and for it to work correctly as we want it, we must repeat the action index
+            # everywhere in the last dim, hence the tiling operation. This will produce (batch, 1, features_size) which we squeeze() to (batch, features_size) and then multiply
+            # with terminated_batch which is (batch, 1) (which will get brodcasted). Final result is (batch, features_size). So it all works.
+            target = reward_batch + self.discount_factor * torch.mul(sf_s_g.gather(1, action).squeeze(), ~terminated_batch)
+        return target
+
+    def _build_sf_predicted_batch(self, experiences, goal_batch):
+        agent_position_batch = self._build_tensor_from_batch_of_np_arrays(experiences.agent_position_batch).to(self.device)
+        action_batch = torch.tensor(experiences.action_batch).reshape(self.batch_size, 1, 1).tile(self.features_size).to(self.device)
+        sf_s_g, _ = self.policy_net.incomplete_forward(agent_position_batch, goal_batch)
+        predicted_batch = sf_s_g.gather(1, action_batch).squeeze() 
+
+        del agent_position_batch
+        del action_batch
+        del sf_s_g
+
+        return predicted_batch
 
     def _sample_experiences(self):
         experiences = self.memory.sample(self.batch_size)
@@ -185,7 +241,7 @@ class StateGoalAgent():
 
         return batch_of_np_arrays
 
-    def __build_target_batch(self, experiences, goal_batch):
+    def _build_target_batch(self, experiences, goal_batch):
         next_agent_position_batch = self._build_tensor_from_batch_of_np_arrays(experiences.next_agent_position_batch).to(self.device) # shape (batch_size, n)
 
         # reward and terminated batch are handled differently because they are a list of floats and bools respectively and not a list of np.arrays
@@ -200,7 +256,7 @@ class StateGoalAgent():
 
         return target_batch
 
-    def __build_predicted_batch(self, experiences, goal_batch):
+    def _build_predicted_batch(self, experiences, goal_batch):
         agent_position_batch = self._build_tensor_from_batch_of_np_arrays(experiences.agent_position_batch).to(self.device)
         action_batch = torch.tensor(experiences.action_batch).unsqueeze(1).to(self.device)
         predicted_batch = self.policy_net(agent_position_batch, goal_batch).gather(1, action_batch).squeeze()
@@ -212,8 +268,9 @@ class StateGoalAgent():
 
     def _get_dql_target_batch(self, next_agent_position_batch, goal_batch, reward_batch, terminated_batch):
         with torch.no_grad():
-            max_action = torch.argmax(self.target_net(next_agent_position_batch, goal_batch), axis = 1).unsqueeze(1).to(self.device)
-            target = reward_batch + self.discount_factor * torch.mul(self.target_net(next_agent_position_batch, goal_batch).gather(1,max_action).squeeze(), ~terminated_batch)
+            q, _ = torch.max(self.target_net(next_agent_position_batch, goal_batch), axis = 1)  # shape of q is (batch_size,)
+            q.to(self.device)
+            target = reward_batch + self.discount_factor * torch.mul(q, ~terminated_batch)
         return target
 
     def train(self, transition, step):

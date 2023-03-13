@@ -37,7 +37,7 @@ class StateGoalWeightUSF(torch.nn.Module):
             torch.nn.Linear(in_features=256, out_features=self.config.num_actions*self.config.features_size),
         )
 
-    def forward(self, agent_position, goal_position, goal_weights):
+    def incomplete_forward(self, agent_position, goal_position):
         s_rep = self.layer_state(agent_position)
         g_rep = self.layer_goal(goal_position)
         rep = torch.cat((s_rep,g_rep),dim=1)
@@ -46,8 +46,14 @@ class StateGoalWeightUSF(torch.nn.Module):
         N = sf_s_g.shape[0]
         sf_s_g = sf_s_g.reshape(N, self.num_actions, self.features_size)
 
-        Q_s_g = torch.matmul(sf_s_g, goal_weights.unsqueeze(2)).squeeze(dim=2)
-        return Q_s_g
+        return sf_s_g
+
+    def complete_forward(self, sf_s_g, w):
+        return torch.matmul(sf_s_g, w.unsqueeze(2)).squeeze(dim=2)
+
+    def forward(self, agent_position, goal_position, goal_weights):
+        sf_s_g = self.incomplete_forward(agent_position=agent_position, goal_position=goal_position)
+        return self.complete_forward(sf_s_g=sf_s_g, w=goal_weights)
 
 
 if __name__ == '__main__':
