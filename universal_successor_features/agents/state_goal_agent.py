@@ -24,6 +24,8 @@ class StateGoalAgent():
             learning_rate = 5e-4,
             train_for_n_iterations = 1,
             train_every_n_steps = 1,
+            is_a_usf = False,
+            loss_weight = 0.01,
             epsilon = eu.AttrDict(
                 cls = eps.EpsilonConstant, 
             ),
@@ -60,6 +62,8 @@ class StateGoalAgent():
         
         self.config = eu.combine_dicts(kwargs, config, StateGoalAgent.default_config())
         self.action_space = env.action_space.n
+        self.position_size = env.observation_space["agent_position"].shape[1]
+        self.features_size = env.observation_space["agent_position_features"].shape[1]
 
         # Setting the device
         if self.config.device == "cuda":
@@ -75,6 +79,10 @@ class StateGoalAgent():
         ## in the future, maybe I will have to incorporate some info from environment into config of network
         ## i.e the state size or goal size. But for now it works. (see what I did for feature based agents)
         if isinstance(self.config.network, dict):
+            self.config.network.state_size = self.position_size
+            self.config.network.goal_size = self.position_size
+            self.config.network.features_size = self.features_size
+            self.config.network.num_actions = self.action_space
             self.policy_net = eu.misc.create_object_from_config(self.config.network)
         else:
             raise ValueError("Network Config must be a dictionary.")

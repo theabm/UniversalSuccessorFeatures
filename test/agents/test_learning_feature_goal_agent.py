@@ -122,7 +122,7 @@ def test_training(network, discount_factor = 0.5, num_episodes=50, seed=0):
 
     assert cmp1 and cmp2
             
-#test_training(network=nn.FeatureGoalPaperDQN)
+test_training(network=nn.FeatureGoalPaperDQN)
 
 @pytest.mark.parametrize(
         "network",

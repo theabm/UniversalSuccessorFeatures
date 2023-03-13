@@ -62,6 +62,7 @@ class FeatureGoalWeightAgent():
         
         self.config = eu.combine_dicts(kwargs, config, FeatureGoalWeightAgent.default_config())
         self.action_space = env.action_space.n
+        self.position_size = env.observation_space["agent_position"].shape[1]
         self.features_size = env.observation_space["agent_position_features"].shape[1]
 
         #Setting the device
@@ -76,7 +77,10 @@ class FeatureGoalWeightAgent():
         
         #Creating object instances
         if isinstance(self.config.network, dict):
+            self.config.network.state_size = self.position_size
+            self.config.network.goal_size = self.position_size
             self.config.network.features_size = self.features_size
+            self.config.network.num_actions = self.action_space
             self.policy_net = eu.misc.create_object_from_config(self.config.network)
         else:
             raise ValueError("Network Config must be a dictionary.")
