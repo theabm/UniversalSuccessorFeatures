@@ -183,7 +183,7 @@ class GridWorld(gym.Env):
 if __name__ == '__main__':
     grid_world_env = GridWorld()
     # check_env(grid_world_env) #reset missing **kwargs argument but I dont want this functionality.
-
+    print(grid_world_env.observation_space["agent_position_features"].shape[1])
     num_episodes = 1
     for _ in range(num_episodes):
         grid_world_env.reset()
