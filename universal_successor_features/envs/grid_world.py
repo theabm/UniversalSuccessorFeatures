@@ -54,7 +54,7 @@ class GridWorld(gym.Env):
 
         # generated randomly once for 10x10 and fixed forever.
         self.n_goals = self.config.n_goals
-        self.goal_list_training, self.goal_list_testing = self.sample_disjoint_goal_list_for_training_and_testing()
+        self.goal_list_training, self.goal_list_testing = self._create_disjoint_goal_list_for_training_and_testing()
 
     def _sample_position_in_matrix(self):
         """Samples a row and a column from the predefined matrix dimensions.
@@ -65,24 +65,22 @@ class GridWorld(gym.Env):
         
         return i,j
     
-    def sample_disjoint_goal_list_for_training_and_testing(self):
+    def _create_disjoint_goal_list_for_training_and_testing(self):
         all_possible_goals = [np.array([[i,j]]) for i in range(self.rows) for j in range(self.columns)]
         goals = random.sample(all_possible_goals, 2*self.n_goals)
         return goals[:self.n_goals], goals[self.n_goals:]
-        
     
-    def sample_a_goal_position_from_list(self, goal_list = None, training = True):
-        """Takes as input a list np.arrays of goals and samples a goal position. 
-        """
-        if goal_list is None and training:
+    def sample_a_goal_position(self, training):
+        if training:
             idx = random.randrange(len(self.goal_list_training))
-        elif goal_list is None and not training:
-            idx = random.randrange(len(self.goal_list_testing))
+            return self.goal_list_training[idx]
         else:
-            assert goal_list is not None, "Goal list must be defined"
-            idx = random.randrange(len(goal_list))
+            idx = random.randrange(len(self.goal_list_testing))
+            return self.goal_list_testing[idx]
+    
+    def sample_a_goal_position_from_list(self, goal_list):
+        idx = random.randrange(len(goal_list))
         return goal_list[idx]
-
 
     def reset(self, start_agent_position : np.ndarray = None, goal_position : np.ndarray = None, seed = None):
 
@@ -203,7 +201,7 @@ if __name__ == '__main__':
     # check_env(grid_world_env) #reset missing **kwargs argument but I dont want this functionality.
     print(grid_world_env.observation_space["agent_position_features"].shape[1])
     print(grid_world_env.observation_space["agent_position"].shape[1])
-    l1, l2 = grid_world_env.sample_disjoint_goal_list_for_training_and_testing()
+    l1, l2 = grid_world_env._create_disjoint_goal_list_for_training_and_testing()
     print(l1)
     print(l2)
     num_episodes = 1
