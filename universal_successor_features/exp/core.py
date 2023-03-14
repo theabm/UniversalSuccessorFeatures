@@ -15,9 +15,7 @@ def run_rl_training(config = None, **kwargs):
             cls = None,
             network = eu.AttrDict(cls = None),
         ),
-        goal_list = None,
-        start_agent_position = None,
-        update_agent = True,
+        training = None,
         step_function = None,
         n_max_steps = np.inf,
         n_max_episodes = np.inf,
@@ -60,16 +58,19 @@ def run_rl_training(config = None, **kwargs):
 
         agent.start_episode(episode = episode)
 
-        goal_position = my_env.sample_a_goal_position_from_list(goal_list = config.goal_list)
+        goal_position = my_env.sample_a_goal_position_from_list(training = config.training)
 
-        obs, _ = my_env.reset(start_agent_position = config.start_agent_position, goal_position = goal_position)
+        obs, _ = my_env.reset(goal_position = goal_position)
         
         while not terminated and not truncated and step < config.n_max_steps:
 
             next_obs, reward, terminated, truncated, transition = config.step_function(obs = obs)
 
-            if config.update_agent:
+            if config.training:
                 agent.train(transition = transition, step = step)
+
+            if terminated:
+                successful_episodes+=1
 
             reward_per_episode += reward
             total_reward += reward
@@ -85,11 +86,10 @@ def run_rl_training(config = None, **kwargs):
             step += 1
             step_per_episode += 1
             
-            if terminated:
-                successful_episodes+=1
-
         agent.end_episode()
-
+        if episode > 0 and episode%50 == 0:
+            agent.save()
+            
         log.add_value(config.log_name_step_per_episode, step_per_episode)
         log.add_value(config.log_name_reward_per_episode, reward_per_episode)
 
