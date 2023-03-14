@@ -15,6 +15,7 @@ def run_rl_training(config = None, **kwargs):
             cls = None,
             network = eu.AttrDict(cls = None),
         ),
+        update_agent = None,
         training = None,
         step_function = None,
         n_max_steps = np.inf,
@@ -58,7 +59,7 @@ def run_rl_training(config = None, **kwargs):
 
         agent.start_episode(episode = episode)
 
-        goal_position = my_env.sample_a_goal_position_from_list(training = config.training)
+        goal_position = my_env.sample_a_goal_position(training = config.training)
 
         obs, _ = my_env.reset(goal_position = goal_position)
         
@@ -66,7 +67,7 @@ def run_rl_training(config = None, **kwargs):
 
             next_obs, reward, terminated, truncated, transition = config.step_function(obs = obs)
 
-            if config.training:
+            if config.update_agent:
                 agent.train(transition = transition, step = step)
 
             if terminated:
