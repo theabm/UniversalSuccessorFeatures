@@ -14,7 +14,8 @@ class GridWorld(gym.Env):
             columns = 10,
             nmax_steps = 1e6,
             penalization = -0.1,
-            reward_at_goal_position = 0
+            reward_at_goal_position = 0,
+            n_goals = 1
             )
 
     def __init__(self, config = None, **kwargs):
@@ -51,6 +52,10 @@ class GridWorld(gym.Env):
         self.cur_step = None 
         self.nmax_steps = self.config.nmax_steps
 
+        # generated randomly once for 10x10 and fixed forever.
+        self.n_goals = self.config.n_goals
+        self.goal_list_training, self.goal_list_testing = self.sample_disjoint_goal_list_for_training_and_testing()
+
     def _sample_position_in_matrix(self):
         """Samples a row and a column from the predefined matrix dimensions.
            Returns a tuple of int.
@@ -59,10 +64,23 @@ class GridWorld(gym.Env):
         j = np.random.choice(self.columns)
         
         return i,j
-    def sample_a_goal_position_from_list(self, goal_list : list):
+    
+    def sample_disjoint_goal_list_for_training_and_testing(self):
+        all_possible_goals = [np.array([[i,j]]) for i in range(self.rows) for j in range(self.columns)]
+        goals = random.sample(all_possible_goals, 2*self.n_goals)
+        return goals[:self.n_goals], goals[self.n_goals:]
+        
+    
+    def sample_a_goal_position_from_list(self, goal_list = None, training = True):
         """Takes as input a list np.arrays of goals and samples a goal position. 
         """
-        idx = random.randrange(len(goal_list))
+        if goal_list is None and training:
+            idx = random.randrange(len(self.goal_list_training))
+        elif goal_list is None and not training:
+            idx = random.randrange(len(self.goal_list_testing))
+        else:
+            assert goal_list is not None, "Goal list must be defined"
+            idx = random.randrange(len(goal_list))
         return goal_list[idx]
 
 
@@ -185,6 +203,9 @@ if __name__ == '__main__':
     # check_env(grid_world_env) #reset missing **kwargs argument but I dont want this functionality.
     print(grid_world_env.observation_space["agent_position_features"].shape[1])
     print(grid_world_env.observation_space["agent_position"].shape[1])
+    l1, l2 = grid_world_env.sample_disjoint_goal_list_for_training_and_testing()
+    print(l1)
+    print(l2)
     num_episodes = 1
     for _ in range(num_episodes):
         grid_world_env.reset()
@@ -193,5 +214,5 @@ if __name__ == '__main__':
         for _ in range(100):
             action = grid_world_env.action_space.sample()
             obs, reward, terminated, truncated, info = grid_world_env.step(action)
-            grid_world_env.render(action, reward)
+            # grid_world_env.render(action, reward)
 
