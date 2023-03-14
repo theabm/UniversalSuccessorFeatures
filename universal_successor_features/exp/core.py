@@ -90,13 +90,15 @@ def run_rl_training(config = None, **kwargs):
             step_per_episode += 1
             
         agent.end_episode()
-        if episode > 0 and episode%50 == 0:
+        if episode > 0 and episode%500 == 0:
             agent.save(episode, step)
             
         log.add_value(config.log_name_step_per_episode, step_per_episode)
         log.add_value(config.log_name_reward_per_episode, reward_per_episode)
 
         episode += 1
+    
+    log.save()
 
 def step_feature_goal_agent(obs, agent, my_env):
     action = agent.choose_action(agent_position_features=obs["agent_position_features"], goal_position=obs["goal_position"], training=True)
