@@ -50,9 +50,8 @@ class FeatureGoalWeightAgent():
                 epsilon_per_episode = True,
             ),
             save = eu.AttrDict(
-                # NEED TO HANDLE STILL
-                directory = None,
-                frequency = 10, # in episodes
+                filename_prefix = "fgwa_",
+                extension = ".pt"
             ),
         )
         return cnf
@@ -308,6 +307,26 @@ class FeatureGoalWeightAgent():
 
         self.target_net.load_state_dict(target_net_state_dict)
 
+    def save(self, episode, step):
+        filename = self.config.save.filename_prefix + str(self.policy_net.__class__.__name__) + "_" + str(episode) + self.config.save.extension
+        torch.save(
+            {
+                "episode": episode,
+                "step": step,
+                "model_state_dict": self.policy_net.state_dict(),
+                "optimizer_state_dict": self.optimizer.state_dict(),
+                "memory": self.memory,
+            },
+            filename
+        )
+    
+    def load(self, filename):
+        checkpoint = torch.load(filename)
 
-if __name__ == '__main__':
-    my_dqn = FeatureGoalWeightAgent()
+        self.policy_net.load_state_dict(checkpoint["model_state_dict"])
+        self.target_net.load_state_dict(checkpoint["model_state_dict"])
+
+        self.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
+
+        self.memory = checkpoint["memory"]
+        self.current_episode = checkpoint["episode"]
