@@ -13,7 +13,6 @@ class ExperienceReplayMemory():
         self.config = eu.combine_dicts(kwargs, config, self.default_config())
 
         self.memory = deque([],maxlen=self.config.capacity)
-        
 
     def push(self, transition):
         self.memory.append(transition)

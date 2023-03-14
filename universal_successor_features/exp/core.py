@@ -28,6 +28,7 @@ def run_rl_training(config = None, **kwargs):
         log_name_reward_per_episode = 'reward_per_episode',
         log_name_reward_per_step = 'reward_per_step',
         log_name_total_reward = 'total_reward',
+        log_name_done_rate = 'done_rate'
     )
     
     config = eu.combine_dicts(kwargs, config, default_config)
@@ -48,6 +49,7 @@ def run_rl_training(config = None, **kwargs):
     step = 0
     total_reward = 0
     episode = 0
+    successful_episodes = 0
 
     while episode < config.n_max_episodes and step < config.n_max_steps:
 
@@ -71,15 +73,20 @@ def run_rl_training(config = None, **kwargs):
 
             reward_per_episode += reward
             total_reward += reward
+            done_rate = successful_episodes/(episode+1)
 
             log.add_value(config.log_name_step, step)
             log.add_value(config.log_name_reward_per_step, reward)
             log.add_value(config.log_name_episode_per_step, episode)
+            log.add_value(config.log_name_done_rate, done_rate)
 
             obs = next_obs
 
             step += 1
             step_per_episode += 1
+            
+            if terminated:
+                successful_episodes+=1
 
         agent.end_episode()
 

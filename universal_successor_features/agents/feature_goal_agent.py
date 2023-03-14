@@ -50,9 +50,8 @@ class FeatureGoalAgent():
                 epsilon_per_episode = True,
             ),
             save = eu.AttrDict(
-                # NEED TO HANDLE STILL
-                directory = None,
-                frequency = 10, # in episodes
+                filename_prefix = "fga_",
+                extension = ".pt"
             ),
         )
         return cnf
@@ -305,7 +304,16 @@ class FeatureGoalAgent():
             target_net_state_dict[key] = target_net_state_dict[key]*self.update_alpha + policy_net_state_dict[key]*(1-self.update_alpha)
 
         self.target_net.load_state_dict(target_net_state_dict)
-
-
-if __name__ == '__main__':
-    my_dqn = FeatureGoalAgent()
+    
+    def save_network(self, episode, step):
+        filename = self.config.save.filename_prefix + str(self.policy_net.__class__.__name__) + "_" + str(episode) + self.config.save.extension
+        torch.save(
+            {
+                "episode": episode,
+                "step": step,
+                "model_state_dict": self.policy_net.state_dict(),
+                "optimizer_state_dict": self.optimizer.state_dict(),
+                "memory": self.memory,
+            },
+            filename
+        )
