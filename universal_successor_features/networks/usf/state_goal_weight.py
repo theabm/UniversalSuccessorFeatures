@@ -49,7 +49,8 @@ class StateGoalWeightUSF(torch.nn.Module):
         return sf_s_g
 
     def complete_forward(self, sf_s_g, w):
-        return torch.matmul(sf_s_g, w.unsqueeze(2)).squeeze(dim=2)
+        return torch.sum(torch.mul(sf_s_g, w.unsqueeze(1)), dim=2)
+        # return torch.matmul(sf_s_g, w.unsqueeze(2)).squeeze(dim=2)
 
     def forward(self, agent_position, goal_position, goal_weights):
         sf_s_g = self.incomplete_forward(agent_position=agent_position, goal_position=goal_position)
