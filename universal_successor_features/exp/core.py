@@ -51,7 +51,9 @@ def run_rl_training(config = None, **kwargs):
     successful_episodes = 0
 
     while episode < config.n_max_episodes and step < config.n_max_steps:
-
+        terminated = False
+        truncated = False
+        
         reward_per_episode = 0
         step_per_episode = 0
 
@@ -65,7 +67,7 @@ def run_rl_training(config = None, **kwargs):
         
         while not terminated and not truncated and step < config.n_max_steps:
 
-            next_obs, reward, terminated, truncated, transition = config.step_function(obs = obs)
+            next_obs, reward, terminated, truncated, transition = config.step_function(obs, agent, my_env)
 
             if config.update_agent:
                 agent.train(transition = transition, step = step)
@@ -89,51 +91,43 @@ def run_rl_training(config = None, **kwargs):
             
         agent.end_episode()
         if episode > 0 and episode%50 == 0:
-            agent.save()
+            agent.save(episode, step)
             
         log.add_value(config.log_name_step_per_episode, step_per_episode)
         log.add_value(config.log_name_reward_per_episode, reward_per_episode)
 
         episode += 1
 
-def step_feature_goal_agent(obs):
-    global agent
+def step_feature_goal_agent(obs, agent, my_env):
     action = agent.choose_action(agent_position_features=obs["agent_position_features"], goal_position=obs["goal_position"], training=True)
 
-    global my_env
     next_obs, reward, terminated, truncated, _ = my_env.step(action=action) 
     
     transition = (obs["agent_position_features"], obs["goal_position"], action, reward, next_obs["agent_position_features"], terminated, truncated)
 
     return next_obs, reward, terminated, truncated, transition 
 
-def step_feature_goal_weight_agent(obs):
-    global agent
+def step_feature_goal_weight_agent(obs, agent, my_env):
     action = agent.choose_action(agent_position_features=obs["agent_position_features"], goal_position=obs["goal_position"], goal_weights = obs["goal_weights"], training=True)
             
-    global my_env
     next_obs, reward, terminated, truncated, _ = my_env.step(action=action)
 
     transition = (obs["agent_position_features"], obs["goal_position"], obs["goal_weights"], action, reward, next_obs["agent_position_features"], terminated, truncated)
 
     return next_obs, reward, terminated, truncated, transition
 
-def step_state_goal_agent(obs):
-    global agent
+def step_state_goal_agent(obs, agent, my_env):
     action = agent.choose_action(agent_position=obs["agent_position"], goal_position=obs["goal_position"], training=True)
             
-    global my_env
     next_obs, reward, terminated, truncated, _ = my_env.step(action=action)
 
     transition = (obs["agent_position"], obs["goal_position"], action, reward, next_obs["agent_position"], terminated, truncated)
 
     return next_obs, reward, terminated, truncated, transition
 
-def step_state_goal_weight_agent(obs):
-    global agent
+def step_state_goal_weight_agent(obs, agent, my_env):
     action = agent.choose_action(agent_position=obs["agent_position"], goal_position=obs["goal_position"], goal_weights = obs["goal_weights"], training=True)
             
-    global my_env
     next_obs, reward, terminated, truncated, _ = my_env.step(action=action)
 
     transition = (obs["agent_position"], obs["goal_position"], obs["goal_weights"], action, reward, next_obs["agent_position"], terminated, truncated)
