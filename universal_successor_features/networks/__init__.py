@@ -1,7 +1,7 @@
 from .multigoal_dqn.state_goal_output_like_paper import StateGoalPaperDQN
 from .multigoal_dqn.state_goal_output_augmented_account4w import StateGoalAugmentedDQN
 from .multigoal_dqn.feature_goal_output_like_paper import FeatureGoalPaperDQN
-from .multigoal_dqn.feature_goal_output_augmented_account4w import FeatureGoalAugumentedDQN
+from .multigoal_dqn.feature_goal_output_augmented_account4w import FeatureGoalAugmentedDQN
 
 from .usf.state_goal import StateGoalUSF
 from .usf.state_goal_weight import StateGoalWeightUSF

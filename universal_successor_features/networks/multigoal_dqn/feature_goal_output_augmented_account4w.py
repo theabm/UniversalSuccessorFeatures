@@ -24,7 +24,7 @@ import exputils as eu
 # Please note: Using this augmented network makes sense only if the flow of information in USF passes through the whole network (as described in the paper).
 # If we were to keep separate networks for the weights and the SF, this would not make sense anymore because the weights w are part of a different network.
 
-class FeatureGoalAugumentedDQN(torch.nn.Module):
+class FeatureGoalAugmentedDQN(torch.nn.Module):
     
     @staticmethod
     def default_config():
@@ -65,7 +65,7 @@ class FeatureGoalAugumentedDQN(torch.nn.Module):
 
 
 if __name__ == '__main__':
-    my_dqn = FeatureGoalAugumentedDQN()
+    my_dqn = FeatureGoalAugmentedDQN()
     print(my_dqn)
     
     rand_features = torch.rand(10,100)

@@ -7,7 +7,7 @@ features_size = 100
 num_actions = 4
 batch_size = 32
 
-my_dqn = mdqn.FeatureGoalAugumentedDQN(state_size = state_size, goal_size=goal_size, features_size = features_size, num_actions = num_actions)
+my_dqn = mdqn.FeatureGoalAugmentedDQN(state_size = state_size, goal_size=goal_size, features_size = features_size, num_actions = num_actions)
 
 def test_batch_of_input_for_network():
     feature_batch = torch.rand(batch_size,features_size)
