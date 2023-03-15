@@ -1,5 +1,7 @@
-experiment-utilities
+experiment-utilities==0.3.3
 gymnasium==0.27.1
 torch==1.13.1
 pytest==7.2.1
+numpy==1.22.4
+jupyter_contrib_nbextensions
 git+ssh://git@gitlab.inria.fr/spring/wp6_robot_behavior/multiparty_interaction_simulator.git
