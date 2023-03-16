@@ -85,7 +85,7 @@ def test_training(network, discount_factor = 0.5, num_episodes=50, seed=0):
 
             transition = (obs["agent_position_features"], obs["goal_position"], action, reward, next_obs["agent_position_features"], terminated, truncated)
 
-            agent.train(transition = transition, step = step)
+            agent.train(transition = transition)
 
             if terminated or truncated:
                 agent.end_episode()
@@ -170,7 +170,7 @@ def test_training_usf(network, discount_factor = 0.5, num_episodes=50, seed=0):
 
             transition = (obs["agent_position_features"], obs["goal_position"], action, reward, next_obs["agent_position_features"], terminated, truncated)
 
-            agent.train(transition = transition, step = step)
+            agent.train(transition = transition)
 
             if terminated or truncated:
                 agent.end_episode()

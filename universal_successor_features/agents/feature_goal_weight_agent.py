@@ -23,9 +23,9 @@ class FeatureGoalWeightAgent():
             batch_size = 32,
             learning_rate = 5e-4,
             train_for_n_iterations = 1,
+            train_every_n_steps = 0,
             is_a_usf = False,
             loss_weight = 0.01,
-            train_every_n_steps = 1,
             epsilon = eu.AttrDict(
                 cls = eps.EpsilonConstant, 
             ),
@@ -36,10 +36,7 @@ class FeatureGoalWeightAgent():
             ),
             memory = eu.AttrDict(
                 cls = mem.ExperienceReplayMemory,
-                #here i can add any other variable from the defaul config of the experience replay class.
             ),
-            #With this implementation, the choice of network completely determine the input size (i.e. the state and any additional info)
-            #and the output size (num actions)
             network = eu.AttrDict(
                 cls = nn.FeatureGoalWeightUSF,
                 optimizer = torch.optim.Adam,
@@ -82,6 +79,7 @@ class FeatureGoalWeightAgent():
             self.config.network.goal_size = self.position_size
             self.config.network.features_size = self.features_size
             self.config.network.num_actions = self.action_space
+
             self.policy_net = eu.misc.create_object_from_config(self.config.network)
         else:
             raise ValueError("Network Config must be a dictionary.")
@@ -138,7 +136,7 @@ class FeatureGoalWeightAgent():
     def end_episode(self):
         self.epsilon.decay()
 
-    def choose_action(self, agent_position_features, goal_position, goal_weights, training = True):
+    def choose_action(self, agent_position_features, goal_position, goal_weights, training):
         if training:
             return self._epsilon_greedy_action_selection(agent_position_features, goal_position, goal_weights).item()
         else:
@@ -200,19 +198,19 @@ class FeatureGoalWeightAgent():
 
     def _get_sf_target_batch(self, next_agent_position_features_batch, goal_batch, goal_weights_batch, reward_batch, terminated_batch):
         with torch.no_grad():
-            # incomplete forward outputs only successor features of shape (batch_size, num_actions, features_size) and weights of shape (batch_size, features_size)
+            # incomplete forward outputs only successor features of shape (batch_size, num_actions, features_size)
             sf_s_g = self.target_net.incomplete_forward(next_agent_position_features_batch, goal_batch) # shape (batch_size, num_actions, n) = (32, 4, 100)
-            # complete forward takes sf_s_g and w, and multiplies them in the correct way to ouput the Q values of shape (batch_size, num_actions)
+            # complete forward takes sf_s_g and weights, and multiplies them in the correct way to ouput the Q values of shape (batch_size, num_actions)
             q = self.target_net.complete_forward(sf_s_g, goal_weights_batch)
-            # we now take the max of the q function. Axis = 1 makes it so we collapse columns dimension to 1 - this results in (batch,). 
+            # we now take the max of the q function. Axis = 1 makes it so we collapse columns dimension - this results in (batch,). 
             _, action = torch.max(q, axis = 1)
             # Then, we reshape to (batch, 1, 1) and tile (duplicate) features_size times along the last dim. This is needed for the gather function to work later.
             action = action.reshape(self.batch_size, 1, 1).tile(self.features_size).to(self.device) # shape (batch_size,1,n)
             # The reward batch will have shape (batch, features_size), sf_s_g will have size (batch, num_actions, features_size), terminated will have (batch, 1)
             # The gather function is a fancy slicing operation. We use it to select the sf's corresponding to the action index we found before. i.e, if for batch 1 the 
             # max action is action 2, then we will pick the second (features_size,) matrix in that batch. 
-            # The gather operator requires that sf_s_g and action be the same shape (so 3D) and for it to work correctly as we want it, we must repeat the action index
-            # everywhere in the last dim, hence the tiling operation. This will produce (batch, 1, features_size) which we squeeze() to (batch, features_size) and then multiply
+            # The gather operator requires that "sf_s_g" and "action" be the same shape (so 3D) and for it to work correctly as we want it, we must repeat the action index
+            # everywhere in the last dim, hence the tiling operation. The final outcome is (batch, 1, features_size) which we squeeze() to (batch, features_size) and then multiply
             # with terminated_batch which is (batch, 1) (which will get brodcasted). Final result is (batch, features_size). So it all works.
             target = reward_batch + self.discount_factor * torch.mul(sf_s_g.gather(1, action).squeeze(), ~terminated_batch)
         return target
@@ -273,7 +271,7 @@ class FeatureGoalWeightAgent():
             target = reward_batch + self.discount_factor * torch.mul(q, ~terminated_batch)
         return target
 
-    def train(self, transition, step):
+    def train(self, transition):
         
         self.memory.push(transition)
         

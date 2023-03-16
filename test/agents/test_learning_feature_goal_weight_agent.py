@@ -94,7 +94,7 @@ def test_training(network, discount_factor = 0.5, num_episodes=50, seed=0):
 
             transition = (obs["agent_position_features"], obs["goal_position"], obs["goal_weights"], action, reward, next_obs["agent_position_features"], terminated, truncated)
 
-            agent.train(transition=transition, step = step)
+            agent.train(transition=transition)
 
             if terminated or truncated:
                 agent.end_episode()
@@ -133,4 +133,6 @@ def test_training(network, discount_factor = 0.5, num_episodes=50, seed=0):
     cmp2 = np.allclose(q_pred_g2_array, q_gt_g2_array, rtol = 0, atol = 0.05)
 
     assert cmp1 and cmp2
+
+test_training(nn.FeatureGoalWeightUSF)
             

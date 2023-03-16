@@ -85,7 +85,7 @@ def test_training(network, discount_factor = 0.5, num_episodes=50, seed=0):
 
             transition = (obs["agent_position"], obs["goal_position"], action, reward, next_obs["agent_position"], terminated, truncated)
 
-            agent.train(transition=transition, step = step)
+            agent.train(transition=transition)
 
             if terminated or truncated:
                 agent.end_episode()
@@ -138,7 +138,8 @@ def test_training_usf(network, discount_factor = 0.5, num_episodes=50, seed=0):
     agent = a.StateGoalAgent(
         env = my_env, 
         epsilon = {"value" : 1.0}, 
-        train_for_n_iterations = 2, 
+        train_for_n_iterations = 1, 
+        train_every_n_steps = 1,
         discount_factor = discount_factor, 
         network = {"cls":network},
         is_a_usf = True,
@@ -168,7 +169,7 @@ def test_training_usf(network, discount_factor = 0.5, num_episodes=50, seed=0):
 
             transition = (obs["agent_position"], obs["goal_position"], action, reward, next_obs["agent_position"], terminated, truncated)
 
-            agent.train(transition=transition, step = step)
+            agent.train(transition=transition)
 
             if terminated or truncated:
                 agent.end_episode()

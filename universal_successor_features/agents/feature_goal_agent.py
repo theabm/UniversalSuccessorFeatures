@@ -23,7 +23,7 @@ class FeatureGoalAgent():
             batch_size = 32,
             learning_rate = 5e-4,
             train_for_n_iterations = 1,
-            train_every_n_steps = 1,
+            train_every_n_steps = 0,
             is_a_usf = False,
             loss_weight = 0.01,
             epsilon = eu.AttrDict(
@@ -271,7 +271,7 @@ class FeatureGoalAgent():
             target = reward_batch + self.discount_factor * torch.mul(q, ~terminated_batch)
         return target
 
-    def train(self, transition, step):
+    def train(self, transition):
         
         self.memory.push(transition)
         
