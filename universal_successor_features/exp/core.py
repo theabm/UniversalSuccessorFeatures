@@ -60,7 +60,7 @@ def run_rl_training(config = None, **kwargs):
 
         agent.start_episode(episode = episode)
 
-        goal_position = my_env.sample_a_goal_position(training = config.training)
+        goal_position = my_env.sample_a_source_goal()
 
         obs, _ = my_env.reset(goal_position = goal_position)
         
@@ -69,7 +69,7 @@ def run_rl_training(config = None, **kwargs):
             next_obs, reward, terminated, truncated, transition = config.step_function(obs, agent, my_env)
 
             if config.update_agent:
-                agent.train(transition = transition, step = step)
+                agent.train(transition = transition)
 
             if terminated:
                 successful_episodes+=1
