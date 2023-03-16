@@ -68,7 +68,7 @@ class GridWorld(gym.Env):
     def _create_disjoint_goal_list_for_source_target_and_eval_tasks(self):
         all_possible_goals = [np.array([[i,j]]) for i in range(self.rows) for j in range(self.columns)]
         goals = random.sample(all_possible_goals, 3*self.n_goals)
-        return goals[:self.n_goals], goals[self.n_goals:2*self.n_goals], goals[2*self.n_goals, :]
+        return goals[:self.n_goals], goals[self.n_goals:2*self.n_goals], goals[2*self.n_goals:]
     
     def sample_source_goal(self):
         return self.sample_a_goal_position_from_list(self.goal_list_source_tasks)
