@@ -16,7 +16,6 @@ def run_rl_training(config = None, **kwargs):
             network = eu.AttrDict(cls = None),
         ),
         update_agent = None,
-        training = None,
         step_function = None,
         n_max_steps = np.inf,
         log_name_episode = 'episode',
@@ -60,7 +59,7 @@ def run_rl_training(config = None, **kwargs):
 
         agent.start_episode(episode = episode)
 
-        goal_position = my_env.sample_a_source_goal()
+        goal_position = my_env.sample_source_goal()
 
         obs, _ = my_env.reset(goal_position = goal_position)
         
