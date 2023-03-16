@@ -48,6 +48,8 @@ class StateGoalWeightAgent():
             log = eu.AttrDict(
                 loss_per_step = True,
                 epsilon_per_episode = True,
+                log_name_epsilon = "epsilon_per_episode",
+                log_name_loss = "loss_per_step",
             ),
             save = eu.AttrDict(
                 filename_prefix = "sgwa_",
@@ -131,7 +133,7 @@ class StateGoalWeightAgent():
     def start_episode(self, episode):
         self.current_episode = episode
         if self.config.log.epsilon_per_episode:
-            log.add_value("agent_epsilon_per_episode", self.epsilon.value)
+            log.add_value(self.config.log.log_name_epsilon, self.epsilon.value)
 
     def end_episode(self):
         self.epsilon.decay()
@@ -288,8 +290,7 @@ class StateGoalWeightAgent():
                 losses.append(loss)
 
             if self.config.log.loss_per_step:
-                log.add_value("agent_loss", np.mean(losses))
-                log.add_value("agent_loss_step", step)
+                log.add_value(self.config.log.log_name_loss, np.mean(losses))
         else:
             self.steps_since_last_training += 1
         

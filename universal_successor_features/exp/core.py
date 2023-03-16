@@ -19,7 +19,6 @@ def run_rl_training(config = None, **kwargs):
         training = None,
         step_function = None,
         n_max_steps = np.inf,
-        n_max_episodes = np.inf,
         log_name_episode = 'episode',
         log_name_step = 'step',
         log_name_step_per_episode = 'step_per_episode',
@@ -50,7 +49,7 @@ def run_rl_training(config = None, **kwargs):
     episode = 0
     successful_episodes = 0
 
-    while episode < config.n_max_episodes and step < config.n_max_steps:
+    while step < config.n_max_steps:
         terminated = False
         truncated = False
         
