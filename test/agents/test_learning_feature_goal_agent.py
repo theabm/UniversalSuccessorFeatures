@@ -102,7 +102,7 @@ def test_training(network, discount_factor = 0.5, num_episodes=50, seed=0):
     for i in range(my_env.rows):
         for j in range(my_env.columns):
             agent_position = np.array([[i,j]])
-            agent_position_features = torch.tensor(my_env.get_agent_position_features_at(agent_position)).to(torch.float).to(device)
+            agent_position_features = torch.tensor(my_env._get_agent_position_features_at(agent_position)).to(torch.float).to(device)
             idx = i*my_env.rows + j
             if idx == 8:
                 q_pred_g2_array.append(agent.policy_net(agent_position_features=agent_position_features, goal_position=goal_2_position).cpu().squeeze().detach().numpy())
@@ -187,7 +187,7 @@ def test_training_usf(network, discount_factor = 0.5, num_episodes=50, seed=0):
     for i in range(my_env.rows):
         for j in range(my_env.columns):
             agent_position = np.array([[i,j]])
-            agent_position_features = torch.tensor(my_env.get_agent_position_features_at(agent_position)).to(torch.float).to(device)
+            agent_position_features = torch.tensor(my_env._get_agent_position_features_at(agent_position)).to(torch.float).to(device)
             idx = i*my_env.rows + j
             if idx == 8:
                 q_pred_g2_array.append(agent.policy_net(agent_position_features=agent_position_features, goal_position=goal_2_position).cpu().squeeze().detach().numpy())

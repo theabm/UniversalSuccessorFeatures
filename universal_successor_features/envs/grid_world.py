@@ -54,7 +54,7 @@ class GridWorld(gym.Env):
 
         # generated randomly once for 10x10 and fixed forever.
         self.n_goals = self.config.n_goals
-        self.goal_list_training, self.goal_list_testing = self._create_disjoint_goal_list_for_training_and_testing()
+        self.goal_list_source_tasks, self.goal_list_target_tasks, self.goal_list_evaluation_tasks = self._create_disjoint_goal_list_for_source_target_and_eval_tasks()
 
     def _sample_position_in_matrix(self):
         """Samples a row and a column from the predefined matrix dimensions.
@@ -65,19 +65,20 @@ class GridWorld(gym.Env):
         
         return i,j
     
-    def _create_disjoint_goal_list_for_training_and_testing(self):
+    def _create_disjoint_goal_list_for_source_target_and_eval_tasks(self):
         all_possible_goals = [np.array([[i,j]]) for i in range(self.rows) for j in range(self.columns)]
-        goals = random.sample(all_possible_goals, 2*self.n_goals)
-        return goals[:self.n_goals], goals[self.n_goals:]
+        goals = random.sample(all_possible_goals, 3*self.n_goals)
+        return goals[:self.n_goals], goals[self.n_goals:2*self.n_goals], goals[2*self.n_goals, :]
     
-    def sample_a_goal_position(self, training):
-        if training:
-            idx = random.randrange(len(self.goal_list_training))
-            return self.goal_list_training[idx]
-        else:
-            idx = random.randrange(len(self.goal_list_testing))
-            return self.goal_list_testing[idx]
-    
+    def sample_source_goal(self):
+        return self.sample_a_goal_position_from_list(self.goal_list_source_tasks)
+
+    def sample_target_goal(self):
+        return self.sample_a_goal_position_from_list(self.goal_list_target_tasks)
+
+    def sample_eval_goal(self):
+        return self.sample_a_goal_position_from_list(self.goal_list_evaluation_tasks)
+
     def sample_a_goal_position_from_list(self, goal_list):
         idx = random.randrange(len(goal_list))
         return goal_list[idx]
@@ -182,7 +183,7 @@ class GridWorld(gym.Env):
         grd[i][j] = 1.
         return grd.reshape((1,self.rows*self.columns))
     
-    def get_agent_position_features_at(self,position: np.ndarray):
+    def _get_agent_position_features_at(self,position: np.ndarray):
         i = position[0][0]
         j = position[0][1]
         return self._make_grid_and_place_one_in(i,j)
@@ -201,7 +202,7 @@ if __name__ == '__main__':
     # check_env(grid_world_env) #reset missing **kwargs argument but I dont want this functionality.
     print(grid_world_env.observation_space["agent_position_features"].shape[1])
     print(grid_world_env.observation_space["agent_position"].shape[1])
-    l1, l2 = grid_world_env._create_disjoint_goal_list_for_training_and_testing()
+    l1, l2 = grid_world_env._create_disjoint_goal_list_for_source_target_and_eval_tasks()
     print(l1)
     print(l2)
     num_episodes = 1
