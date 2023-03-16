@@ -47,29 +47,97 @@ def test_goal_weights(i,j):
 
     assert comp.all() 
 
-def test_position_features(start_agent_position = np.array([[0,0]])):
-    my_env = env.GridWorld()
-
+@pytest.mark.parametrize(
+        "i,j",
+        [
+            (0,0),(0,1),(0,2),
+            (1,0),(1,1),(1,2),
+            (2,0),(2,1),(2,2),
+        ]
+)
+def test_position_features(i,j):
+    my_env = env.GridWorld(
+        rows = 3, 
+        columns = 3,
+    )
+    start_agent_position = np.array([[i,j]])
     obs, *_ = my_env.reset(start_agent_position= start_agent_position)
+    
     theoretical_features = np.zeros((1,my_env.rows*my_env.columns))
-    theoretical_features[0][0] = 1
+    idx = 3*i+j
+    theoretical_features[0][idx] = 1
 
     comp = theoretical_features == obs["agent_position_features"]
 
     assert comp.all()
 
-def test_boundaries_going_up_left(start_agent_position = np.array([[0,0]])):
-    my_env = env.GridWorld()
+@pytest.mark.parametrize(
+        "i,j",
+        [
+            (0,0),(0,1),(0,2),
+        ]
+)
+def test_boundaries_going_up(i,j):
+    my_env = env.GridWorld(
+        rows = 3, 
+        columns = 3,
+    )
+    start_agent_position = np.array([[i,j]])
     my_env.reset(start_agent_position=start_agent_position)
     obs, *_ = my_env.step(0)
     assert (obs["agent_position"] == start_agent_position).all()
+
+@pytest.mark.parametrize(
+        "i,j",
+        [
+            (0,0),
+            (1,0),
+            (2,0),
+        ]
+)
+def test_boundaries_going_left(i,j):
+    my_env = env.GridWorld(
+        rows = 3, 
+        columns = 3,
+    )
+    start_agent_position = np.array([[i,j]])
+    my_env.reset(start_agent_position=start_agent_position)
     obs, *_ = my_env.step(3)
     assert (obs["agent_position"] == start_agent_position).all()
 
-def test_boundaries_going_down_right(start_agent_position = np.array([[9,9]])):
-    my_env = env.GridWorld()
+@pytest.mark.parametrize(
+        "i,j",
+        [
+
+            
+            (2,0),(2,1),(2,2),
+        ]
+)
+def test_boundaries_going_down(i,j):
+    my_env = env.GridWorld(
+        rows = 3, 
+        columns = 3,
+    )
+    start_agent_position = np.array([[i,j]])
     my_env.reset(start_agent_position=start_agent_position)
     obs, *_ = my_env.step(1)
     assert (obs["agent_position"] == start_agent_position).all()
+
+@pytest.mark.parametrize(
+        "i,j",
+        [
+                        (0,2),
+                        (1,2),
+                        (2,2),
+        ]
+)
+def test_boundaries_going_right(i,j):
+    my_env = env.GridWorld(
+        rows = 3, 
+        columns = 3,
+    )
+    start_agent_position = np.array([[i,j]])
+    my_env.reset(start_agent_position=start_agent_position)
     obs, *_ = my_env.step(2)
     assert (obs["agent_position"] == start_agent_position).all()
+
