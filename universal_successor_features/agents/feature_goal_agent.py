@@ -66,7 +66,7 @@ class FeatureGoalAgent():
         self.position_size = env.observation_space["agent_position"].shape[1]
         self.features_size = env.observation_space["agent_position_features"].shape[1]
 
-        #Setting the device
+        # Setting the device
         if self.config.device == "cuda":
             if torch.cuda.is_available():
                 self.device = torch.device("cuda")
@@ -76,7 +76,7 @@ class FeatureGoalAgent():
         else:
             self.device = torch.device("cpu")
         
-        #Creating object instances
+        # Creating object instances
         if isinstance(self.config.network, dict):
             self.config.network.state_size = self.position_size
             self.config.network.goal_size = self.position_size
@@ -97,7 +97,7 @@ class FeatureGoalAgent():
             raise ValueError("Network Config must be a dictionary.")
 
 
-        #Setting other attributes
+        # Setting other attributes
         self.target_net = copy.deepcopy(self.policy_net)
 
         self.policy_net.to(self.device)
@@ -202,7 +202,7 @@ class FeatureGoalAgent():
             sf_s_g, w = self.target_net.incomplete_forward(next_agent_position_features_batch, goal_batch) # shape (batch_size, num_actions, n) = (32, 4, 100)
             # complete forward takes sf_s_g and w, and multiplies them in the correct way to ouput the Q values of shape (batch_size, num_actions)
             q = self.target_net.complete_forward(sf_s_g, w)
-            # we now take the max of the q function. Axis = 1 makes it so we collapse columns dimension to 1 - this results in (batch,). 
+            # we now take the max of the q function. Axis = 1 makes it so we collapse columns dimension to 1 - this results in shape (batch,). 
             _, action = torch.max(q, axis = 1)
             # Then, we reshape to (batch, 1, 1) and tile (duplicate) features_size times along the last dim. This is needed for the gather function to work later.
             action = action.reshape(self.batch_size, 1, 1).tile(self.features_size).to(self.device) # shape (batch_size,1,n)

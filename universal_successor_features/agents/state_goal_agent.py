@@ -76,9 +76,7 @@ class StateGoalAgent():
         else:
             self.device = torch.device("cpu")
         
-        #  Creating object instances
-        ## in the future, maybe I will have to incorporate some info from environment into config of network
-        ## i.e the state size or goal size. But for now it works. (see what I did for feature based agents)
+        # Creating object instances
         if isinstance(self.config.network, dict):
             self.config.network.state_size = self.position_size
             self.config.network.goal_size = self.position_size
@@ -246,8 +244,8 @@ class StateGoalAgent():
         next_agent_position_batch = self._build_tensor_from_batch_of_np_arrays(experiences.next_agent_position_batch).to(self.device) # shape (batch_size, n)
 
         # reward and terminated batch are handled differently because they are a list of floats and bools respectively and not a list of np.arrays
-        reward_batch = torch.tensor(experiences.reward_batch).to(torch.float).to(self.device) # shape (n)
-        terminated_batch = torch.tensor(experiences.terminated_batch).to(self.device) # shape (n)
+        reward_batch = torch.tensor(experiences.reward_batch).to(torch.float).to(self.device) # shape (batch_size,)
+        terminated_batch = torch.tensor(experiences.terminated_batch).to(self.device) # shape (batch_size,)
 
         target_batch = self._get_dql_target_batch(next_agent_position_batch, goal_batch, reward_batch, terminated_batch)
     
@@ -308,7 +306,7 @@ class StateGoalAgent():
             target_net_state_dict[key] = target_net_state_dict[key]*self.update_alpha + policy_net_state_dict[key]*(1-self.update_alpha)
 
         self.target_net.load_state_dict(target_net_state_dict)
-
+    
     def save(self, episode, step):
         filename = self.config.save.filename_prefix + str(self.policy_net.__class__.__name__) + "_" + str(episode) + self.config.save.extension
         torch.save(
