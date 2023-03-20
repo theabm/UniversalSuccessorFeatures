@@ -136,7 +136,7 @@ class StateGoalAgent():
     def end_episode(self):
         self.epsilon.decay()
 
-    def choose_action(self, agent_position, goal_position, training = True):
+    def choose_action(self, agent_position, goal_position, training):
         if training:
             return self._epsilon_greedy_action_selection(agent_position, goal_position).item()
         else:

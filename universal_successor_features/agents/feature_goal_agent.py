@@ -292,7 +292,7 @@ class FeatureGoalAgent():
             target_net_state_dict[key] = target_net_state_dict[key]*self.update_alpha + policy_net_state_dict[key]*(1-self.update_alpha)
 
         self.target_net.load_state_dict(target_net_state_dict)
-    
+
     def save(self, episode, step):
         filename = self.config.save.filename_prefix + str(self.policy_net.__class__.__name__) + "_" + str(episode) + self.config.save.extension
         torch.save(
