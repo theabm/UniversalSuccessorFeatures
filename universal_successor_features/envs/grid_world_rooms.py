@@ -10,8 +10,6 @@ class RoomGridWorld(gym.Env):
     @staticmethod
     def default_config():
         return eu.AttrDict(
-            rows = 9,
-            columns = 9,
             nmax_steps = 1e6,
             penalization = -0.1,
             reward_at_goal_position = 0,
@@ -25,8 +23,8 @@ class RoomGridWorld(gym.Env):
         self.config = eu.combine_dicts(kwargs, config, self.default_config())
 
         #length and width of the grid
-        self.rows = self.config.rows 
-        self.columns = self.config.columns
+        self.rows = 9 
+        self.columns = 9
 
         self.forbidden_cells = [
             (4, 0), (4, 2), (4, 3), (4, 4), (4, 5), (4, 6), (4, 8),
