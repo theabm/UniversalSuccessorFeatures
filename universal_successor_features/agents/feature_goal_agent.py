@@ -36,10 +36,7 @@ class FeatureGoalAgent():
             ),
             memory = eu.AttrDict(
                 cls = mem.ExperienceReplayMemory,
-                #here i can add any other variable from the defaul config of the experience replay class.
             ),
-            #With this implementation, the choice of network completely determine the input size (i.e. the state and any additional info)
-            #and the output size (num actions)
             network = eu.AttrDict(
                 cls = nn.FeatureGoalPaperDQN,
                 optimizer = torch.optim.Adam,
@@ -82,6 +79,7 @@ class FeatureGoalAgent():
             self.config.network.goal_size = self.position_size
             self.config.network.features_size = self.features_size
             self.config.network.num_actions = self.action_space
+
             self.policy_net = eu.misc.create_object_from_config(self.config.network)
         else:
             raise ValueError("Network Config must be a dictionary.")
@@ -138,7 +136,7 @@ class FeatureGoalAgent():
     def end_episode(self):
         self.epsilon.decay()
 
-    def choose_action(self, agent_position_features, goal_position, training = True):
+    def choose_action(self, agent_position_features, goal_position, training):
         if training:
             return self._epsilon_greedy_action_selection(agent_position_features, goal_position).item()
         else:
@@ -155,8 +153,8 @@ class FeatureGoalAgent():
         with torch.no_grad():
             return torch.argmax(
                 self.policy_net(
-                    torch.tensor(agent_position_features).to(torch.float).to(self.device),
-                    torch.tensor(goal_position).to(torch.float).to(self.device)
+                    agent_position_features = torch.tensor(agent_position_features).to(torch.float).to(self.device),
+                    goal_position = torch.tensor(goal_position).to(torch.float).to(self.device)
                 )
             )
 
@@ -247,7 +245,6 @@ class FeatureGoalAgent():
             predicted_psi = sf_s_g.gather(1, action_batch).squeeze() # shape (batch_size, features_size)
 
             del sf_s_g
-            del w
             del agent_position_features_batch
             del action_batch
 
