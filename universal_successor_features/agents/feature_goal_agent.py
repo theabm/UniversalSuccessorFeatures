@@ -160,73 +160,6 @@ class FeatureGoalAgent():
                 )
             )
 
-    def _train_one_batch(self):
-        experiences = self._sample_experiences()
-        goal_batch = self._build_tensor_from_batch_of_np_arrays(experiences.goal_batch).to(self.device)
-
-        target_batch = self._build_target_batch(experiences, goal_batch)
-        predicted_batch = self._build_predicted_batch(experiences, goal_batch)
-
-        self.optimizer.zero_grad()
-
-        loss = self.loss(target_batch, predicted_batch)
-        if self.is_a_usf:
-            sf_target_batch = self._build_sf_target_batch(experiences, goal_batch)
-            sf_predicted_batch = self._build_sf_predicted_batch(experiences, goal_batch)
-            loss += self.loss_weight * self.loss(sf_target_batch, sf_predicted_batch)
-        
-        loss.backward()
-        self.optimizer.step()
-        
-        return loss.item()
-
-    def _build_sf_target_batch(self, experiences, goal_batch):
-        next_agent_position_features_batch = self._build_tensor_from_batch_of_np_arrays(experiences.next_agent_position_features_batch).to(self.device) # shape (batch_size, n)
-        reward_batch = copy.deepcopy(next_agent_position_features_batch).to(self.device) # shape (batch_size, n)
-
-        # Needs to be shape (batch_size, 1) so that broadcasting duplicates to (batch_size, n). Without this, torch.mul later will not work.
-        # Also, (1, batch_size) is wrong because it will not broadcast in the correct way - it will broadcast to be (batch_size, batch_size) which will give error for torch.mul. 
-        terminated_batch = torch.tensor(experiences.terminated_batch).unsqueeze(1).to(self.device) # shape (batch_size,1)
-
-        target_batch = self._get_sf_target_batch(next_agent_position_features_batch, goal_batch, reward_batch, terminated_batch)
-    
-        del next_agent_position_features_batch
-        del reward_batch
-        del terminated_batch
-
-        return target_batch
-
-    def _get_sf_target_batch(self, next_agent_position_features_batch, goal_batch, reward_batch, terminated_batch):
-        with torch.no_grad():
-            # incomplete forward outputs only successor features of shape (batch_size, num_actions, features_size) and weights of shape (batch_size, features_size)
-            sf_s_g, w = self.target_net.incomplete_forward(next_agent_position_features_batch, goal_batch) # shape (batch_size, num_actions, n) = (32, 4, 100)
-            # complete forward takes sf_s_g and w, and multiplies them in the correct way to ouput the Q values of shape (batch_size, num_actions)
-            q = self.target_net.complete_forward(sf_s_g, w)
-            # we now take the max of the q function. Axis = 1 makes it so we collapse columns dimension to 1 - this results in shape (batch,). 
-            _, action = torch.max(q, axis = 1)
-            # Then, we reshape to (batch, 1, 1) and tile (duplicate) features_size times along the last dim. This is needed for the gather function to work later.
-            action = action.reshape(self.batch_size, 1, 1).tile(self.features_size).to(self.device) # shape (batch_size,1,n)
-            # The reward batch will have shape (batch, features_size), sf_s_g will have size (batch, num_actions, features_size), terminated will have (batch, 1)
-            # The gather function is a fancy slicing operation. We use it to select the sf's corresponding to the action index we found before. i.e, if for batch 1 the 
-            # max action is action 2, then we will pick the second (features_size,) matrix in that batch. 
-            # The gather operator requires that sf_s_g and action be the same shape (so 3D) and for it to work correctly as we want it, we must repeat the action index
-            # everywhere in the last dim, hence the tiling operation. This will produce (batch, 1, features_size) which we squeeze() to (batch, features_size) and then multiply
-            # with terminated_batch which is (batch, 1) (which will get brodcasted). Final result is (batch, features_size). So it all works.
-            target = reward_batch + self.discount_factor * torch.mul(sf_s_g.gather(1, action).squeeze(), ~terminated_batch)
-        return target
-    
-    def _build_sf_predicted_batch(self, experiences, goal_batch):
-        agent_position_features_batch = self._build_tensor_from_batch_of_np_arrays(experiences.agent_position_features_batch).to(self.device)
-        action_batch = torch.tensor(experiences.action_batch).reshape(self.batch_size, 1, 1).tile(self.features_size).to(self.device)
-        sf_s_g, _ = self.policy_net.incomplete_forward(agent_position_features_batch, goal_batch)
-        predicted_batch = sf_s_g.gather(1, action_batch).squeeze() 
-
-        del agent_position_features_batch
-        del action_batch
-        del sf_s_g
-
-        return predicted_batch
-
     def _sample_experiences(self):
         experiences = self.memory.sample(self.batch_size)
         return Experiences(*zip(*experiences))
@@ -238,6 +171,26 @@ class FeatureGoalAgent():
         batch_of_np_arrays = torch.tensor(batch_of_np_arrays).squeeze().to(torch.float)
 
         return batch_of_np_arrays
+    
+    def _train_one_batch(self):
+        experiences = self._sample_experiences()
+        goal_batch = self._build_tensor_from_batch_of_np_arrays(experiences.goal_batch).to(self.device)
+
+        self.optimizer.zero_grad()
+        if self.is_a_usf:
+            target_batch_q, target_batch_psi = self._build_target_batch(experiences, goal_batch)
+            predicted_batch_q, predicted_batch_psi = self._build_predicted_batch(experiences, goal_batch)
+            loss = self.loss(target_batch_q, predicted_batch_q) + self.loss_weight * self.loss(target_batch_psi, predicted_batch_psi)
+        else:
+            target_batch = self._build_target_batch(experiences, goal_batch)
+            predicted_batch = self._build_predicted_batch(experiences, goal_batch)
+            loss = self.loss(target_batch, predicted_batch)
+
+        
+        loss.backward()
+        self.optimizer.step()
+        
+        return loss.item()
 
     def _build_target_batch(self, experiences, goal_batch):
         next_agent_position_features_batch = self._build_tensor_from_batch_of_np_arrays(experiences.next_agent_position_features_batch).to(self.device) # shape (batch_size, n)
@@ -246,30 +199,67 @@ class FeatureGoalAgent():
         reward_batch = torch.tensor(experiences.reward_batch).to(torch.float).to(self.device) # shape (batch_size,)
         terminated_batch = torch.tensor(experiences.terminated_batch).to(self.device) # shape (batch_size,)
 
-        target_batch = self._get_dql_target_batch(next_agent_position_features_batch, goal_batch, reward_batch, terminated_batch)
-    
-        del next_agent_position_features_batch
-        del reward_batch
-        del terminated_batch
+        if self.is_a_usf:
+            reward_phi_batch = copy.deepcopy(next_agent_position_features_batch)
 
-        return target_batch
+            sf_s_g, w = self.target_net.incomplete_forward(next_agent_position_features_batch, goal_batch)
+            q = self.target_net.complete_forward(sf_s_g, w)
+                
+            qm, action = torch.max(q, axis = 1)
+
+            target_q = reward_batch + self.discount_factor * torch.mul(qm, ~terminated_batch) # shape (batch_size,)
+
+            terminated_batch = terminated_batch.unsqueeze(1)
+            action = action.reshape(self.batch_size, 1, 1).tile(self.features_size).to(self.device) # shape (batch_size,1,n)
+
+            target_psi = reward_phi_batch + self.discount_factor * torch.mul(sf_s_g.gather(1, action).squeeze(), ~terminated_batch) # shape (batch, features_size)
+
+            del reward_phi_batch
+            del next_agent_position_features_batch
+            del reward_batch
+            del terminated_batch
+
+            return target_q, target_psi
+
+        else:
+            with torch.no_grad():
+                q, _ = torch.max(self.target_net(next_agent_position_features_batch, goal_batch), axis = 1) # shape of q is (batch_size,)
+
+            target_q = reward_batch + self.discount_factor * torch.mul(q, ~terminated_batch)
+
+            del next_agent_position_features_batch
+            del reward_batch
+            del terminated_batch
+            
+            return target_q 
 
     def _build_predicted_batch(self, experiences, goal_batch):
         agent_position_features_batch = self._build_tensor_from_batch_of_np_arrays(experiences.agent_position_features_batch).to(self.device)
         action_batch = torch.tensor(experiences.action_batch).unsqueeze(1).to(self.device)
-        predicted_batch = self.policy_net(agent_position_features_batch, goal_batch).gather(1, action_batch).squeeze()
 
-        del agent_position_features_batch
-        del action_batch
+        if self.is_a_usf:
+            sf_s_g, w = self.policy_net.incomplete_forward(agent_position_features_batch, goal_batch)
+            q = self.policy_net.complete_forward(sf_s_g,w)
 
-        return predicted_batch
+            predicted_q = q.gather(1,action_batch).squeeze() # shape (batch_size,)
+            
+            action_batch = action_batch.reshape(self.batch_size, 1, 1).tile(self.features_size)
+            predicted_psi = sf_s_g.gather(1, action_batch).squeeze() # shape (batch_size, features_size)
 
-    def _get_dql_target_batch(self, next_agent_position_features_batch, goal_batch, reward_batch, terminated_batch):
-        with torch.no_grad():
-            q, _ = torch.max(self.target_net(next_agent_position_features_batch, goal_batch), axis = 1) # shape of q is (batch_size,)
-            q.to(self.device)
-            target = reward_batch + self.discount_factor * torch.mul(q, ~terminated_batch)
-        return target
+            del sf_s_g
+            del w
+            del agent_position_features_batch
+            del action_batch
+
+            return predicted_q, predicted_psi
+
+        else:
+            predicted_q = self.policy_net(agent_position_features_batch, goal_batch).gather(1, action_batch).squeeze()
+
+            del agent_position_features_batch
+            del action_batch
+
+            return predicted_q
 
     def train(self, transition):
         
