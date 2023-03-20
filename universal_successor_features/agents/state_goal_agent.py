@@ -36,10 +36,7 @@ class StateGoalAgent():
             ),
             memory = eu.AttrDict(
                 cls = mem.ExperienceReplayMemory,
-                #here i can add any other variable from the defaul config of the experience replay class.
             ),
-            #With this implementation, the choice of network completely determine the input size (i.e. the state and any additional info)
-            #and the output size (num actions)
             network = eu.AttrDict(
                 cls = nn.StateGoalPaperDQN,
                 optimizer = torch.optim.Adam,
@@ -82,6 +79,7 @@ class StateGoalAgent():
             self.config.network.goal_size = self.position_size
             self.config.network.features_size = self.features_size
             self.config.network.num_actions = self.action_space
+
             self.policy_net = eu.misc.create_object_from_config(self.config.network)
         else:
             raise ValueError("Network Config must be a dictionary.")
@@ -294,7 +292,7 @@ class StateGoalAgent():
             target_net_state_dict[key] = target_net_state_dict[key]*self.update_alpha + policy_net_state_dict[key]*(1-self.update_alpha)
 
         self.target_net.load_state_dict(target_net_state_dict)
-    
+
     def save(self, episode, step):
         filename = self.config.save.filename_prefix + str(self.policy_net.__class__.__name__) + "_" + str(episode) + self.config.save.extension
         torch.save(
