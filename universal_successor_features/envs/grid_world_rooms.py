@@ -5,13 +5,13 @@ import exputils as eu
 import random
 import warnings
 
-class GridWorld(gym.Env):
+class RoomGridWorld(gym.Env):
     
     @staticmethod
     def default_config():
         return eu.AttrDict(
-            rows = 10,
-            columns = 10,
+            rows = 9,
+            columns = 9,
             nmax_steps = 1e6,
             penalization = -0.1,
             reward_at_goal_position = 0,
@@ -27,6 +27,11 @@ class GridWorld(gym.Env):
         #length and width of the grid
         self.rows = self.config.rows 
         self.columns = self.config.columns
+
+        self.forbidden_cells = [
+            (4, 0), (4, 2), (4, 3), (4, 4), (4, 5), (4, 6), (4, 8),
+            (0, 4), (2, 4), (3, 4), (5, 4), (6, 4), (8, 4)
+        ]
         
         #action space of the environment. Agent can only move up, down, left, right, or stay
         self.action_space = gym.spaces.Discrete(4)
@@ -56,19 +61,34 @@ class GridWorld(gym.Env):
         self.n_goals = self.config.n_goals
         self.goal_list_source_tasks, self.goal_list_target_tasks, self.goal_list_evaluation_tasks = self._create_disjoint_goal_list_for_source_target_and_eval_tasks()
 
-    def _sample_position_in_matrix(self):
+    def _sample_position_in_grid(self):
         """Samples a row and a column from the predefined matrix dimensions.
            Returns a tuple of int.
         """
         i = np.random.choice(self.rows)
         j = np.random.choice(self.columns)
-        
+        while (i,j) in self.forbidden_cells:
+            i = np.random.choice(self.rows)
+            j = np.random.choice(self.columns)
+
         return i,j
     
     def _create_disjoint_goal_list_for_source_target_and_eval_tasks(self):
-        all_possible_goals = [np.array([[i,j]]) for i in range(self.rows) for j in range(self.columns)]
-        goals = random.sample(all_possible_goals, 3*self.n_goals)
-        return goals[:self.n_goals], goals[self.n_goals:2*self.n_goals], goals[2*self.n_goals:]
+        possible_goals_room_0 = [np.array([[i,j]]) for i in range(4) for j in range(4)]
+        possible_goals_room_1 = [np.array([[i,j]]) for i in range(4) for j in range(5,9)]
+        possible_goals_room_2 = [np.array([[i,j]]) for i in range(5,9) for j in range(4)]
+        possible_goals_room_3 = [np.array([[i,j]]) for i in range(5,9) for j in range(5,9)]
+
+        goals_room0 = random.sample(possible_goals_room_0, 3*3)
+        goals_room1 = random.sample(possible_goals_room_1, 3*3)
+        goals_room2 = random.sample(possible_goals_room_2, 3*3)
+        goals_room3 = random.sample(possible_goals_room_3, 3*3)
+
+        source_tasks = goals_room0[:3] + goals_room1[:3] + goals_room2[:3] + goals_room3[:3]
+        target_tasks =  goals_room0[3:6] + goals_room1[3:6] + goals_room2[3:6] + goals_room3[3:6]
+        eval_tasks =  goals_room0[6:9] + goals_room1[6:9] + goals_room2[6:9] + goals_room3[6:9]
+
+        return source_tasks, target_tasks, eval_tasks 
     
     def sample_source_goal(self):
         return self.sample_a_goal_position_from_list(self.goal_list_source_tasks)
@@ -83,7 +103,7 @@ class GridWorld(gym.Env):
         idx = random.randrange(len(goal_list))
         return goal_list[idx]
 
-    def reset(self, start_agent_position : np.ndarray = None, goal_position : np.ndarray = None, seed = None):
+    def reset(self, start_agent_position=None, goal_position=None, seed=None):
 
         super().reset(seed=seed)
 
@@ -94,7 +114,7 @@ class GridWorld(gym.Env):
             self.agent_i = start_agent_position[0][0]
             self.agent_j = start_agent_position[0][1]
         else:
-            self.agent_i, self.agent_j = self._sample_position_in_matrix()
+            self.agent_i, self.agent_j = self._sample_position_in_grid()
             
         if goal_position is not None:
             self.goal_i = goal_position[0][0]
@@ -103,12 +123,12 @@ class GridWorld(gym.Env):
             #if same, give priority to goal that was set
             while (self.agent_i,self.agent_j)==(self.goal_i,self.goal_j):
                 warnings.warn("Start position and goal position cannot be the same. Proceeding with different start position...")
-                self.agent_i, self.agent_j = self._sample_position_in_matrix()
+                self.agent_i, self.agent_j = self._sample_position_in_grid()
         else:
-            self.goal_i, self.goal_j = self._sample_position_in_matrix()
+            self.goal_i, self.goal_j = self._sample_position_in_grid()
 
             while (self.agent_i,self.agent_j)==(self.goal_i,self.goal_j):
-                self.goal_i, self.goal_j = self._sample_position_in_matrix()
+                self.goal_i, self.goal_j = self._sample_position_in_grid()
             
         #good sanity check
         if (self.agent_i,self.agent_j)==(self.goal_i,self.goal_j):
@@ -132,6 +152,8 @@ class GridWorld(gym.Env):
     def step(self, action):
         
         self.cur_step += 1
+        self.old_agent_i = self.agent_i
+        self.old_agent_j = self.agent_j
 
         #Actions:                   o o o o o               o x o o o               
         #                           o x o o o   -GO "UP"-   o o o o o 
@@ -155,6 +177,10 @@ class GridWorld(gym.Env):
         
         if self.agent_j < 0: self.agent_j = 0
         if self.agent_j > self.columns - 1: self.agent_j = self.columns - 1
+
+        if (self.agent_i, self.agent_j) in self.forbidden_cells:
+            self.agent_i = self.old_agent_i
+            self.agent_j = self.old_agent_j
 
         terminated = (self.agent_i, self.agent_j) == (self.goal_i, self.goal_j)
 
@@ -198,19 +224,20 @@ class GridWorld(gym.Env):
 
 
 if __name__ == '__main__':
-    grid_world_env = GridWorld()
+    grid_world_env = RoomGridWorld()
     # check_env(grid_world_env) #reset missing **kwargs argument but I dont want this functionality.
     print(grid_world_env.observation_space["agent_position_features"].shape[1])
     print(grid_world_env.observation_space["agent_position"].shape[1])
-    l1, l2 = grid_world_env._create_disjoint_goal_list_for_source_target_and_eval_tasks()
+    l1, l2, l3 = grid_world_env._create_disjoint_goal_list_for_source_target_and_eval_tasks()
     print(l1)
     print(l2)
+    print(l3)
     num_episodes = 1
     for _ in range(num_episodes):
         grid_world_env.reset()
 
         # steps
-        for _ in range(100):
+        for _ in range(20):
             action = grid_world_env.action_space.sample()
             obs, reward, terminated, truncated, info = grid_world_env.step(action)
             # grid_world_env.render(action, reward)
