@@ -155,8 +155,8 @@ class StateGoalAgent():
         with torch.no_grad():
             return torch.argmax(
                 self.policy_net(
-                    torch.tensor(agent_position).to(torch.float).to(self.device),
-                    torch.tensor(goal_position).to(torch.float).to(self.device)
+                    agent_position = torch.tensor(agent_position).to(torch.float).to(self.device),
+                    goal_position = torch.tensor(goal_position).to(torch.float).to(self.device)
                 )
             )
 
