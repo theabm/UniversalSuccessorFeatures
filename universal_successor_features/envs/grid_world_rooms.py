@@ -13,7 +13,6 @@ class RoomGridWorld(gym.Env):
             nmax_steps = 1e6,
             penalization = -0.1,
             reward_at_goal_position = 0,
-            n_goals = 1
             )
 
     def __init__(self, config = None, **kwargs):
@@ -55,8 +54,6 @@ class RoomGridWorld(gym.Env):
         self.cur_step = None 
         self.nmax_steps = self.config.nmax_steps
 
-        # generated randomly once for 10x10 and fixed forever.
-        self.n_goals = self.config.n_goals
         self.goal_list_source_tasks, self.goal_list_target_tasks, self.goal_list_evaluation_tasks = self._create_disjoint_goal_list_for_source_target_and_eval_tasks()
 
     def _sample_position_in_grid(self):
