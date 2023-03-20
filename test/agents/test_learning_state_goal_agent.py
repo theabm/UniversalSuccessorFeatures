@@ -205,3 +205,5 @@ def test_training_usf(network, discount_factor = 0.5, num_episodes=50, seed=0):
     cmp2 = np.allclose(q_pred_g2_array, q_gt_g2_array, rtol = 0, atol = 0.05)
 
     assert cmp1 and cmp2
+
+#test_training_usf(nn.StateGoalUSF)
