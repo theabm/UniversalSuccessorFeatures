@@ -36,10 +36,7 @@ class StateGoalWeightAgent():
             ),
             memory = eu.AttrDict(
                 cls = mem.ExperienceReplayMemory,
-                #here i can add any other variable from the defaul config of the experience replay class.
             ),
-            #With this implementation, the choice of network completely determine the input size (i.e. the state and any additional info)
-            #and the output size (num actions)
             network = eu.AttrDict(
                 cls = nn.StateGoalWeightUSF,
                 optimizer = torch.optim.Adam,
@@ -82,6 +79,7 @@ class StateGoalWeightAgent():
             self.config.network.goal_size = self.position_size
             self.config.network.features_size = self.features_size
             self.config.network.num_actions = self.action_space
+
             self.policy_net = eu.misc.create_object_from_config(self.config.network)
         else:
             raise ValueError("Network Config must be a dictionary.")
@@ -203,9 +201,7 @@ class StateGoalWeightAgent():
 
         if self.is_a_usf:
             with torch.no_grad():
-                reward_phi_batch = self.target_net.layer_state(next_agent_position_batch) # shape (batch_size, n)
-
-                sf_s_g = self.target_net.incomplete_forward(next_agent_position_batch, goal_batch)
+                sf_s_g, reward_phi_batch = self.target_net.incomplete_forward(next_agent_position_batch, goal_batch)
                 q = self.target_net.complete_forward(sf_s_g, goal_weights_batch)
                 
             qm, action = torch.max(q, axis = 1)
@@ -241,7 +237,7 @@ class StateGoalWeightAgent():
         action_batch = torch.tensor(experiences.action_batch).unsqueeze(1).to(self.device)
 
         if self.is_a_usf:
-            sf_s_g = self.policy_net.incomplete_forward(agent_position_batch, goal_batch)
+            sf_s_g, _ = self.policy_net.incomplete_forward(agent_position_batch, goal_batch)
             q = self.policy_net.complete_forward(sf_s_g,goal_weights_batch)
 
             predicted_q = q.gather(1,action_batch).squeeze() # shape (batch_size,)
@@ -297,7 +293,7 @@ class StateGoalWeightAgent():
             target_net_state_dict[key] = target_net_state_dict[key]*self.update_alpha + policy_net_state_dict[key]*(1-self.update_alpha)
 
         self.target_net.load_state_dict(target_net_state_dict)
-    
+
     def save(self, episode, step):
         filename = self.config.save.filename_prefix + str(self.policy_net.__class__.__name__) + "_" + str(episode) + self.config.save.extension
         torch.save(

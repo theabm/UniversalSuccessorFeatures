@@ -201,9 +201,7 @@ class StateGoalAgent():
 
         if self.is_a_usf:
             with torch.no_grad():
-                reward_phi_batch = self.target_net.layer_state(next_agent_position_batch) # shape (batch_size, n)
-
-                sf_s_g, w = self.target_net.incomplete_forward(next_agent_position_batch, goal_batch)
+                sf_s_g, w, reward_phi_batch = self.target_net.incomplete_forward(next_agent_position_batch, goal_batch)
                 q = self.target_net.complete_forward(sf_s_g, w)
                 
             qm, action = torch.max(q, axis = 1)
@@ -239,7 +237,7 @@ class StateGoalAgent():
         action_batch = torch.tensor(experiences.action_batch).unsqueeze(1).to(self.device)
 
         if self.is_a_usf:
-            sf_s_g, w = self.policy_net.incomplete_forward(agent_position_batch, goal_batch)
+            sf_s_g, w, _ = self.policy_net.incomplete_forward(agent_position_batch, goal_batch)
             q = self.policy_net.complete_forward(sf_s_g,w)
 
             predicted_q = q.gather(1,action_batch).squeeze() # shape (batch_size,)
