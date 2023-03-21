@@ -24,6 +24,7 @@ class UsfAgent():
             loss_weight = 0.01,
             eps  = 0.25,
             update_freq = 10,
+            buffer_size = 1000000
         )
         return cnf
     
@@ -52,7 +53,7 @@ class UsfAgent():
          
         self.policy_net = nn.UsfNN(self.config.network)
 
-        self.memory = deque([], maxlen = 1000000)
+        self.memory = deque([], maxlen = self.config.buffer_size)
 
         self.epsilon = self.config.eps
 
@@ -63,7 +64,7 @@ class UsfAgent():
 
         self.loss = torch.nn.MSELoss()
         self.loss_weight = self.config.loss_weight
-        self.optimizer = torch.optim.Adam(self.policy_net.parameters(), lr = self.config.learning_rate)
+        self.optimizer = torch.optim.SGD(self.policy_net.parameters(), lr = self.config.learning_rate)
         
         self.batch_size = self.config.batch_size      
 
