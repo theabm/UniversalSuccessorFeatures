@@ -70,9 +70,8 @@ class UsfAgent():
         self.discount_factor = self.config.discount_factor
 
         self.update_target_network_every_n_steps = self.config.update_freq
-        self.steps_since_last_network_update = 0
+        self.steps_since_last_network_update = 1
 
-        self.current_episode = 0
         self.learning_starts_after = self.batch_size*2
     
     def start_episode(self, episode):
@@ -101,6 +100,9 @@ class UsfAgent():
                     agent_position = torch.tensor(agent_position).to(torch.float).to(self.device),
                     goal_position = torch.tensor(goal_position).to(torch.float).to(self.device)
                 )
+            # shape of torch.sum result = (1,4) 
+            # shape of q = (1,) shape of a = (1,)
+            # verified explicitly multiplication works as expected .
             q, a = torch.max(torch.sum(torch.mul(psi, w.unsqueeze(1)), dim=2), dim=1)
             return a
 
@@ -130,6 +132,7 @@ class UsfAgent():
         
         return loss.item()
 
+    # explicitly checked that it works.
     def _build_target_batch(self, experiences, goal_batch):
         next_agent_position_batch = self._build_tensor_from_batch_of_np_arrays(experiences.next_agent_position_batch).to(self.device) # shape (batch_size, n)
 
@@ -139,13 +142,13 @@ class UsfAgent():
 
         with torch.no_grad():
             sf_s_g, w, reward_phi_batch = self.target_net(next_agent_position_batch, goal_batch)
-            q = torch.sum(torch.mul(sf_s_g, w.unsqueeze(1)), dim=2) 
+            q = torch.sum(torch.mul(sf_s_g, w.unsqueeze(1)), dim=2) # shape (batch, num_actions)
             
-        qm, action = torch.max(q, axis = 1)
+        qm, action = torch.max(q, axis = 1) # both have shape (batch,)
 
         target_q = reward_batch + self.discount_factor * torch.mul(qm, ~terminated_batch) # shape (batch_size,)
 
-        terminated_batch = terminated_batch.unsqueeze(1)
+        terminated_batch = terminated_batch.unsqueeze(1) # shape(batch,1)
         action = action.reshape(self.batch_size, 1, 1).tile(self.features_size).to(self.device) # shape (batch_size,1,n)
 
         target_psi = reward_phi_batch + self.discount_factor * torch.mul(sf_s_g.gather(1, action).squeeze(), ~terminated_batch) # shape (batch, features_size)
@@ -156,7 +159,7 @@ class UsfAgent():
 
         return target_q, target_psi, reward_batch
 
-
+    # explicitly checked it works
     def _build_predicted_batch(self, experiences, goal_batch):
         agent_position_batch = self._build_tensor_from_batch_of_np_arrays(experiences.agent_position_batch).to(self.device)
         action_batch = torch.tensor(experiences.action_batch).unsqueeze(1).to(self.device)
@@ -186,7 +189,7 @@ class UsfAgent():
         self._train_one_batch()
         
         if self.steps_since_last_network_update >= self.update_target_network_every_n_steps:
-            self.steps_since_last_network_update = 0
+            self.steps_since_last_network_update = 1
 
             self._update_target_network()
         else:

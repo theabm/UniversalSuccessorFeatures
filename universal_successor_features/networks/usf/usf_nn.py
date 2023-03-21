@@ -60,18 +60,34 @@ class UsfNN(torch.nn.Module):
         return sf_s_g, w, phi_s
 
 if __name__ == '__main__':
-    my_dqn = Usf()
+    my_dqn = UsfNN(features_size = 2)
     print(my_dqn)
     
     rand_states = torch.rand(10,2)
     rand_goals = torch.rand(10,2)
 
     output = my_dqn(rand_states, rand_goals)
-    print(output.shape)
+    q = torch.sum(torch.mul(output[0], output[1].unsqueeze(1)), dim=2)
+    print(q.shape)
     
     # Emulating behavior of epsilon greedy call for a single state, goal pair (not a batch)
     rand_state = torch.rand(2).unsqueeze(0)
     rand_goal = torch.rand(2).unsqueeze(0)
 
     output = my_dqn(rand_state, rand_goal)
-    print(output.shape)
+    print(output[0].shape, output[1].shape, output[2].shape)
+    psi = output[0]
+    print(psi)
+    w = output[1]
+    print(w)
+    print(psi[0][0][0]*w[0][0]+psi[0][0][1]*w[0][1])
+    print(psi[0][1][0]*w[0][0]+psi[0][1][1]*w[0][1])
+    print(psi[0][2][0]*w[0][0]+psi[0][2][1]*w[0][1])
+    print(psi[0][3][0]*w[0][0]+psi[0][3][1]*w[0][1])
+    q = torch.sum(torch.mul(psi, w.unsqueeze(1)), dim=2)
+    print(q)
+    qm,am = torch.max(q,dim=1)
+    print(qm, qm.shape)
+    print(am, am.shape)
+    
+    
