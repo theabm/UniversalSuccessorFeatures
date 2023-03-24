@@ -39,9 +39,9 @@ def test_goal_weights(i,j):
     goal_position = np.array([[i,j]])
     obs, *_ = my_env.reset(goal_position=goal_position) 
 
-    theoretical_goal_w = np.zeros((1,my_env.rows*my_env.columns))
+    theoretical_goal_w = np.full((1,my_env.rows*my_env.columns), -0.1)
     idx = 3*i+j
-    theoretical_goal_w[0][idx] = 1
+    theoretical_goal_w[0][idx] = 0
 
     comp = theoretical_goal_w == obs["goal_weights"]
 

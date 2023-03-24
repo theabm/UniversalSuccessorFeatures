@@ -199,6 +199,7 @@ class StateGoalAgent():
 
         if self.is_a_usf:
             with torch.no_grad():
+
                 sf_s_g, w, reward_phi_batch = self.target_net.incomplete_forward(next_agent_position_batch, goal_batch)
                 q = self.target_net.complete_forward(sf_s_g, w)
                 

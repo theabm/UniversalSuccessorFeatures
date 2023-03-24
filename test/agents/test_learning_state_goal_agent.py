@@ -143,7 +143,7 @@ def test_training_usf(network, discount_factor = 0.5, num_episodes=50, seed=0):
         discount_factor = discount_factor, 
         network = {"cls":network},
         is_a_usf = True,
-        loss_weight = 0.01
+        loss_weight = 0.001
         )
     device = agent.device
 

@@ -214,8 +214,9 @@ class RoomGridWorld(gym.Env):
         return position_features
         
     def _get_current_goal_weights(self):
-        task_weights = self._make_grid_and_place_one_in(self.goal_i, self.goal_j)
-        return task_weights
+        grd = np.full((self.rows, self.columns), self.config.penalization)
+        grd[self.goal_i][self.goal_j] = self.config.reward_at_goal_position
+        return grd.reshape((1,self.rows*self.columns))
 
 
 if __name__ == '__main__':

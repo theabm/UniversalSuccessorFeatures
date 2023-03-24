@@ -176,9 +176,9 @@ class FeatureGoalAgent():
 
         self.optimizer.zero_grad()
         if self.is_a_usf:
-            target_batch_q, target_batch_psi = self._build_target_batch(experiences, goal_batch)
-            predicted_batch_q, predicted_batch_psi = self._build_predicted_batch(experiences, goal_batch)
-            loss = self.loss(target_batch_q, predicted_batch_q) + self.loss_weight * self.loss(target_batch_psi, predicted_batch_psi)
+            target_batch_q, target_batch_psi, r = self._build_target_batch(experiences, goal_batch)
+            predicted_batch_q, predicted_batch_psi, phi_w = self._build_predicted_batch(experiences, goal_batch)
+            loss = self.loss(target_batch_q, predicted_batch_q) + self.loss_weight * self.loss(target_batch_psi, predicted_batch_psi) #+ self.loss(r, phi_w)
         else:
             target_batch = self._build_target_batch(experiences, goal_batch)
             predicted_batch = self._build_predicted_batch(experiences, goal_batch)
@@ -214,10 +214,9 @@ class FeatureGoalAgent():
 
             del reward_phi_batch
             del next_agent_position_features_batch
-            del reward_batch
             del terminated_batch
 
-            return target_q, target_psi
+            return target_q, target_psi, reward_batch
 
         else:
             with torch.no_grad():
@@ -245,10 +244,9 @@ class FeatureGoalAgent():
             predicted_psi = sf_s_g.gather(1, action_batch).squeeze() # shape (batch_size, features_size)
 
             del sf_s_g
-            del agent_position_features_batch
             del action_batch
 
-            return predicted_q, predicted_psi
+            return predicted_q, predicted_psi, torch.sum(agent_position_features_batch * w, dim = 1)
 
         else:
             predicted_q = self.policy_net(agent_position_features_batch, goal_batch).gather(1, action_batch).squeeze()
