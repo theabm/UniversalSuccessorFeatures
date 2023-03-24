@@ -26,7 +26,7 @@ class StateGoalWeightAgent():
             train_every_n_steps = 1,
             is_a_usf = False,
             loss_weight_psi = 0.01,
-            loss_weight_phi = 0.01,
+            loss_weight_phi = 0.00,
             epsilon = eu.AttrDict(
                 cls = eps.EpsilonConstant, 
             ),

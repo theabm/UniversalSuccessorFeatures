@@ -26,7 +26,6 @@ class FeatureGoalWeightAgent():
             train_every_n_steps = 1,
             is_a_usf = False,
             loss_weight_psi = 0.01,
-            loss_weight_phi = 0.01,
             epsilon = eu.AttrDict(
                 cls = eps.EpsilonConstant, 
             ),
@@ -104,7 +103,6 @@ class FeatureGoalWeightAgent():
 
         self.loss = self.config.network.loss()
         self.loss_weight_psi = self.config.loss_weight_psi
-        self.loss_weight_phi = self.config.loss_weight_phi
         self.optimizer = self.config.network.optimizer(self.policy_net.parameters(), lr = self.config.learning_rate)
         
         self.batch_size = self.config.batch_size      
@@ -182,7 +180,7 @@ class FeatureGoalWeightAgent():
         if self.is_a_usf:
             target_batch_q, target_batch_psi, r = self._build_target_batch(experiences, goal_batch, goal_weights_batch)
             predicted_batch_q, predicted_batch_psi, phi_w = self._build_predicted_batch(experiences, goal_batch, goal_weights_batch)
-            loss = self.loss(target_batch_q, predicted_batch_q) + self.loss_weight_psi * self.loss(target_batch_psi, predicted_batch_psi) + self.loss_weight_phi * self.loss(r, phi_w)
+            loss = self.loss(target_batch_q, predicted_batch_q) + self.loss_weight_psi * self.loss(target_batch_psi, predicted_batch_psi)
         else:
             target_batch = self._build_target_batch(experiences, goal_batch, goal_weights_batch)
             predicted_batch = self._build_predicted_batch(experiences, goal_batch, goal_weights_batch)
