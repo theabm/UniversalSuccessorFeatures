@@ -213,7 +213,6 @@ class StateGoalAgent():
 
             del reward_phi_batch
             del next_agent_position_batch
-            # del reward_batch
             del terminated_batch
 
             return target_q, target_psi, reward_batch
@@ -244,7 +243,6 @@ class StateGoalAgent():
             predicted_psi = sf_s_g.gather(1, action_batch).squeeze() # shape (batch_size, features_size)
 
             del sf_s_g
-            # del w
             del agent_position_batch
             del action_batch
 

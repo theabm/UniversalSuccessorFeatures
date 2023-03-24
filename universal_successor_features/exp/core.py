@@ -1,6 +1,7 @@
 import numpy as np
 import exputils as eu
 import exputils.data.logging as log
+import copy
 
 def run_rl_training(config = None, **kwargs):
 
@@ -25,6 +26,7 @@ def run_rl_training(config = None, **kwargs):
         log_name_reward_per_episode = 'reward_per_episode',
         log_name_reward_per_step = 'reward_per_step',
         log_name_total_reward = 'total_reward',
+        log_name_successful_episodes_rate = 'successful_episodes_rate',
         log_name_done_rate = 'done_rate'
     )
     
@@ -37,6 +39,7 @@ def run_rl_training(config = None, **kwargs):
     my_env = eu.misc.create_object_from_config(
         config.env,
     )
+    test_env = copy.deepcopy(my_env) # Copy of environment for testing
     
     agent = eu.misc.create_object_from_config(
         config.agent,
@@ -65,7 +68,7 @@ def run_rl_training(config = None, **kwargs):
         
         while not terminated and not truncated and step < config.n_max_steps:
 
-            next_obs, reward, terminated, truncated, transition = config.step_function(obs, agent, my_env)
+            next_obs, reward, terminated, truncated, transition = config.step_function(obs, agent, my_env, training = True)
 
             if config.update_agent:
                 agent.train(transition = transition)
@@ -75,17 +78,21 @@ def run_rl_training(config = None, **kwargs):
 
             reward_per_episode += reward
             total_reward += reward
-            done_rate = successful_episodes/(episode+1)
+            successful_episodes_rate = successful_episodes/(episode+1)
 
             log.add_value(config.log_name_step, step)
             log.add_value(config.log_name_reward_per_step, reward)
             log.add_value(config.log_name_episode_per_step, episode)
-            log.add_value(config.log_name_done_rate, done_rate)
+            log.add_value(config.log_name_successful_episodes_rate, successful_episodes_rate)
 
             obs = next_obs
 
             step += 1
             step_per_episode += 1
+
+            if step%100 == 0:
+                done_rate = evaluate_agent(agent, test_env, config.step_function)
+                log.add_value(config.log_name_done_rate, done_rate)
             
         agent.end_episode()
         if episode > 0 and episode%500 == 0:
@@ -98,8 +105,28 @@ def run_rl_training(config = None, **kwargs):
     
     log.save()
 
-def step_feature_goal_agent(obs, agent, my_env):
-    action = agent.choose_action(agent_position_features=obs["agent_position_features"], goal_position=obs["goal_position"], training=True)
+def evaluate_agent(agent, test_env, step_fn):
+    num_goals = len(test_env.goal_list_source_tasks)
+    completed_goals = 0
+    for goal in test_env.goal_list_source_tasks:
+        terminated = False
+        truncated = False
+        obs, _ = test_env.reset(goal_position = goal)
+        while not terminated and not truncated:
+
+            next_obs, reward, terminated, truncated, _ = step_fn(obs, agent, test_env, training = False)
+            obs = next_obs
+
+        if terminated:
+            completed_goals+=1
+        
+    done_rate = completed_goals/num_goals
+
+    return done_rate
+
+
+def step_feature_goal_agent(obs, agent, my_env, training):
+    action = agent.choose_action(agent_position_features=obs["agent_position_features"], goal_position=obs["goal_position"], training=training)
 
     next_obs, reward, terminated, truncated, _ = my_env.step(action=action) 
     
@@ -107,8 +134,8 @@ def step_feature_goal_agent(obs, agent, my_env):
 
     return next_obs, reward, terminated, truncated, transition 
 
-def step_feature_goal_weight_agent(obs, agent, my_env):
-    action = agent.choose_action(agent_position_features=obs["agent_position_features"], goal_position=obs["goal_position"], goal_weights = obs["goal_weights"], training=True)
+def step_feature_goal_weight_agent(obs, agent, my_env, training):
+    action = agent.choose_action(agent_position_features=obs["agent_position_features"], goal_position=obs["goal_position"], goal_weights = obs["goal_weights"], training=training)
             
     next_obs, reward, terminated, truncated, _ = my_env.step(action=action)
 
@@ -116,8 +143,8 @@ def step_feature_goal_weight_agent(obs, agent, my_env):
 
     return next_obs, reward, terminated, truncated, transition
 
-def step_state_goal_agent(obs, agent, my_env):
-    action = agent.choose_action(agent_position=obs["agent_position"], goal_position=obs["goal_position"], training=True)
+def step_state_goal_agent(obs, agent, my_env, training):
+    action = agent.choose_action(agent_position=obs["agent_position"], goal_position=obs["goal_position"], training=training)
             
     next_obs, reward, terminated, truncated, _ = my_env.step(action=action)
 
@@ -125,8 +152,8 @@ def step_state_goal_agent(obs, agent, my_env):
 
     return next_obs, reward, terminated, truncated, transition
 
-def step_state_goal_weight_agent(obs, agent, my_env):
-    action = agent.choose_action(agent_position=obs["agent_position"], goal_position=obs["goal_position"], goal_weights = obs["goal_weights"], training=True)
+def step_state_goal_weight_agent(obs, agent, my_env, training):
+    action = agent.choose_action(agent_position=obs["agent_position"], goal_position=obs["goal_position"], goal_weights = obs["goal_weights"], training=training)
             
     next_obs, reward, terminated, truncated, _ = my_env.step(action=action)
 

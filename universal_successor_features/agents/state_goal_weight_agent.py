@@ -23,7 +23,7 @@ class StateGoalWeightAgent():
             batch_size = 32,
             learning_rate = 5e-4,
             train_for_n_iterations = 1,
-            train_every_n_steps = 0,
+            train_every_n_steps = 1,
             is_a_usf = False,
             loss_weight = 0.01,
             epsilon = eu.AttrDict(
@@ -106,7 +106,7 @@ class StateGoalWeightAgent():
         self.optimizer = self.config.network.optimizer(self.policy_net.parameters(), lr = self.config.learning_rate)
         
         self.batch_size = self.config.batch_size      
-        self.train_every_n_steps = self.config.train_every_n_steps
+        self.train_every_n_steps = self.config.train_every_n_steps - 1
         self.steps_since_last_training = 0
 
         self.discount_factor = self.config.discount_factor
@@ -120,7 +120,7 @@ class StateGoalWeightAgent():
         else:
             raise ValueError("Unknown type of update rule.")
 
-        self.update_target_network_every_n_steps = self.config.target_network_update.every_n_steps
+        self.update_target_network_every_n_steps = self.config.target_network_update.every_n_steps - 1
         self.steps_since_last_network_update = 0
 
         self.current_episode = 0
@@ -178,9 +178,9 @@ class StateGoalWeightAgent():
 
         self.optimizer.zero_grad()
         if self.is_a_usf:
-            target_batch_q, target_batch_psi = self._build_target_batch(experiences, goal_batch, goal_weights_batch)
-            predicted_batch_q, predicted_batch_psi = self._build_predicted_batch(experiences, goal_batch, goal_weights_batch)
-            loss = self.loss(target_batch_q, predicted_batch_q) + self.loss_weight * self.loss(target_batch_psi, predicted_batch_psi)
+            target_batch_q, target_batch_psi, r = self._build_target_batch(experiences, goal_batch, goal_weights_batch)
+            predicted_batch_q, predicted_batch_psi, phi_w = self._build_predicted_batch(experiences, goal_batch, goal_weights_batch)
+            loss = self.loss(target_batch_q, predicted_batch_q) + self.loss_weight * self.loss(target_batch_psi, predicted_batch_psi) #+ self.loss(r, phi_w)
         else:
             target_batch = self._build_target_batch(experiences, goal_batch, goal_weights_batch)
             predicted_batch = self._build_predicted_batch(experiences, goal_batch, goal_weights_batch)
@@ -215,10 +215,9 @@ class StateGoalWeightAgent():
 
             del reward_phi_batch
             del next_agent_position_batch
-            del reward_batch
             del terminated_batch
 
-            return target_q, target_psi
+            return target_q, target_psi, reward_batch
 
         else:
             with torch.no_grad():
@@ -237,7 +236,7 @@ class StateGoalWeightAgent():
         action_batch = torch.tensor(experiences.action_batch).unsqueeze(1).to(self.device)
 
         if self.is_a_usf:
-            sf_s_g, _ = self.policy_net.incomplete_forward(agent_position_batch, goal_batch)
+            sf_s_g, phi = self.policy_net.incomplete_forward(agent_position_batch, goal_batch)
             q = self.policy_net.complete_forward(sf_s_g,goal_weights_batch)
 
             predicted_q = q.gather(1,action_batch).squeeze() # shape (batch_size,)
@@ -249,7 +248,7 @@ class StateGoalWeightAgent():
             del agent_position_batch
             del action_batch
 
-            return predicted_q, predicted_psi
+            return predicted_q, predicted_psi, torch.sum(phi * goal_weights_batch, dim = 1)
 
         else:
             predicted_q = self.policy_net(agent_position_batch, goal_batch, goal_weights_batch).gather(1, action_batch).squeeze()

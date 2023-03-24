@@ -23,7 +23,7 @@ class FeatureGoalWeightAgent():
             batch_size = 32,
             learning_rate = 5e-4,
             train_for_n_iterations = 1,
-            train_every_n_steps = 0,
+            train_every_n_steps = 1,
             is_a_usf = False,
             loss_weight = 0.01,
             epsilon = eu.AttrDict(
@@ -106,7 +106,7 @@ class FeatureGoalWeightAgent():
         self.optimizer = self.config.network.optimizer(self.policy_net.parameters(), lr = self.config.learning_rate)
         
         self.batch_size = self.config.batch_size      
-        self.train_every_n_steps = self.config.train_every_n_steps
+        self.train_every_n_steps = self.config.train_every_n_steps - 1
         self.steps_since_last_training = 0
 
         self.discount_factor = self.config.discount_factor
@@ -120,7 +120,7 @@ class FeatureGoalWeightAgent():
         else:
             raise ValueError("Unknown type of update rule.")
 
-        self.update_target_network_every_n_steps = self.config.target_network_update.every_n_steps
+        self.update_target_network_every_n_steps = self.config.target_network_update.every_n_steps - 1
         self.steps_since_last_network_update = 0
 
         self.current_episode = 0
