@@ -85,15 +85,16 @@ def run_rl_training(config = None, **kwargs):
             log.add_value(config.log_name_episode_per_step, episode)
             log.add_value(config.log_name_successful_episodes_rate, successful_episodes_rate)
 
+            if step%100 == 0:
+                done_rate = evaluate_agent(agent, test_env, config.step_function)
+
+            log.add_value(config.log_name_done_rate, done_rate)
+
             obs = next_obs
 
             step += 1
             step_per_episode += 1
 
-            if step%100 == 0:
-                done_rate = evaluate_agent(agent, test_env, config.step_function)
-                log.add_value(config.log_name_done_rate, done_rate)
-            
         agent.end_episode()
         if episode > 0 and episode%500 == 0:
             agent.save(episode, step)
