@@ -205,14 +205,14 @@ class StateGoalAgent():
                 sf_s_g, w, reward_phi_batch = self.target_net.incomplete_forward(next_agent_position_batch, goal_batch)
                 q = self.target_net.complete_forward(sf_s_g, w)
                 
-            qm, action = torch.max(q, axis = 1)
+                qm, action = torch.max(q, axis = 1)
 
-            target_q = reward_batch + self.discount_factor * torch.mul(qm, ~terminated_batch) # shape (batch_size,)
+                target_q = reward_batch + self.discount_factor * torch.mul(qm, ~terminated_batch) # shape (batch_size,)
 
-            terminated_batch = terminated_batch.unsqueeze(1)
-            action = action.reshape(self.batch_size, 1, 1).tile(self.features_size).to(self.device) # shape (batch_size,1,n)
+                terminated_batch = terminated_batch.unsqueeze(1)
+                action = action.reshape(self.batch_size, 1, 1).tile(self.features_size).to(self.device) # shape (batch_size,1,n)
 
-            target_psi = reward_phi_batch + self.discount_factor * torch.mul(sf_s_g.gather(1, action).squeeze(), ~terminated_batch) # shape (batch, features_size)
+                target_psi = reward_phi_batch + self.discount_factor * torch.mul(sf_s_g.gather(1, action).squeeze(), ~terminated_batch) # shape (batch, features_size)
 
             del reward_phi_batch
             del next_agent_position_batch
@@ -224,7 +224,7 @@ class StateGoalAgent():
             with torch.no_grad():
                 q, _ = torch.max(self.target_net(next_agent_position_batch, goal_batch), axis = 1) # shape of q is (batch_size,)
 
-            target_q = reward_batch + self.discount_factor * torch.mul(q, ~terminated_batch)
+                target_q = reward_batch + self.discount_factor * torch.mul(q, ~terminated_batch)
 
             del next_agent_position_batch
             del reward_batch
