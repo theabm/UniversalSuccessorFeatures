@@ -87,15 +87,62 @@ class SumTree():
 
     def get(self, priority):
         """Get a value in the tree using the sum tree algorithm. In other words, we retrieve the the element of the sum tree for which the desired
-           priority is in it's range.
+           priority is in its range.
         """
+        # start with root
         index = 0
+        # Since we have self.size leaf nodes (the size of the memory), and the whole tree is of size (2*self.size - 1), then we have (n-1) elements in the
+        # beginning of the array, followed by n leaf nodes. 
+        # The index of the first (n-1) elements goes from 0 to n-2, so the first leaf node will have index (n-1).
+        # Therefore, we iterate the procedure until we find a leaf node which happens when the index >= n-1
         while index < (self.size - 1):
+            # For a node at index i, the left and right children nodes will be at 2*i+1 and 2*i+2 respectively.
             left = 2*index + 1
             right = 2*index + 2
-            if priority < self.tree[index]:
+            if priority <= self.tree[index]:
                 index = left  
             else:
+                # if the priority is greater than the right element 
                 priority = self.tree[index] - self.tree[left]
                 index = right
         return self.tree[index]
+    
+    def display(self):
+        import math
+
+        levels = math.ceil(math.log2(self.tree_size + 1))
+        i = 0
+        num_elems = 0
+        level = 0
+        print("\t"*int(math.floor(2**(levels-1)-1)), end = "")
+        while level < levels and i<self.tree_size:
+            num_seps = "\t"*int(math.floor(2**(levels-level)-1))
+            print("%8d"%self.tree[i].item(), end = "")
+            print(num_seps, end = "", sep = "")
+            num_elems += 1
+            if num_elems == 2**level:
+                print("\n")
+                level += 1
+                num_tabs = "\t"*int(math.floor(2**(levels-1-level)-1))
+                print(num_tabs)
+                print(num_tabs, end = "")
+                num_elems = 0
+            i+=1
+        print("\n")
+
+if __name__ == '__main__':
+
+    my_memory = [3,8,2,4,1,5,2,7]
+    my_tree = SumTree(memory_size = len(my_memory))
+    
+    for i,val in enumerate(my_memory):
+        my_tree.add(i, val)
+    my_tree.display()
+
+    my_memory = [3,8,5,2,7]
+    my_tree = SumTree(memory_size = len(my_memory))
+    
+    for i,val in enumerate(my_memory):
+        my_tree.add(i, val)
+    my_tree.display()
+    
