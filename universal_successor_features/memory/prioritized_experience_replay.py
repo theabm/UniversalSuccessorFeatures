@@ -1,5 +1,6 @@
 import exputils as eu
 import numpy as np
+import torch
 
 class PrioritizedExperienceReplayMemory():
 
@@ -14,15 +15,20 @@ class PrioritizedExperienceReplayMemory():
         )
     def __init__(self, config = None, **kwargs):
         self.config = eu.combine_dicts(kwargs, config, self.default_config())
+        
+        self.capacity = self.config.capacity
+        self.beta_current = self.config.beta0
+        self.max_priority = self.config.max_priority
 
-        self.tree = SumTree(self.config.capacity) # the sum tree that will enable sampling from the distribution efficiently.
+        self.tree = SumTree(self.capacity) # the sum tree that will enable sampling from the distribution efficiently.
 
-        self.memory = np.zeros(self.config.capacity) # data structure that holds actual data
+        self.memory = [0 for i in self.capacity] # data structure that holds actual data
+        self.weights = np.zeros(self.capacity) # array of weights
 
         self.size_so_far = 0 # The size of the data so far. This keeps track of where to sample in the beginning.  
         self.index_to_store = 0 # The index where we must store new data. This keeps track of the fixed size of the memory.
 
-        self.max_weight = 0
+        self.max_weight = None
         
 
     def push(self, transition):
@@ -32,11 +38,16 @@ class PrioritizedExperienceReplayMemory():
 
         # Add the transition inside the memory and add the corresponding element with max priority inside the tree.
         self.memory[self.index_to_store] = transition
-        self.tree.add(self.index_to_store, self.config.max_priority)
+
+        # Calculate the weight, store it in memory in the appropriate place
+        weight = (1/(self.config.capacity*self.max_priority)**self.beta_current)
+        self.weights[self.index_to_store] = weight
+
+        self.tree.add(self.index_to_store, self.max_priority)
 
         # The index to store is increased by one (when == capacity, line 6 will make it go back to zero)
         self.index_to_store += 1
-        self.size_so_far = min(self.config.capacity, self.size_so_far+1) # Once we have reached full capacity, we sample from whole array so the size == capacity
+        self.size_so_far = min(self.config.capacity, self.size_so_far+1) 
 
 
     def sample(self, batch_size):
@@ -44,18 +55,40 @@ class PrioritizedExperienceReplayMemory():
            As per the description: 'To sample a minibatch of size k, the range [0, ptotal] is divided equally into k ranges.
            Next, a value is uniformly sampled from each range. Finally the transitions that correspond to each of these sampled
            values are retrieved from the tree.'
+           Returns: batch_of_elements, their_weights
         """ 
         ptotal = self.tree.ptotal()
         range_length = ptotal/batch_size
 
         values = [np.random.uniform(k*range_length, (k+1)*range_length) for k in range(batch_size)]
 
-        indexes = [self.tree.get(value)[1] for value in values]
+        # Array that will store indexes of where to look in the memory to retrieve the relevant transition
+        self.indexes = np.zeros(batch_size)
 
-        return self.memory[indexes], indexes
+        # Find first value manually purely to have first value of max_w
+        _, index = self.tree.get(values[0])
+        max_w = self.weights[index]
+        self.indexes[0] = index
+        
+        for i, value in enumerate(values[1:]):
+            _, index = self.tree.get(value)
+            max_w = max(max_w, self.weights[index])
+            self.indexes[i] = index
 
-    def update_samples(self, batch_size):
-        pass
+        # Get normalized weights 
+        weights = self.weights[self.indexes]/max_w
+
+        return [self.memory[i] for i in self.indexes], weights
+
+    def update_samples(self, batch_of_new_td_errors):
+        # Expected type is a batch of torch tensors (batch_size,)
+        """Updates the priorities at the previous indexes after having sampled"""
+        priority = torch.abs(batch_of_new_td_errors) + self.config.eps
+        new_max = torch.max(priority)
+        self.max_priority = max(self.max_priority, new_max)
+
+        for i in range(len(batch_of_new_td_errors)):
+            self.tree.update(self.indexes[i], priority[i].item())
 
     def __len__(self):
         return len(self.memory)
