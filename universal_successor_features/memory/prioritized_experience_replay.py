@@ -9,9 +9,9 @@ class PrioritizedExperienceReplayMemory():
         return eu.AttrDict(
             capacity = 1000000,
             alpha = 0, # how much to prioritize
-            beta0 = 0, # how much to correct bias 0<= beta <= 1. This is annealed linearly throughout episodes
-            eps = 0, # makes probability of sampling a transition with zero td error non null
-            max_priority = 0, # the max priority for newly obtained transitions, ensures that they will be sampled at least once
+            beta0 = 1, # how much to correct bias 0<= beta <= 1. This is annealed linearly throughout episodes
+            eps = 0.01, # makes probability of sampling a transition with zero td error non null
+            max_priority = 0.01, # the max priority for newly obtained transitions, ensures that they will be sampled at least once
         )
     def __init__(self, config = None, **kwargs):
         self.config = eu.combine_dicts(kwargs, config, self.default_config())
@@ -89,12 +89,13 @@ class PrioritizedExperienceReplayMemory():
 
         for i in range(len(batch_of_new_td_errors)):
             self.tree.update(self.indexes[i], priority[i].item())
-
-    def __len__(self):
-        return len(self.memory)
     
-    def __getitem__(self,key):
-        return self.memory[key]
+    def anneal_beta(self, schedule_length):
+        """Linearly anneal beta to 1 when learning ends."""
+        m = (1-self.config.beta0)/schedule_length
+        self.value = min(self.beta_current + m, 1)
+
+
 
 
 class SumTree():
