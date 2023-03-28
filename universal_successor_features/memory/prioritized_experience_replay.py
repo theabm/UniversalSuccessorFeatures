@@ -1,7 +1,5 @@
 import exputils as eu
-from collections import deque
-import random
-import torch
+import numpy as np
 
 class PrioritizedExperienceReplayMemory():
 
@@ -17,15 +15,47 @@ class PrioritizedExperienceReplayMemory():
     def __init__(self, config = None, **kwargs):
         self.config = eu.combine_dicts(kwargs, config, self.default_config())
 
-        self.tree = SumTree(self.config.capacity) # tree structure that will allow us to sample with specific weights
+        self.tree = SumTree(self.config.capacity) # the sum tree that will enable sampling from the distribution efficiently.
 
-        self.memory = deque([],maxlen=self.config.capacity) # data structure that holds actual data
+        self.memory = np.zeros(self.config.capacity) # data structure that holds actual data
+
+        self.size_so_far = 0 # The size of the data so far. This keeps track of where to sample in the beginning.  
+        self.index_to_store = 0 # The index where we must store new data. This keeps track of the fixed size of the memory.
+
+        self.max_weight = 0
+        
 
     def push(self, transition):
-        self.memory.append(transition)
+        """Push new transitions in the memory and in the tree with max priority."""
+        # the index to store must always be between 0, capacity-1
+        self.index_to_store %= self.config.capacity
+
+        # Add the transition inside the memory and add the corresponding element with max priority inside the tree.
+        self.memory[self.index_to_store] = transition
+        self.tree.add(self.index_to_store, self.config.max_priority)
+
+        # The index to store is increased by one (when == capacity, line 6 will make it go back to zero)
+        self.index_to_store += 1
+        self.size_so_far = min(self.config.capacity, self.size_so_far+1) # Once we have reached full capacity, we sample from whole array so the size == capacity
+
 
     def sample(self, batch_size):
-        return random.sample(self.memory, batch_size)
+        """Sample a batch of elements according to the rules of prioritized experience replay.
+           As per the description: 'To sample a minibatch of size k, the range [0, ptotal] is divided equally into k ranges.
+           Next, a value is uniformly sampled from each range. Finally the transitions that correspond to each of these sampled
+           values are retrieved from the tree.'
+        """ 
+        ptotal = self.tree.ptotal()
+        range_length = ptotal/batch_size
+
+        values = [np.random.uniform(k*range_length, (k+1)*range_length) for k in range(batch_size)]
+
+        indexes = [self.tree.get(value)[1] for value in values]
+
+        return self.memory[indexes], indexes
+
+    def update_samples(self, batch_size):
+        pass
 
     def __len__(self):
         return len(self.memory)
@@ -35,7 +65,10 @@ class PrioritizedExperienceReplayMemory():
 
 
 class SumTree():
-    """Implementation of Sum Tree specific for prioritized experience replay"""
+    """Implementation of Sum Tree specific for prioritized experience replay. Note that this implementation
+       goes hand in hand with the memory class before which implicitly handles insertions/removals inside the
+       sum tree.
+    """
     @staticmethod
     def default_config():
         return eu.AttrDict(
@@ -48,15 +81,18 @@ class SumTree():
 
         self.tree_size = 2*self.memory_size-1
         
-        self.tree = torch.zeros(self.tree_size)
+        self.tree = np.zeros(self.tree_size)
+    
+    def ptotal(self):
+        return self.tree[0]
 
     def add(self, index_in_memory_array, priority):
         """Adds an element inside the tree with a certain value"""
         # The idea is as follows: given a memory array of size n, since these nodes are assumed to be leaf nodes, the corresponding tree will have size 2*n - 1.
-        # In fact, nodes from 0 to n-2 (the first n-1 nodes) are intermediate nodes that contain the sums of their children nodes. Then, the nodes from n-1 to 2n-2 (the last
-        # n nodes of real interest) contain the priority of our nodes in the memory in the same order as the one in the array. 
-        # Therefore, since we are putting the n nodes of the memory at the end of the tree array, we must add (n-1) to the index of the memory element to obtain the corresponding
-        # position in the tree array. Below is the illustration:
+        # In fact, nodes from 0 to n-2 (the first n-1 nodes) are intermediate nodes that contain the sums of their children nodes. Then, the nodes from 
+        # n-1 to 2n-2 (the last n nodes of real interest) contain the priority of our nodes in the memory in the same order as the one in the array. 
+        # Therefore, since we are putting the n nodes of the memory at the end of the tree array, we must add (n-1) to the index of the memory element 
+        # to obtain the corresponding position in the tree array. Below is the illustration:
         # [-5, 8, 2, 4] (these elements are the priorities of four transitions in our memory)
         #   0, 1, 2, 3  -> the positions of the elements
         # [-,-,-,-5, 8, 2, 4] -> the elements as we want them positioned in the sum tree array
@@ -88,24 +124,25 @@ class SumTree():
     def get(self, priority):
         """Get a value in the tree using the sum tree algorithm. In other words, we retrieve the the element of the sum tree for which the desired
            priority is in its range.
+           Returns priority value and corresponding index in the memory.
         """
         # start with root
         index = 0
-        # Since we have self.size leaf nodes (the size of the memory), and the whole tree is of size (2*self.size - 1), then we have (n-1) elements in the
+        # Since we have n leaf nodes (the size of the memory), and the whole tree is of size (2*n - 1), then we have (n-1) elements in the
         # beginning of the array, followed by n leaf nodes. 
         # The index of the first (n-1) elements goes from 0 to n-2, so the first leaf node will have index (n-1).
         # Therefore, we iterate the procedure until we find a leaf node which happens when the index >= n-1
-        while index < (self.size - 1):
+        while index < (self.memory_size - 1):
             # For a node at index i, the left and right children nodes will be at 2*i+1 and 2*i+2 respectively.
             left = 2*index + 1
             right = 2*index + 2
-            if priority <= self.tree[index]:
+            if priority <= self.tree[left]:
                 index = left  
             else:
                 # if the priority is greater than the right element 
-                priority = self.tree[index] - self.tree[left]
+                priority -= self.tree[left]
                 index = right
-        return self.tree[index]
+        return self.tree[index], index - (self.memory_size - 1)
     
     def display(self):
         import math
@@ -117,7 +154,7 @@ class SumTree():
         print("\t"*int(math.floor(2**(levels-1)-1)), end = "")
         while level < levels and i<self.tree_size:
             num_seps = "\t"*int(math.floor(2**(levels-level)-1))
-            print("%8d"%self.tree[i].item(), end = "")
+            print("%8d"%self.tree[i], end = "")
             print(num_seps, end = "", sep = "")
             num_elems += 1
             if num_elems == 2**level:
@@ -132,17 +169,12 @@ class SumTree():
 
 if __name__ == '__main__':
 
-    my_memory = [3,8,2,4,1,5,2,7]
+    my_memory = [8,2,1,4,0,0,0,0]
     my_tree = SumTree(memory_size = len(my_memory))
     
     for i,val in enumerate(my_memory):
         my_tree.add(i, val)
     my_tree.display()
 
-    my_memory = [3,8,5,2,7]
-    my_tree = SumTree(memory_size = len(my_memory))
-    
-    for i,val in enumerate(my_memory):
-        my_tree.add(i, val)
-    my_tree.display()
+    print(my_tree.get(1))
     
