@@ -161,7 +161,7 @@ class StateGoalAgent():
             )
 
     def _sample_experiences(self):
-        experiences, weights = self.memory.sample(self.batch_size)
+        experiences = self.memory.sample(self.batch_size)
         return Experiences(*zip(*experiences))
 
     def _build_tensor_from_batch_of_np_arrays(self, batch_of_np_arrays):
