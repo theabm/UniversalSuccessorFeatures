@@ -95,8 +95,11 @@ class PrioritizedExperienceReplayMemory():
         m = (1-self.config.beta0)/schedule_length
         self.value = min(self.beta_current + m, 1)
 
-
-
+    def __len__(self):
+        return self.size_so_far
+    
+    def __getitem__(self,key):
+        return self.memory[key]
 
 class SumTree():
     """Implementation of Sum Tree specific for prioritized experience replay. Note that this implementation
