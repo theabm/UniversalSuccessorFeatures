@@ -10,8 +10,8 @@ class PrioritizedExperienceReplayMemory():
             capacity = 1000000,
             alpha = 0, # how much to prioritize
             beta0 = 1, # how much to correct bias 0<= beta <= 1. This is annealed linearly throughout episodes
-            eps = 0.01, # makes probability of sampling a transition with zero td error non null
-            max_priority = 0.01, # the max priority for newly obtained transitions, ensures that they will be sampled at least once
+            eps = 1e-6, # makes probability of sampling a transition with zero td error non null
+            max_priority = 1e-6, # the max priority for newly obtained transitions, ensures that they will be sampled at least once
         )
     def __init__(self, config = None, **kwargs):
         self.config = eu.combine_dicts(kwargs, config, self.default_config())
@@ -20,9 +20,9 @@ class PrioritizedExperienceReplayMemory():
         self.beta_current = self.config.beta0
         self.max_priority = self.config.max_priority
 
-        self.tree = SumTree(self.capacity) # the sum tree that will enable sampling from the distribution efficiently.
+        self.tree = SumTree(memory_size = self.capacity) # the sum tree that will enable sampling from the distribution efficiently.
 
-        self.memory = [0 for i in self.capacity] # data structure that holds actual data
+        self.memory = [0 for i in range(self.capacity)] # data structure that holds actual data
         self.weights = np.zeros(self.capacity) # array of weights
 
         self.size_so_far = 0 # The size of the data so far. This keeps track of where to sample in the beginning.  
@@ -63,7 +63,7 @@ class PrioritizedExperienceReplayMemory():
         values = [np.random.uniform(k*range_length, (k+1)*range_length) for k in range(batch_size)]
 
         # Array that will store indexes of where to look in the memory to retrieve the relevant transition
-        self.indexes = np.zeros(batch_size)
+        self.indexes = np.zeros(batch_size, dtype=np.int)
 
         # Find first value manually purely to have first value of max_w
         _, index = self.tree.get(values[0])
@@ -88,7 +88,7 @@ class PrioritizedExperienceReplayMemory():
         self.max_priority = max(self.max_priority, new_max)
 
         for i in range(len(batch_of_new_td_errors)):
-            self.tree.update(self.indexes[i], priority[i].item())
+            self.tree.add(self.indexes[i], priority[i].item())
     
     def anneal_beta(self, schedule_length):
         """Linearly anneal beta to 1 when learning ends."""
@@ -203,6 +203,9 @@ class SumTree():
                 num_elems = 0
             i+=1
         print("\n")
+
+    def __getitem__(self, key):
+        return self.tree[key + self.memory_size - 1]
 
 if __name__ == '__main__':
 
