@@ -1,1 +1,3 @@
-from .experience_replay_memory import ExperienceReplayMemory 
+from .experience_replay import ExperienceReplayMemory 
+from .prioritized_experience_replay import SumTree, PrioritizedExperienceReplayMemory
+from .combined_experience_replay import CombinedExperienceReplayMemory
