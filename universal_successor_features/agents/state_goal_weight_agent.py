@@ -142,9 +142,17 @@ class StateGoalWeightAgent():
 
     def choose_action(self, agent_position, goal_position, goal_weights, training):
         if training:
-            return self._epsilon_greedy_action_selection(agent_position, goal_position, goal_weights).item()
+            return self._epsilon_greedy_action_selection(
+                                                    agent_position,
+                                                    goal_position,
+                                                    goal_weights
+                                                    ).item()
         else:
-            return self._greedy_action_selection(agent_position, goal_position, goal_weights).item()
+            return self._greedy_action_selection(
+                                            agent_position,
+                                            goal_position,
+                                            goal_weights
+                                            ).item()
 
     def _epsilon_greedy_action_selection(self, agent_position, goal_position, goal_weights):
         """Epsilon greedy action selection"""
@@ -156,10 +164,10 @@ class StateGoalWeightAgent():
     def _greedy_action_selection(self, agent_position, goal_position, goal_weights):
         with torch.no_grad():
             q, *_ = self.policy_net(
-                                    agent_position = torch.tensor(agent_position).to(torch.float).to(self.device),
-                                    goal_position = torch.tensor(goal_position).to(torch.float).to(self.device),
-                                    goal_weights = torch.tensor(goal_weights).to(torch.float).to(self.device),
-                                    )
+                            agent_position = torch.tensor(agent_position).to(torch.float).to(self.device),
+                            goal_position  = torch.tensor(goal_position).to(torch.float).to(self.device),
+                            goal_weights   = torch.tensor(goal_weights).to(torch.float).to(self.device),
+                            )
             return torch.argmax(q)
 
     def _sample_experiences(self):
@@ -182,8 +190,16 @@ class StateGoalWeightAgent():
 
         self.optimizer.zero_grad()
         if self.is_a_usf:
-            target_batch_q, target_batch_psi, r = self._build_target_batch(experiences, goal_batch, goal_weights_batch)
-            predicted_batch_q, predicted_batch_psi, phi_w = self._build_predicted_batch(experiences, goal_batch, goal_weights_batch)
+            target_batch_q, target_batch_psi, r = self._build_target_batch(
+                                                                    experiences,
+                                                                    goal_batch,
+                                                                    goal_weights_batch
+                                                                    )
+            predicted_batch_q, predicted_batch_psi, phi_w = self._build_predicted_batch(
+                                                                                experiences,
+                                                                                goal_batch,
+                                                                                goal_weights_batch
+                                                                                )
 
             td_error_q = torch.abs(target_batch_q - predicted_batch_q) # shape (batch_size,)
             # shape of target_batch_psi is (batch, size_features) so the td_error for that batch must be summed along first dim
@@ -201,8 +217,16 @@ class StateGoalWeightAgent():
 
             loss = torch.mean(sample_weights*torch.square(total_td_error))
         else:
-            target_batch = self._build_target_batch(experiences, goal_batch, goal_weights_batch)
-            predicted_batch = self._build_predicted_batch(experiences, goal_batch, goal_weights_batch)
+            target_batch = self._build_target_batch(
+                                            experiences,
+                                            goal_batch,
+                                            goal_weights_batch
+                                            )
+            predicted_batch = self._build_predicted_batch(
+                                                experiences,
+                                                goal_batch,
+                                                goal_weights_batch
+                                                )
 
             td_error_q = torch.abs(target_batch - predicted_batch)
 
@@ -212,7 +236,6 @@ class StateGoalWeightAgent():
 
             loss = torch.mean(sample_weights*torch.square(td_error_q))
 
-        
         loss.backward()
         self.optimizer.step()
         
@@ -228,20 +251,20 @@ class StateGoalWeightAgent():
         if self.is_a_usf:
             with torch.no_grad():
 
-                q, sf_s_g, w, reward_phi_batch = self.target_net(next_agent_position_batch, goal_batch, goal_weights_batch)
+                q, sf_s_g, w, reward_phi_batch = self.target_net(
+                                                        next_agent_position_batch,
+                                                        goal_batch,
+                                                        goal_weights_batch
+                                                        )
                 
-            qm, action = torch.max(q, axis = 1)
+                qm, action = torch.max(q, axis = 1)
 
-            target_q = reward_batch + self.discount_factor * torch.mul(qm, ~terminated_batch) # shape (batch_size,)
+                target_q = reward_batch + self.discount_factor * torch.mul(qm, ~terminated_batch) # shape (batch_size,)
 
-            terminated_batch = terminated_batch.unsqueeze(1)
-            action = action.reshape(self.batch_size, 1, 1).tile(self.features_size).to(self.device) # shape (batch_size,1,n)
+                terminated_batch = terminated_batch.unsqueeze(1)
+                action = action.reshape(self.batch_size, 1, 1).tile(self.features_size).to(self.device) # shape (batch_size,1,n)
 
-            target_psi = reward_phi_batch + self.discount_factor * torch.mul(sf_s_g.gather(1, action).squeeze(), ~terminated_batch) # shape (batch, features_size)
-
-            del reward_phi_batch
-            del next_agent_position_batch
-            del terminated_batch
+                target_psi = reward_phi_batch + self.discount_factor * torch.mul(sf_s_g.gather(1, action).squeeze(), ~terminated_batch) # shape (batch, features_size)
 
             return target_q, target_psi, reward_batch
 
@@ -249,12 +272,8 @@ class StateGoalWeightAgent():
             with torch.no_grad():
                 q, _ = torch.max(self.target_net(next_agent_position_batch, goal_batch, goal_weights_batch), axis = 1) # shape of q is (batch_size,)
 
-            target_q = reward_batch + self.discount_factor * torch.mul(q, ~terminated_batch)
+                target_q = reward_batch + self.discount_factor * torch.mul(q, ~terminated_batch)
 
-            del next_agent_position_batch
-            del reward_batch
-            del terminated_batch
-            
             return target_q 
 
     def _build_predicted_batch(self, experiences, goal_batch, goal_weights_batch):
@@ -262,24 +281,21 @@ class StateGoalWeightAgent():
         action_batch = torch.tensor(experiences.action_batch).unsqueeze(1).to(self.device)
 
         if self.is_a_usf:
-            q, sf_s_g, w, phi = self.policy_net(agent_position_batch, goal_batch, goal_weights_batch)
+            q, sf_s_g, w, phi = self.policy_net(
+                                        agent_position_batch,
+                                        goal_batch,
+                                        goal_weights_batch
+                                        )
 
             predicted_q = q.gather(1,action_batch).squeeze() # shape (batch_size,)
             
             action_batch = action_batch.reshape(self.batch_size, 1, 1).tile(self.features_size)
             predicted_psi = sf_s_g.gather(1, action_batch).squeeze() # shape (batch_size, features_size)
 
-            del sf_s_g
-            del agent_position_batch
-            del action_batch
-
-            return predicted_q, predicted_psi, torch.sum(phi * goal_weights_batch, dim = 1)
+            return predicted_q, predicted_psi, torch.sum(phi * w, dim = 1)
 
         else:
             predicted_q = self.policy_net(agent_position_batch, goal_batch, goal_weights_batch).gather(1, action_batch).squeeze()
-
-            del agent_position_batch
-            del action_batch
 
             return predicted_q
 

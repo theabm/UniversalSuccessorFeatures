@@ -105,14 +105,14 @@ def test_training(network, discount_factor = 0.5, num_episodes=50, seed=0):
             agent_position_features = torch.tensor(my_env._get_agent_position_features_at(agent_position)).to(torch.float).to(device)
             idx = i*my_env.rows + j
             if idx == 8:
-                q_pred_g2_array.append(agent.policy_net(agent_position_features=agent_position_features, goal_position=goal_2_position).cpu().squeeze().detach().numpy())
+                q_pred_g2_array.append(agent.policy_net(agent_position_features=agent_position_features, goal_position=goal_2_position)[0].cpu().squeeze().detach().numpy())
                 continue
             elif idx == 6:
-                q_pred_g1_array.append(agent.policy_net(agent_position_features=agent_position_features, goal_position=goal_1_position).cpu().squeeze().detach().numpy())
+                q_pred_g1_array.append(agent.policy_net(agent_position_features=agent_position_features, goal_position=goal_1_position)[0].cpu().squeeze().detach().numpy())
                 continue
             else:
-                q_pred_g1_array.append(agent.policy_net(agent_position_features=agent_position_features, goal_position=goal_1_position).cpu().squeeze().detach().numpy())
-                q_pred_g2_array.append(agent.policy_net(agent_position_features=agent_position_features, goal_position=goal_2_position).cpu().squeeze().detach().numpy())
+                q_pred_g1_array.append(agent.policy_net(agent_position_features=agent_position_features, goal_position=goal_1_position)[0].cpu().squeeze().detach().numpy())
+                q_pred_g2_array.append(agent.policy_net(agent_position_features=agent_position_features, goal_position=goal_2_position)[0].cpu().squeeze().detach().numpy())
 
 
     q_pred_g1_array = np.array(q_pred_g1_array)
@@ -122,8 +122,6 @@ def test_training(network, discount_factor = 0.5, num_episodes=50, seed=0):
 
     assert cmp1 and cmp2
             
-test_training(network=nn.FeatureGoalPaperDQN)
-
 @pytest.mark.parametrize(
         "network",
         [
@@ -190,14 +188,14 @@ def test_training_usf(network, discount_factor = 0.5, num_episodes=50, seed=0):
             agent_position_features = torch.tensor(my_env._get_agent_position_features_at(agent_position)).to(torch.float).to(device)
             idx = i*my_env.rows + j
             if idx == 8:
-                q_pred_g2_array.append(agent.policy_net(agent_position_features=agent_position_features, goal_position=goal_2_position).cpu().squeeze().detach().numpy())
+                q_pred_g2_array.append(agent.policy_net(agent_position_features=agent_position_features, goal_position=goal_2_position)[0].cpu().squeeze().detach().numpy())
                 continue
             elif idx == 6:
-                q_pred_g1_array.append(agent.policy_net(agent_position_features=agent_position_features, goal_position=goal_1_position).cpu().squeeze().detach().numpy())
+                q_pred_g1_array.append(agent.policy_net(agent_position_features=agent_position_features, goal_position=goal_1_position)[0].cpu().squeeze().detach().numpy())
                 continue
             else:
-                q_pred_g1_array.append(agent.policy_net(agent_position_features=agent_position_features, goal_position=goal_1_position).cpu().squeeze().detach().numpy())
-                q_pred_g2_array.append(agent.policy_net(agent_position_features=agent_position_features, goal_position=goal_2_position).cpu().squeeze().detach().numpy())
+                q_pred_g1_array.append(agent.policy_net(agent_position_features=agent_position_features, goal_position=goal_1_position)[0].cpu().squeeze().detach().numpy())
+                q_pred_g2_array.append(agent.policy_net(agent_position_features=agent_position_features, goal_position=goal_2_position)[0].cpu().squeeze().detach().numpy())
 
 
     q_pred_g1_array = np.array(q_pred_g1_array)

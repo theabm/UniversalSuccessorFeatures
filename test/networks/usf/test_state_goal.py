@@ -14,12 +14,12 @@ def test_batch_of_input_for_network():
     state_batch = torch.rand(batch_size,state_size)
     g_batch = torch.rand(batch_size,goal_size)
     
-    output = my_usf(state_batch,g_batch)
+    output = my_usf(state_batch,g_batch)[0]
     assert output is not None and output.shape == (batch_size,num_actions)
     
 def test_single_input_of_network():
     state = torch.rand(state_size).unsqueeze(0)
     g = torch.rand(goal_size).unsqueeze(0)
-    output = my_usf(state,g)
+    output = my_usf(state,g)[0]
 
     assert output is not None and output.shape == (1,num_actions)
