@@ -8,7 +8,7 @@ class PrioritizedExperienceReplayMemory():
     def default_config():
         return eu.AttrDict(
             capacity = 1000000,
-            alpha = 0, # how much to prioritize
+            alpha = 1, # how much to prioritize
             beta0 = 1, # how much to correct bias 0<= beta <= 1. This is annealed linearly throughout episodes
             eps = 1e-6, # makes probability of sampling a transition with zero td error non null
             max_priority = 1e-6, # the max priority for newly obtained transitions, ensures that they will be sampled at least once
@@ -16,14 +16,15 @@ class PrioritizedExperienceReplayMemory():
     def __init__(self, config = None, **kwargs):
         self.config = eu.combine_dicts(kwargs, config, self.default_config())
         
-        self.capacity = self.config.capacity
+        self.N = self.config.capacity
         self.beta_current = self.config.beta0
+        self.alpha = self.config.alpha
         self.max_priority = self.config.max_priority
 
-        self.tree = SumTree(memory_size = self.capacity) # the sum tree that will enable sampling from the distribution efficiently.
+        self.tree = SumTree(memory_size = self.N) # the sum tree that will enable sampling from the distribution efficiently.
 
-        self.memory = [0 for i in range(self.capacity)] # data structure that holds actual data
-        self.weights = np.zeros(self.capacity) # array of weights
+        self.memory = [0 for i in range(self.N)] # data structure that holds actual data
+        self.weights = np.zeros(self.N) # array of weights
 
         self.size_so_far = 0 # The size of the data so far. This keeps track of where to sample in the beginning.  
         self.index_to_store = 0 # The index where we must store new data. This keeps track of the fixed size of the memory.
@@ -34,20 +35,17 @@ class PrioritizedExperienceReplayMemory():
     def push(self, transition):
         """Push new transitions in the memory and in the tree with max priority."""
         # the index to store must always be between 0, capacity-1
-        self.index_to_store %= self.config.capacity
+        self.index_to_store %= self.N
 
         # Add the transition inside the memory and add the corresponding element with max priority inside the tree.
         self.memory[self.index_to_store] = transition
 
-        # Calculate the weight, store it in memory in the appropriate place
-        weight = (1/(self.config.capacity*self.max_priority)**self.beta_current)
-        self.weights[self.index_to_store] = weight
-
-        self.tree.add(self.index_to_store, self.max_priority)
+        # Add the transition in the sum tree with max priority
+        self.tree.add(self.index_to_store, self.max_priority**self.alpha)
 
         # The index to store is increased by one (when == capacity, line 6 will make it go back to zero)
         self.index_to_store += 1
-        self.size_so_far = min(self.config.capacity, self.size_so_far+1) 
+        self.size_so_far = min(self.N, self.size_so_far+1) 
 
 
     def sample(self, batch_size):
@@ -64,31 +62,29 @@ class PrioritizedExperienceReplayMemory():
 
         # Array that will store indexes of where to look in the memory to retrieve the relevant transition
         self.indexes = np.zeros(batch_size, dtype=np.int)
+        self.weights = np.zeros(batch_size)
 
-        # Find first value manually purely to have first value of max_w
-        _, index = self.tree.get(values[0])
-        max_w = self.weights[index]
-        self.indexes[0] = index
-        
-        for i, value in enumerate(values[1:]):
-            _, index = self.tree.get(value)
-            max_w = max(max_w, self.weights[index])
+        for i, value in enumerate(values):
+            p_i_alpha, index = self.tree.get(value)
             self.indexes[i] = index
+            self.weights[i] = (1/(self.N*(p_i_alpha/self.tree.ptotal()))**self.beta_current)
 
         # Get normalized weights 
-        weights = self.weights[self.indexes]/max_w
+        self.weights = self.weights/np.max(self.weights)
 
-        return [self.memory[i] for i in self.indexes], weights
+        return [self.memory[i] for i in self.indexes], self.weights
 
     def update_samples(self, batch_of_new_td_errors):
         # Expected type is a batch of torch tensors (batch_size,)
         """Updates the priorities at the previous indexes after having sampled"""
         priority = torch.abs(batch_of_new_td_errors) + self.config.eps
         new_max = torch.max(priority)
-        self.max_priority = max(self.max_priority, new_max)
+        self.max_priority = max(self.max_priority, new_max.item())
+
+        p_i_alpha = priority ** self.alpha
 
         for i in range(len(batch_of_new_td_errors)):
-            self.tree.add(self.indexes[i], priority[i].item())
+            self.tree.add(self.indexes[i], p_i_alpha[i].item())
     
     def anneal_beta(self, schedule_length):
         """Linearly anneal beta to 1 when learning ends."""

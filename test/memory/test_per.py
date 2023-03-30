@@ -65,4 +65,4 @@ def test_updating_samples_work_as_expected():
     _, weight = exp_repl.sample(2)
     assert np.isclose(counter_4/counter_1, 4, rtol=0, atol=0.5) and (weight <= 1).all()
 
-test_updating_samples_work_as_expected()
+#test_updating_samples_work_as_expected()
