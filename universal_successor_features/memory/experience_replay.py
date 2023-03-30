@@ -25,7 +25,7 @@ class ExperienceReplayMemory():
     def update_samples(self, batch_of_new_td_errors):
         return
     
-    def anneal_beta(self, schedule_length):
+    def anneal_beta(self):
         return
 
     def __len__(self):

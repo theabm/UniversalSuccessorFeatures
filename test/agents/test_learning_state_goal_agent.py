@@ -1,10 +1,12 @@
 import universal_successor_features.envs as envs
 import universal_successor_features.agents as a
 import universal_successor_features.networks as nn
+import universal_successor_features.memory as mem
 import numpy as np
 import pytest
 import exputils as eu
 import torch
+import matplotlib.pyplot as plt
 
 
 
@@ -123,12 +125,14 @@ def test_training(network, discount_factor = 0.5, num_episodes=50, seed=0):
             
 
 @pytest.mark.parametrize(
-        "network",
+        "network, memory",
         [
-            (nn.StateGoalUSF),
+            (nn.StateGoalUSF, mem.ExperienceReplayMemory),
+            (nn.StateGoalUSF, mem.CombinedExperienceReplayMemory),
+            (nn.StateGoalUSF, mem.PrioritizedExperienceReplayMemory),
         ]
 )
-def test_training_usf(network, discount_factor = 0.5, num_episodes=50, seed=0):
+def test_training_usf(network, memory, discount_factor = 0.5, nmax_steps=1500, seed=0):
 
     if seed is not None:
         eu.misc.seed(seed)
@@ -138,12 +142,18 @@ def test_training_usf(network, discount_factor = 0.5, num_episodes=50, seed=0):
     agent = a.StateGoalAgent(
         env = my_env, 
         epsilon = {"value" : 1.0}, 
-        train_for_n_iterations = 1, 
+        train_for_n_iterations = 2, 
         train_every_n_steps = 1,
         discount_factor = discount_factor, 
         network = {"cls":network},
         is_a_usf = True,
-        loss_weight = 0.001
+        loss_weight = 0.001,
+        memory = eu.AttrDict(
+            cls = memory,
+            alpha = 1,
+            beta0 = 0.4,
+            schedule_length = nmax_steps
+        )
         )
     device = agent.device
 
@@ -154,14 +164,21 @@ def test_training_usf(network, discount_factor = 0.5, num_episodes=50, seed=0):
     goal_list = [goal_1_position,goal_2_position]
 
     step = 0
+    total_reward_per_step = [0]
+    episode = 0
 
-    for episode in range(num_episodes):
+    while step < nmax_steps:
+        terminated = False 
+        truncated = False
+
+        reward_per_episode = 0
+        step_per_episode = 0
 
         goal_position = my_env.sample_a_goal_position_from_list(goal_list=goal_list)
         obs, _ = my_env.reset(start_agent_position = start_position, goal_position=goal_position)
         agent.start_episode(episode=episode)
 
-        while True:
+        while not terminated and not truncated and step < nmax_steps:
             
             action = agent.choose_action(agent_position=obs["agent_position"], goal_position=obs["goal_position"], training=True)
             
@@ -171,12 +188,17 @@ def test_training_usf(network, discount_factor = 0.5, num_episodes=50, seed=0):
 
             agent.train(transition=transition)
 
-            if terminated or truncated:
-                agent.end_episode()
-                break
+            reward_per_episode += reward
+            total_reward_per_step.append(total_reward_per_step[-1] + reward)
 
             obs = next_obs
             step += 1
+            step_per_episode+=1
+
+        agent.end_episode()
+        episode += 1
+
+    plt.plot(total_reward_per_step)
     
     goal_1_position = torch.tensor(goal_1_position).to(torch.float).to(device)
     goal_2_position = torch.tensor(goal_2_position).to(torch.float).to(device)
@@ -206,4 +228,5 @@ def test_training_usf(network, discount_factor = 0.5, num_episodes=50, seed=0):
 
     assert cmp1 and cmp2
 
-#test_training_usf(nn.StateGoalUSF)
+test_training_usf(nn.StateGoalUSF, mem.CombinedExperienceReplayMemory)
+test_training_usf(nn.StateGoalUSF, mem.PrioritizedExperienceReplayMemory)

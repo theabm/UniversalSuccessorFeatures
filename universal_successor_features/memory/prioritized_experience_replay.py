@@ -12,13 +12,13 @@ class PrioritizedExperienceReplayMemory():
             beta0 = 1, # how much to correct bias 0<= beta <= 1. This is annealed linearly throughout episodes
             eps = 1e-6, # makes probability of sampling a transition with zero td error non null
             max_priority = 1e-6, # the max priority for newly obtained transitions, ensures that they will be sampled at least once
+            schedule_length = None
         )
     def __init__(self, config = None, **kwargs):
         self.config = eu.combine_dicts(kwargs, config, PrioritizedExperienceReplayMemory.default_config())
         
         self.N = self.config.capacity
         self.beta_current = self.config.beta0
-        self.alpha = self.config.alpha
         self.max_priority = self.config.max_priority
 
         self.tree = SumTree(memory_size = self.N) # the sum tree that will enable sampling from the distribution efficiently.
@@ -41,7 +41,7 @@ class PrioritizedExperienceReplayMemory():
         self.memory[self.index_to_store] = transition
 
         # Add the transition in the sum tree with max priority
-        self.tree.add(self.index_to_store, self.max_priority**self.alpha)
+        self.tree.add(self.index_to_store, self.max_priority**self.config.alpha)
 
         # The index to store is increased by one (when == capacity, line 6 will make it go back to zero)
         self.index_to_store += 1
@@ -81,15 +81,19 @@ class PrioritizedExperienceReplayMemory():
         new_max = torch.max(priority)
         self.max_priority = max(self.max_priority, new_max.item())
 
-        p_i_alpha = priority ** self.alpha
+        p_i_alpha = priority ** self.config.alpha
 
         for i in range(len(batch_of_new_td_errors)):
             self.tree.add(self.indexes[i], p_i_alpha[i].item())
     
-    def anneal_beta(self, schedule_length):
+    def anneal_beta(self):
         """Linearly anneal beta to 1 when learning ends."""
-        m = (1-self.config.beta0)/schedule_length
-        self.value = min(self.beta_current + m, 1)
+        if self.config.schedule_length is None:
+            return
+        else:
+            m = (1-self.config.beta0)/self.config.schedule_length
+            self.beta_current = min(self.beta_current + m, 1)
+        
 
     def __len__(self):
         return self.size_so_far
