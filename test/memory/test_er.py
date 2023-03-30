@@ -12,5 +12,5 @@ def test_sample(batch_size = 5):
     for _ in range(batch_size*2):
         exp_repl.push(np.random.rand(4))
     
-    samples = exp_repl.sample(batch_size=batch_size)
+    samples, weights = exp_repl.sample(batch_size=batch_size)
     assert len(samples) == batch_size

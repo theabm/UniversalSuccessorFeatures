@@ -26,6 +26,7 @@ class FeatureGoalWeightAgent():
             train_every_n_steps = 1,
             is_a_usf = False,
             loss_weight_psi = 0.01,
+            loss_weight_phi = 0.00,
             epsilon = eu.AttrDict(
                 cls = eps.EpsilonConstant, 
             ),
@@ -105,6 +106,7 @@ class FeatureGoalWeightAgent():
         self.target_net.to(self.device)
 
         self.loss_weight_psi = self.config.loss_weight_psi
+        self.loss_weight_phi = self.config.loss_weight_phi
         self.optimizer = self.config.network.optimizer(self.policy_net.parameters(), lr = self.config.learning_rate)
         
         self.batch_size = self.config.batch_size      
