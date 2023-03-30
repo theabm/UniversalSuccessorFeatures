@@ -37,11 +37,14 @@ class FeatureGoalAgent():
             ),
             memory = eu.AttrDict(
                 cls = mem.ExperienceReplayMemory,
+                # Need to be defined for prioritized experience replay
+                alpha = None,
+                beta0 = None,
+                schedule_length = None,
             ),
             network = eu.AttrDict(
                 cls = nn.FeatureGoalPaperDQN,
                 optimizer = torch.optim.Adam,
-                loss = torch.nn.MSELoss,
             ),
             log = eu.AttrDict(
                 loss_per_step = True,
@@ -102,7 +105,6 @@ class FeatureGoalAgent():
         self.policy_net.to(self.device)
         self.target_net.to(self.device)
 
-        self.loss = self.config.network.loss()
         self.loss_weight_psi = self.config.loss_weight_psi
         self.loss_weight_phi = self.config.loss_weight_phi
         self.optimizer = self.config.network.optimizer(self.policy_net.parameters(), lr = self.config.learning_rate)
@@ -161,8 +163,8 @@ class FeatureGoalAgent():
             )
 
     def _sample_experiences(self):
-        experiences = self.memory.sample(self.batch_size)
-        return Experiences(*zip(*experiences))
+        experiences, weights = self.memory.sample(self.batch_size)
+        return Experiences(*zip(*experiences)), torch.tensor(weights)
 
     def _build_tensor_from_batch_of_np_arrays(self, batch_of_np_arrays):
         # expected shape: [(1,n), (1,n), ..., (1,n)] where in total we have batch_size elements
@@ -173,18 +175,41 @@ class FeatureGoalAgent():
         return batch_of_np_arrays
     
     def _train_one_batch(self):
-        experiences = self._sample_experiences()
+        experiences, weights = self._sample_experiences()
         goal_batch = self._build_tensor_from_batch_of_np_arrays(experiences.goal_batch).to(self.device)
+        sample_weights = sample_weights.to(self.device)
 
         self.optimizer.zero_grad()
         if self.is_a_usf:
             target_batch_q, target_batch_psi, r = self._build_target_batch(experiences, goal_batch)
             predicted_batch_q, predicted_batch_psi, phi_w = self._build_predicted_batch(experiences, goal_batch)
-            loss = self.loss(target_batch_q, predicted_batch_q) + self.loss_weight_psi * self.loss(target_batch_psi, predicted_batch_psi) + self.loss_weight_phi * self.loss(r, phi_w)
+
+            td_error_q = torch.abs(target_batch_q - predicted_batch_q) # shape (batch_size,)
+            # shape of target_batch_psi is (batch, size_features) so the td_error for that batch must be summed along first dim
+            # which automatically squeezed dim = 1 and so the final shape is (batch,)
+            td_error_psi = torch.sum(torch.abs(target_batch_psi - predicted_batch_psi), dim = 1) # shape (batch_size,)
+            
+            td_error_phi = torch.abs(r-phi_w) # shape (batch_size, )
+
+            total_td_error = (td_error_q + self.loss_weight_psi*td_error_psi + self.loss_weight_phi*td_error_phi)
+
+            # update the priority of batch samples in memory
+            self.memory.update_samples(total_td_error.detach().cpu())
+
+            self.memory.anneal_beta()
+
+            loss = torch.mean(sample_weights*torch.square(total_td_error))
         else:
             target_batch = self._build_target_batch(experiences, goal_batch)
             predicted_batch = self._build_predicted_batch(experiences, goal_batch)
-            loss = self.loss(target_batch, predicted_batch)
+
+            td_error_q = torch.abs(target_batch - predicted_batch)
+
+            self.memory.update_samples(td_error_q.detach().cpu())
+
+            self.memory.anneal_beta()
+
+            loss = torch.mean(sample_weights*torch.square(td_error_q))
 
         
         loss.backward()

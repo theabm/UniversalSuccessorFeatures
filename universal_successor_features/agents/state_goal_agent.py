@@ -175,9 +175,9 @@ class StateGoalAgent():
         return batch_of_np_arrays
     
     def _train_one_batch(self):
-        experiences, weights = self._sample_experiences()
+        experiences, sample_weights = self._sample_experiences()
         goal_batch = self._build_tensor_from_batch_of_np_arrays(experiences.goal_batch).to(self.device)
-        weights = weights.to(self.device)
+        sample_weights = sample_weights.to(self.device)
 
         self.optimizer.zero_grad()
         if self.is_a_usf:
@@ -198,7 +198,7 @@ class StateGoalAgent():
 
             self.memory.anneal_beta()
 
-            loss = torch.mean(weights*torch.square(total_td_error))
+            loss = torch.mean(sample_weights*torch.square(total_td_error))
         else:
             target_batch = self._build_target_batch(experiences, goal_batch)
             predicted_batch = self._build_predicted_batch(experiences, goal_batch)
@@ -209,7 +209,7 @@ class StateGoalAgent():
 
             self.memory.anneal_beta()
 
-            loss = torch.mean(weights*torch.square(td_error_q))
+            loss = torch.mean(sample_weights*torch.square(td_error_q))
 
         loss.backward()
         self.optimizer.step()
