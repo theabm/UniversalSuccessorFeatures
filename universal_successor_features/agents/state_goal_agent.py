@@ -155,12 +155,11 @@ class StateGoalAgent():
 
     def _greedy_action_selection(self, agent_position, goal_position):
         with torch.no_grad():
-            return torch.argmax(
-                self.policy_net(
+            q, *_ = self.policy_net(
                     agent_position = torch.tensor(agent_position).to(torch.float).to(self.device),
                     goal_position = torch.tensor(goal_position).to(torch.float).to(self.device)
                 )
-            )
+            return torch.argmax(q)
 
     def _sample_experiences(self):
         experiences, weights = self.memory.sample(self.batch_size)
@@ -226,8 +225,7 @@ class StateGoalAgent():
         if self.is_a_usf:
             with torch.no_grad():
 
-                sf_s_g, w, reward_phi_batch = self.target_net.incomplete_forward(next_agent_position_batch, goal_batch)
-                q = self.target_net.complete_forward(sf_s_g, w)
+                q, sf_s_g, w, reward_phi_batch = self.target_net(next_agent_position_batch, goal_batch)
                 
                 qm, action = torch.max(q, axis = 1)
 
@@ -261,8 +259,7 @@ class StateGoalAgent():
         action_batch = torch.tensor(experiences.action_batch).unsqueeze(1).to(self.device)
 
         if self.is_a_usf:
-            sf_s_g, w, phi = self.policy_net.incomplete_forward(agent_position_batch, goal_batch)
-            q = self.policy_net.complete_forward(sf_s_g,w)
+            q, sf_s_g, w, phi = self.policy_net(agent_position_batch, goal_batch)
 
             predicted_q = q.gather(1,action_batch).squeeze() # shape (batch_size,)
             
