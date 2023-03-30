@@ -14,7 +14,7 @@ class PrioritizedExperienceReplayMemory():
             max_priority = 1e-6, # the max priority for newly obtained transitions, ensures that they will be sampled at least once
         )
     def __init__(self, config = None, **kwargs):
-        self.config = eu.combine_dicts(kwargs, config, self.default_config())
+        self.config = eu.combine_dicts(kwargs, config, PrioritizedExperienceReplayMemory.default_config())
         
         self.N = self.config.capacity
         self.beta_current = self.config.beta0

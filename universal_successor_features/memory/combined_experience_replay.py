@@ -10,7 +10,7 @@ class CombinedExperienceReplayMemory():
             capacity = 1000000,
         )
     def __init__(self, config = None, **kwargs):
-        self.config = eu.combine_dicts(kwargs, config, self.default_config())
+        self.config = eu.combine_dicts(kwargs, config, CombinedExperienceReplayMemory.default_config())
 
         self.memory = deque([],maxlen=self.config.capacity)
 
@@ -24,6 +24,13 @@ class CombinedExperienceReplayMemory():
     def sample(self, batch_size):
         initial_batch = random.sample(self.memory, batch_size-1)
         return initial_batch + self.last_transition
+    
+    # Useless methods for coherent interface
+    def update_samples(self, batch_of_new_td_errors):
+        return
+    
+    def anneal_beta(self, schedule_length):
+        return
 
     def __len__(self):
         return len(self.memory)
