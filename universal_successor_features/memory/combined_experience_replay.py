@@ -1,6 +1,7 @@
 import exputils as eu
 from collections import deque
 import random
+import numpy as np
 
 class CombinedExperienceReplayMemory():
 
@@ -23,7 +24,7 @@ class CombinedExperienceReplayMemory():
 
     def sample(self, batch_size):
         initial_batch = random.sample(self.memory, batch_size-1)
-        return initial_batch + self.last_transition
+        return initial_batch + self.last_transition, np.ones(batch_size)
     
     # Useless methods for coherent interface
     def update_samples(self, batch_of_new_td_errors):
