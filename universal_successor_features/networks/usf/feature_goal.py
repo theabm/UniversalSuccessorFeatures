@@ -39,26 +39,20 @@ class FeatureGoalUSF(torch.nn.Module):
             torch.nn.Linear(in_features=256, out_features=self.config.num_actions*self.config.features_size),
         )
     
-    def incomplete_forward(self,agent_position_features, goal_position):
-        g_rep = self.layer_goal(goal_position)
-        rep = torch.cat((agent_position_features,g_rep),dim=1)
+    def forward(self, agent_position_features, goal_position):
+        phi_g = self.layer_goal(goal_position)
+        rep = torch.cat((agent_position_features,phi_g),dim=1)
         sf_s_g = self.layer_concat(rep)
-
-        w = self.layer_goal_weights(goal_position)
 
         N = sf_s_g.shape[0]
         sf_s_g = sf_s_g.reshape(N, self.num_actions, self.features_size)
-        return sf_s_g, w
-    
-    def complete_forward(self, sf_s_g, w):
-        return torch.sum(torch.mul(sf_s_g, w.unsqueeze(1)), dim=2)
+        
+        w = self.layer_goal_weights(goal_position)
+
+        q = torch.sum(torch.mul(sf_s_g, w.unsqueeze(1)), dim=2)
         # return torch.matmul(sf_s_g, w.unsqueeze(2)).squeeze(dim=2)
-
-    def forward(self, agent_position_features, goal_position):
-        sf_s_g, w = self.incomplete_forward(agent_position_features=agent_position_features, goal_position=goal_position)
-        Q_s_g = torch.matmul(sf_s_g, w.unsqueeze(2)).squeeze(dim=2)
-        return Q_s_g
-
+        
+        return q, sf_s_g, w, agent_position_features
 
 if __name__ == '__main__':
     my_dqn = FeatureGoalUSF()
