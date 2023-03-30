@@ -21,7 +21,7 @@ class UsfAgent():
             discount_factor = 0.99,
             batch_size = 32,
             learning_rate = 5e-4,
-            loss_weight = 0.01,
+            loss_weight_psi = 0.01,
             eps  = 0.25,
             update_freq = 10,
             buffer_size = 1000000
@@ -63,7 +63,7 @@ class UsfAgent():
         self.target_net.to(self.device)
 
         self.loss = torch.nn.MSELoss()
-        self.loss_weight = self.config.loss_weight
+        self.loss_weight_psi = self.config.loss_weight_psi
         self.optimizer = torch.optim.SGD(self.policy_net.parameters(), lr = self.config.learning_rate)
         
         self.batch_size = self.config.batch_size      
@@ -126,7 +126,7 @@ class UsfAgent():
         self.optimizer.zero_grad()
         target_batch_q, target_batch_psi, r = self._build_target_batch(experiences, goal_batch)
         predicted_batch_q, predicted_batch_psi, phi_w = self._build_predicted_batch(experiences, goal_batch)
-        loss = self.loss(target_batch_q, predicted_batch_q) + self.loss_weight * self.loss(target_batch_psi, predicted_batch_psi) #+ self.loss(r, phi_w)
+        loss = self.loss(target_batch_q, predicted_batch_q) + self.loss_weight_psi * self.loss(target_batch_psi, predicted_batch_psi) #+ self.loss(r, phi_w)
         
         loss.backward()
         self.optimizer.step()

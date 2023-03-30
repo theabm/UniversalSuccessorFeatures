@@ -147,7 +147,7 @@ def test_training_usf(network, memory, discount_factor = 0.5, nmax_steps=1500, s
         discount_factor = discount_factor, 
         network = {"cls":network},
         is_a_usf = True,
-        loss_weight = 0.001,
+        loss_weight_psi = 0.001,
         memory = eu.AttrDict(
             cls = memory,
             alpha = 1,
@@ -198,8 +198,6 @@ def test_training_usf(network, memory, discount_factor = 0.5, nmax_steps=1500, s
         agent.end_episode()
         episode += 1
 
-    plt.plot(total_reward_per_step)
-    
     goal_1_position = torch.tensor(goal_1_position).to(torch.float).to(device)
     goal_2_position = torch.tensor(goal_2_position).to(torch.float).to(device)
             
