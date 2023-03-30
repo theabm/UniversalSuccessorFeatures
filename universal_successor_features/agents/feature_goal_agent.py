@@ -175,7 +175,7 @@ class FeatureGoalAgent():
         return batch_of_np_arrays
     
     def _train_one_batch(self):
-        experiences, weights = self._sample_experiences()
+        experiences, sample_weights = self._sample_experiences()
         goal_batch = self._build_tensor_from_batch_of_np_arrays(experiences.goal_batch).to(self.device)
         sample_weights = sample_weights.to(self.device)
 
