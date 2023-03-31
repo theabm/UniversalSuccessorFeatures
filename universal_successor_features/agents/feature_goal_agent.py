@@ -195,12 +195,12 @@ class FeatureGoalAgent():
                                                                                 goal_batch,
                                                                                 )
 
-            td_error_q = torch.abs(target_batch_q - predicted_batch_q) # shape (batch_size,)
+            td_error_q = torch.square(torch.abs(target_batch_q - predicted_batch_q)) # shape (batch_size,)
             # shape of target_batch_psi is (batch, size_features) so the td_error for that batch must be summed along first dim
             # which automatically squeezed dim = 1 and so the final shape is (batch,)
-            td_error_psi = torch.sum(torch.abs(target_batch_psi - predicted_batch_psi), dim = 1) # shape (batch_size,)
+            td_error_psi = torch.mean(torch.square(torch.abs(target_batch_psi - predicted_batch_psi)), dim = 1) # shape (batch_size,)
             
-            td_error_phi = torch.abs(r-phi_w) # shape (batch_size, )
+            td_error_phi = torch.square(torch.abs(r-phi_w)) # shape (batch_size, )
 
             total_td_error = (td_error_q + self.loss_weight_psi*td_error_psi + self.loss_weight_phi*td_error_phi)
 
@@ -209,7 +209,7 @@ class FeatureGoalAgent():
 
             self.memory.anneal_beta()
 
-            loss = torch.mean(sample_weights*torch.square(total_td_error))
+            loss = torch.mean(sample_weights*total_td_error)
         else:
             target_batch = self._build_target_batch(
                                             experiences,
@@ -220,13 +220,13 @@ class FeatureGoalAgent():
                                                 goal_batch,
                                                 )
 
-            td_error_q = torch.abs(target_batch - predicted_batch)
+            td_error_q = torch.square(torch.abs(target_batch - predicted_batch))
 
             self.memory.update_samples(td_error_q.detach().cpu())
 
             self.memory.anneal_beta()
 
-            loss = torch.mean(sample_weights*torch.square(td_error_q))
+            loss = torch.mean(sample_weights*td_error_q)
 
         loss.backward()
         self.optimizer.step()
