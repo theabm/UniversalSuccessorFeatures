@@ -150,7 +150,7 @@ def test_training_usf(network, memory, discount_factor = 0.5, nmax_steps=1500, s
         loss_weight_psi = 0.001,
         memory = eu.AttrDict(
             cls = memory,
-            alpha = 1,
+            alpha = 0.6,
             beta0 = 0.4,
             schedule_length = nmax_steps
         )
