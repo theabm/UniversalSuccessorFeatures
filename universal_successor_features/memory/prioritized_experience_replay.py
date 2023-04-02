@@ -7,7 +7,7 @@ class PrioritizedExperienceReplayMemory():
     @staticmethod
     def default_config():
         return eu.AttrDict(
-            capacity = 1000000,
+            capacity = 50000,
             alpha = 1, # how much to prioritize
             beta0 = 1, # how much to correct bias 0<= beta <= 1. This is annealed linearly throughout episodes
             eps = 1e-6, # makes probability of sampling a transition with zero td error non null

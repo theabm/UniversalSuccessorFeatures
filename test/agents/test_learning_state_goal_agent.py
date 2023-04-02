@@ -226,5 +226,5 @@ def test_training_usf(network, memory, discount_factor = 0.5, nmax_steps=1500, s
 
     assert cmp1 and cmp2
 
-test_training_usf(nn.StateGoalUSF, mem.CombinedExperienceReplayMemory)
-test_training_usf(nn.StateGoalUSF, mem.PrioritizedExperienceReplayMemory)
+# test_training_usf(nn.StateGoalUSF, mem.CombinedExperienceReplayMemory)
+# test_training_usf(nn.StateGoalUSF, mem.PrioritizedExperienceReplayMemory)

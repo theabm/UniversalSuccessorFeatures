@@ -8,7 +8,7 @@ class ExperienceReplayMemory():
     @staticmethod
     def default_config():
         return eu.AttrDict(
-            capacity = 1000000,
+            capacity = 50000,
         )
     def __init__(self, config = None, **kwargs):
         self.config = eu.combine_dicts(kwargs, config, ExperienceReplayMemory.default_config())
