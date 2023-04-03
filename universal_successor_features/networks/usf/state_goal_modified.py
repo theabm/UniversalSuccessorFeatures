@@ -14,11 +14,13 @@ class StateGoalUSFModified(torch.nn.Module):
         )
     
     def positions_to_feature(self, positions):
-        features = np.zeros(positions[0], self.features_size)
+        positions = positions.to(torch.int)
+        features = np.zeros((positions.shape[0], self.features_size))
 
-        for i in enumerate(positions):
-            features[i][positions[i][0]*9+positions[i][1]] = 1
-
+        for i in range(positions.shape[0]):
+            features[i][positions[i][0]*9 + positions[i][1]] = 1
+        return features
+        
     def __init__(self, config = None, **kwargs) -> None:
         super().__init__()
 
@@ -48,9 +50,9 @@ class StateGoalUSFModified(torch.nn.Module):
         )
     
     def forward(self, agent_position, goal_position):
-        phi_s = self.layer_state(agent_position)
+        phi_s = self.positions_to_feature(agent_position)
         phi_g = self.layer_goal(goal_position)
-        rep = torch.cat((phi_s,phi_g),dim=1)
+        rep = torch.cat((torch.tensor(phi_s, dtype = torch.float),phi_g),dim=1)
         sf_s_g = self.layer_concat(rep)
 
         N = sf_s_g.shape[0]
@@ -64,18 +66,21 @@ class StateGoalUSFModified(torch.nn.Module):
 
 
 if __name__ == '__main__':
-    my_dqn = StateGoalUSF()
+    my_dqn = StateGoalUSFModified(features_size = 81)
     print(my_dqn)
     
-    rand_states = torch.rand(10,2)
+    rand_states = torch.randint(low = 0, high = 9, size = (10,2))
     rand_goals = torch.rand(10,2)
 
-    output = my_dqn(rand_states, rand_goals)
+    output, *_ = my_dqn(rand_states, rand_goals)
     print(output.shape)
     
     # Emulating behavior of epsilon greedy call for a single state, goal pair (not a batch)
-    rand_state = torch.rand(2).unsqueeze(0)
+    rand_state = torch.randint(low = 0, high = 9, size = (2,)).unsqueeze(0)
     rand_goal = torch.rand(2).unsqueeze(0)
 
-    output = my_dqn(rand_state, rand_goal)
+    output, *_ = my_dqn(rand_state, rand_goal)
     print(output.shape)
+
+
+    
