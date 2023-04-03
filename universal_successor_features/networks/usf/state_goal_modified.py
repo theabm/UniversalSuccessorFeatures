@@ -15,7 +15,7 @@ class StateGoalUSFModified(torch.nn.Module):
     
     def positions_to_feature(self, positions):
         positions = positions.to(torch.int)
-        features = np.zeros((positions.shape[0], self.features_size))
+        features = torch.zeros(positions.shape[0], self.features_size).to(positions.device)
 
         for i in range(positions.shape[0]):
             features[i][positions[i][0]*9 + positions[i][1]] = 1
@@ -52,7 +52,7 @@ class StateGoalUSFModified(torch.nn.Module):
     def forward(self, agent_position, goal_position):
         phi_s = self.positions_to_feature(agent_position)
         phi_g = self.layer_goal(goal_position)
-        rep = torch.cat((torch.tensor(phi_s, dtype = torch.float),phi_g),dim=1)
+        rep = torch.cat((phi_s,phi_g),dim=1)
         sf_s_g = self.layer_concat(rep)
 
         N = sf_s_g.shape[0]
