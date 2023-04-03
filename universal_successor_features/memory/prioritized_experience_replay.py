@@ -29,8 +29,6 @@ class PrioritizedExperienceReplayMemory():
         self.size_so_far = 0 # The size of the data so far. This keeps track of where to sample in the beginning.  
         self.index_to_store = 0 # The index where we must store new data. This keeps track of the fixed size of the memory.
 
-        self.max_weight = None
-        
 
     def push(self, transition):
         """Push new transitions in the memory and in the tree with max priority."""
@@ -67,7 +65,7 @@ class PrioritizedExperienceReplayMemory():
         for i, value in enumerate(values):
             p_i_alpha, index = self.tree.get(value)
             self.indexes[i] = index
-            self.weights[i] = (1/(self.N*(p_i_alpha/self.tree.ptotal()))**self.beta_current)
+            self.weights[i] = (1/(self.size_so_far*(p_i_alpha/self.tree.ptotal())))**self.beta_current
 
         # Get normalized weights 
         self.weights = self.weights/np.max(self.weights)
