@@ -96,8 +96,8 @@ def run_rl_training(config = None, **kwargs):
             step_per_episode += 1
 
         agent.end_episode()
-        if episode > 0 and episode%500 == 0:
-            agent.save(episode, step)
+        # if episode > 0 and episode%500 == 0:
+        #     agent.save(episode, step)
             
         log.add_value(config.log_name_step_per_episode, step_per_episode)
         log.add_value(config.log_name_reward_per_episode, reward_per_episode)
