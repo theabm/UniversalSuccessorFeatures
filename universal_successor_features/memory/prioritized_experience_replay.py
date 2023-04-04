@@ -59,7 +59,7 @@ class PrioritizedExperienceReplayMemory():
         values = [np.random.uniform(k*range_length, (k+1)*range_length) for k in range(batch_size)]
 
         # Array that will store indexes of where to look in the memory to retrieve the relevant transition
-        self.indexes = np.zeros(batch_size, dtype=np.int)
+        self.indexes = np.zeros(batch_size, dtype=int)
         self.weights = np.zeros(batch_size)
 
         for i, value in enumerate(values):

@@ -9,6 +9,8 @@ import universal_successor_features.memory as mem
 import universal_successor_features.networks as nn
 import universal_successor_features.envs as envs
 import universal_successor_features.epsilon as eps
+from gradient_descent_the_ultimate_optimizer import gdtuo
+
 
 
 Experiences = namedtuple("Experiences", ("agent_position_batch", "goal_batch", "action_batch", "reward_batch", "next_agent_position_batch", "terminated_batch", "truncated_batch"))
@@ -107,7 +109,12 @@ class StateGoalAgent():
 
         self.loss_weight_psi = self.config.loss_weight_psi
         self.loss_weight_phi = self.config.loss_weight_phi
-        self.optimizer = self.config.network.optimizer(self.policy_net.parameters(), lr = self.config.learning_rate)
+
+        optim = gdtuo.Adam(optimizer=gdtuo.SGD(1e-5))
+        mw = gdtuo.ModuleWrapper(self.policy_net, optimizer=optim)
+        mw.initialize()
+        self.optimizer = mw
+        # self.optimizer = self.config.network.optimizer(self.policy_net.parameters(), lr = self.config.learning_rate)
         
         self.batch_size = self.config.batch_size      
         self.train_every_n_steps = self.config.train_every_n_steps - 1
@@ -183,6 +190,7 @@ class StateGoalAgent():
         experiences, sample_weights = self._sample_experiences()
         goal_batch = self._build_tensor_from_batch_of_np_arrays(experiences.goal_batch).to(self.device)
         sample_weights = sample_weights.to(self.device)
+        self.optimizer.begin()
 
         self.optimizer.zero_grad()
         if self.is_a_usf:
@@ -228,7 +236,7 @@ class StateGoalAgent():
 
             loss = torch.mean(sample_weights*td_error_q)
 
-        loss.backward()
+        loss.backward(create_graph=True)
         self.optimizer.step()
         
         return loss.item()

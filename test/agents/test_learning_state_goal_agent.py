@@ -6,7 +6,6 @@ import numpy as np
 import pytest
 import exputils as eu
 import torch
-import matplotlib.pyplot as plt
 
 
 
