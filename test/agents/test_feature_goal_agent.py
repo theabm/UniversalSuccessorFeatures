@@ -11,7 +11,7 @@ def test_choose_action():
 
     obs, *_ = my_env.step(my_env.action_space.sample())
 
-    action = agent.choose_action(training=False,agent_position_features=obs["agent_position_features"], goal_position=obs["goal_position"])
+    action = agent.choose_action(training=False,agent_position_features=obs["agent_position_features"], list_of_goal_positions=[obs["goal_position"]])
     assert action is not None 
     assert isinstance(action, int) 
     
@@ -27,6 +27,6 @@ def test_build_tensor_from_batch_of_np_arrays(batch_size = 32):
     assert tuple(batch.shape) == (batch_size, 100) 
     assert batch.dtype == torch.float
 
-
+test_choose_action()
 
     

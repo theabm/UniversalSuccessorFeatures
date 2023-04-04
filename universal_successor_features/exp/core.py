@@ -127,7 +127,7 @@ def evaluate_agent(agent, test_env, step_fn):
 
 
 def step_feature_goal_agent(obs, agent, my_env, training):
-    action = agent.choose_action(agent_position_features=obs["agent_position_features"], goal_position=obs["goal_position"], training=training)
+    action = agent.choose_action(agent_position_features=obs["agent_position_features"], goal_position=list(obs["goal_position"]), training=training)
 
     next_obs, reward, terminated, truncated, _ = my_env.step(action=action) 
     

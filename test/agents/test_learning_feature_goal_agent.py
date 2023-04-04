@@ -79,7 +79,7 @@ def test_training(network, discount_factor = 0.5, num_episodes=50, seed=0):
 
         while True:
             
-            action = agent.choose_action(agent_position_features=obs["agent_position_features"], goal_position=obs["goal_position"], training=True)
+            action = agent.choose_action(agent_position_features=obs["agent_position_features"], list_of_goal_positions=[(obs["goal_position"])], training=True)
             
             next_obs, reward, terminated, truncated, _ = my_env.step(action=action)
 
@@ -162,7 +162,7 @@ def test_training_usf(network, discount_factor = 0.5, num_episodes=50, seed=0):
 
         while True:
             
-            action = agent.choose_action(agent_position_features=obs["agent_position_features"], goal_position=obs["goal_position"], training=True)
+            action = agent.choose_action(agent_position_features=obs["agent_position_features"], list_of_goal_positions=[obs["goal_position"]], training=True)
             
             next_obs, reward, terminated, truncated, _ = my_env.step(action=action)
 

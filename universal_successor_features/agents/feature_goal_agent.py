@@ -140,32 +140,42 @@ class FeatureGoalAgent():
     def end_episode(self):
         self.epsilon.decay()
 
-    def choose_action(self, agent_position_features, goal_position, training):
+    def choose_action(self, agent_position_features, list_of_goal_positions, training):
         if training:
             return self._epsilon_greedy_action_selection(
                                                     agent_position_features,
-                                                    goal_position,
+                                                    list_of_goal_positions,
                                                     ).item()
         else:
             return self._greedy_action_selection(
                                             agent_position_features,
-                                            goal_position,
+                                            list_of_goal_positions,
                                             ).item()
 
-    def _epsilon_greedy_action_selection(self, agent_position_features, goal_position):
+    def _epsilon_greedy_action_selection(self, agent_position_features, list_of_goal_positions):
         """Epsilon greedy action selection"""
         if torch.rand(1).item() > self.epsilon.value:
-            return self._greedy_action_selection(agent_position_features, goal_position)
+            return self._greedy_action_selection(agent_position_features, list_of_goal_positions)
         else:
             return torch.randint(0,self.action_space,(1,)) 
 
-    def _greedy_action_selection(self, agent_position_features, goal_position):
-        with torch.no_grad():
-            q, *_ = self.policy_net(
-                            agent_position_features = torch.tensor(agent_position_features).to(torch.float).to(self.device),
-                            goal_position  = torch.tensor(goal_position).to(torch.float).to(self.device),
-                            )
-            return torch.argmax(q)
+    def _greedy_action_selection(self, agent_position_features, list_of_goal_positions):
+        q_per_goal = torch.zeros(len(list_of_goal_positions))
+        a_per_goal = torch.zeros(len(list_of_goal_positions), dtype=int)
+    
+        for i, goal_position in enumerate(list_of_goal_positions):
+            with torch.no_grad():
+                q, *_ = self.policy_net(
+                                agent_position_features = torch.tensor(agent_position_features).to(torch.float).to(self.device),
+                                goal_position  = torch.tensor(goal_position).to(torch.float).to(self.device),
+                                )
+                qm, am = torch.max(q, axis = 0)
+                q_per_goal[i] = qm.item()
+                a_per_goal[i] = am.item() 
+        
+        amm = torch.argmax(q_per_goal)
+
+        return a_per_goal[amm.item()]
 
     def _sample_experiences(self):
         experiences, weights = self.memory.sample(self.batch_size)
