@@ -60,7 +60,7 @@ From: ubuntu:latest
     ##########
 
     # Secify the version of python you want to install
-    PYTHON_VERSION='3.8'
+    PYTHON_VERSION='3.11'
 
     PYTHON=python${PYTHON_VERSION}
     VERSION_NUMBER=$(echo $PYTHON_VERSION | cut -d '.' -f 2)
