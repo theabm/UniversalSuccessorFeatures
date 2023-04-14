@@ -32,7 +32,7 @@ class FeatureGoalPaperDQN(torch.nn.Module):
         rep = torch.cat((agent_position_features,g_rep),dim=1)
         q = self.layer_concat(rep)
         
-        return q
+        return q, None, None, None
 
 
 if __name__ == '__main__':

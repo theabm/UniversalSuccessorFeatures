@@ -169,7 +169,7 @@ class FeatureGoalAgent():
                                 agent_position_features = torch.tensor(agent_position_features).to(torch.float).to(self.device),
                                 goal_position  = torch.tensor(goal_position).to(torch.float).to(self.device),
                                 )
-                qm, am = torch.max(q, axis = 0)
+                qm, am = torch.max(q, axis = 1)
                 q_per_goal[i] = qm.item()
                 a_per_goal[i] = am.item() 
         
@@ -271,8 +271,8 @@ class FeatureGoalAgent():
 
         else:
             with torch.no_grad():
-                q, _ = torch.max(self.target_net(next_agent_position_features_batch, goal_batch), axis = 1) # shape of q is (batch_size,)
-
+                q, *_ = self.target_net(next_agent_position_features_batch, goal_batch)
+                q, _ = torch.max(q, axis = 1)
                 target_q = reward_batch + self.discount_factor * torch.mul(q, ~terminated_batch)
 
             return target_q 
@@ -295,9 +295,10 @@ class FeatureGoalAgent():
             return predicted_q, predicted_psi, torch.sum(phi * w, dim = 1)
 
         else:
-            predicted_q = self.policy_net(agent_position_features_batch, goal_batch).gather(1, action_batch).squeeze()
+            predicted_q, *_ = self.policy_net(agent_position_features_batch, goal_batch)
 
-            return predicted_q
+            return predicted_q.gather(1, action_batch).squeeze()
+
 
     def train(self, transition):
         
@@ -326,6 +327,42 @@ class FeatureGoalAgent():
         else:
             self.steps_since_last_network_update += 1
 
+    def prepare_for_eval_phase(self):
+        self.train_memory_buffer = copy.deepcopy(self.memory)
+
+        self.eval_memory_buffer = eu.misc.create_object_from_config(self.config.memory)
+
+    def train_during_eval_phase(self, transition, p_pick_new_memory_buffer):
+        
+        self.eval_memory_buffer.push(transition)
+        
+        if len(self.eval_memory_buffer) < self.learning_starts_after:
+            self.memory = self.train_memory_buffer
+        else:
+            if torch.rand(1).item() <= p_pick_new_memory_buffer:
+                self.memory = self.eval_memory_buffer
+            else:
+                self.memory = self.train_memory_buffer
+
+        if self.steps_since_last_training >= self.train_every_n_steps:
+            self.steps_since_last_training = 0
+
+            losses = []
+            for _ in range(self.config.train_for_n_iterations):
+                loss = self._train_one_batch()
+                losses.append(loss)
+
+            if self.config.log.loss_per_step:
+                log.add_value(self.config.log.log_name_loss, np.mean(losses))
+        else:
+            self.steps_since_last_training += 1
+        
+        if self.steps_since_last_network_update >= self.update_target_network_every_n_steps:
+            self.steps_since_last_network_update = 0
+
+            self._update_target_network()
+        else:
+            self.steps_since_last_network_update += 1
     def _update_target_network(self):
         target_net_state_dict = self.target_net.state_dict()
         policy_net_state_dict = self.policy_net.state_dict()

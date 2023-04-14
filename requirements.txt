@@ -6,3 +6,11 @@ numpy==1.24.2
 jupyter_contrib_nbextensions==0.7.0
 gradient-descent-the-ultimate-optimizer==1.0
 #git+ssh://git@gitlab.inria.fr/spring/wp6_robot_behavior/multiparty_interaction_simulator.git
+
+
+# VIM
+"python-lsp-server[all]"
+pylsp-mypy
+python-lsp-black
+pylsp-rope
+python-lsp-ruff
