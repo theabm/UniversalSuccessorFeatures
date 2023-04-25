@@ -7,7 +7,6 @@ import copy
 from collections import namedtuple
 import universal_successor_features.memory as mem
 import universal_successor_features.networks as nn
-import universal_successor_features.envs as envs
 import universal_successor_features.epsilon as eps
 
 
@@ -27,25 +26,25 @@ class FeatureGoalWeightAgent():
             is_a_usf = False,
             loss_weight_psi = 0.01,
             loss_weight_phi = 0.00,
-            epsilon = eu.AttrDict(
-                cls = eps.EpsilonConstant, 
-            ),
+            network = eu.AttrDict(
+                cls = nn.FeatureGoalWeightUSF,
+                optimizer = torch.optim.Adam,
+                ),
             target_network_update = eu.AttrDict(
                 rule = "hard",  # "hard" or "soft"
                 every_n_steps = 10, 
                 alpha = 0.0,  # target network params will be updated as P_t = alpha * P_t + (1-alpha) * P_p   where P_p are params of policy network
-            ),
+                ),
+            epsilon = eu.AttrDict(
+                cls = eps.EpsilonConstant, 
+                ),
             memory = eu.AttrDict(
                 cls = mem.ExperienceReplayMemory,
                 # Need to be defined for prioritized experience replay
                 alpha = None,
                 beta0 = None,
                 schedule_length = None,
-            ),
-            network = eu.AttrDict(
-                cls = nn.FeatureGoalWeightUSF,
-                optimizer = torch.optim.Adam,
-            ),
+                ),
             log = eu.AttrDict(
                 loss_per_step = True,
                 epsilon_per_episode = True,
@@ -53,7 +52,7 @@ class FeatureGoalWeightAgent():
                 log_name_loss = "loss_per_step",
             ),
             save = eu.AttrDict(
-                filename_prefix = "fgwa_",
+                filename_prefix = "data/",
                 extension = ".pt"
             ),
         )

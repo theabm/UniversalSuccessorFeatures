@@ -7,7 +7,6 @@ import copy
 from collections import namedtuple
 import universal_successor_features.memory as mem
 import universal_successor_features.networks as nn
-import universal_successor_features.envs as envs
 import universal_successor_features.epsilon as eps
 
 
@@ -27,25 +26,25 @@ class FeatureGoalAgent():
             is_a_usf = False,
             loss_weight_psi = 0.01,
             loss_weight_phi = 0.00,
-            epsilon = eu.AttrDict(
-                cls = eps.EpsilonConstant, 
-            ),
+            network = eu.AttrDict(
+                cls = nn.FeatureGoalPaperDQN,
+                optimizer = torch.optim.Adam,
+                ),
             target_network_update = eu.AttrDict(
                 rule = "hard",  # "hard" or "soft"
                 every_n_steps = 10, 
                 alpha = 0.0,  # target network params will be updated as P_t = alpha * P_t + (1-alpha) * P_p   where P_p are params of policy network
-            ),
+                ),
+            epsilon = eu.AttrDict(
+                cls = eps.EpsilonConstant, 
+                ),
             memory = eu.AttrDict(
                 cls = mem.ExperienceReplayMemory,
                 # Need to be defined for prioritized experience replay
                 alpha = None,
                 beta0 = None,
                 schedule_length = None,
-            ),
-            network = eu.AttrDict(
-                cls = nn.FeatureGoalPaperDQN,
-                optimizer = torch.optim.Adam,
-            ),
+                ),
             log = eu.AttrDict(
                 loss_per_step = True,
                 epsilon_per_episode = True,
@@ -53,7 +52,7 @@ class FeatureGoalAgent():
                 log_name_loss = "loss_per_step",
             ),
             save = eu.AttrDict(
-                filename_prefix = "fga_",
+                filename_prefix = "data/",
                 extension = ".pt"
             ),
         )
@@ -128,6 +127,7 @@ class FeatureGoalAgent():
         self.steps_since_last_network_update = 0
 
         self.current_episode = 0
+        self.step = 0
         self.learning_starts_after = self.batch_size*2
 
         self.is_a_usf = self.config.is_a_usf
@@ -140,39 +140,59 @@ class FeatureGoalAgent():
     def end_episode(self):
         self.epsilon.decay()
 
-    def choose_action(self, agent_position_features, list_of_goal_positions, training):
+    def choose_action(self,
+                      agent_position_features,
+                      list_of_goal_positions,
+                      goal_position_w,
+                      training
+                      ):
         if training:
             return self._epsilon_greedy_action_selection(
-                                                    agent_position_features,
-                                                    list_of_goal_positions,
-                                                    ).item()
+                    agent_position_features,
+                    list_of_goal_positions,
+                    goal_position_w,
+                    ).item()
         else:
             return self._greedy_action_selection(
-                                            agent_position_features,
-                                            list_of_goal_positions,
-                                            ).item()
+                    agent_position_features,
+                    list_of_goal_positions,
+                    goal_position_w,
+                    ).item()
 
-    def _epsilon_greedy_action_selection(self, agent_position_features, list_of_goal_positions):
+    def _epsilon_greedy_action_selection(self,
+                                         agent_position_features,
+                                         list_of_goal_positions,
+                                         goal_position_w
+                                         ):
         """Epsilon greedy action selection"""
         if torch.rand(1).item() > self.epsilon.value:
-            return self._greedy_action_selection(agent_position_features, list_of_goal_positions)
+            return self._greedy_action_selection(
+                    agent_position_features,
+                    list_of_goal_positions,
+                    goal_position_w,
+                    )
         else:
             return torch.randint(0,self.action_space,(1,)) 
 
-    def _greedy_action_selection(self, agent_position_features, list_of_goal_positions):
+    def _greedy_action_selection(self,
+                                 agent_position_features,
+                                 list_of_goal_positions,
+                                 goal_position_w
+                                 ):
         q_per_goal = torch.zeros(len(list_of_goal_positions))
         a_per_goal = torch.zeros(len(list_of_goal_positions), dtype=int)
     
         for i, goal_position in enumerate(list_of_goal_positions):
             with torch.no_grad():
                 q, *_ = self.policy_net(
-                                agent_position_features = torch.tensor(agent_position_features).to(torch.float).to(self.device),
-                                goal_position  = torch.tensor(goal_position).to(torch.float).to(self.device),
-                                )
+                        agent_position_features = torch.tensor(agent_position_features).to(torch.float).to(self.device),
+                        goal_position_sf  = torch.tensor(goal_position).to(torch.float).to(self.device),
+                        goal_position_w = torch.tensor(goal_position_w).to(torch.float).to(self.device),
+                        )
                 qm, am = torch.max(q, axis = 1)
                 q_per_goal[i] = qm.item()
                 a_per_goal[i] = am.item() 
-        
+        # batch together for gpu in the future
         amm = torch.argmax(q_per_goal)
 
         return a_per_goal[amm.item()]
@@ -254,8 +274,9 @@ class FeatureGoalAgent():
             with torch.no_grad():
 
                 q, sf_s_g, w, reward_phi_batch = self.target_net(
-                                                        next_agent_position_features_batch,
-                                                        goal_batch,
+                                                        agent_position_features = next_agent_position_features_batch,
+                                                        goal_position_sf = goal_batch,
+                                                        goal_position_w  = goal_batch,
                                                         )
                 
                 qm, action = torch.max(q, axis = 1)
@@ -271,7 +292,11 @@ class FeatureGoalAgent():
 
         else:
             with torch.no_grad():
-                q, *_ = self.target_net(next_agent_position_features_batch, goal_batch)
+                q, *_ = self.target_net(
+                        agent_position_features = next_agent_position_features_batch,
+                        goal_position_sf = goal_batch,
+                        goal_position_w  = goal_batch,
+                        )
                 q, _ = torch.max(q, axis = 1)
                 target_q = reward_batch + self.discount_factor * torch.mul(q, ~terminated_batch)
 
@@ -283,9 +308,10 @@ class FeatureGoalAgent():
 
         if self.is_a_usf:
             q, sf_s_g, w, phi = self.policy_net(
-                                        agent_position_features_batch,
-                                        goal_batch,
-                                        )
+                    agent_position_features = agent_position_features_batch,
+                    goal_position_sf = goal_batch,
+                    goal_position_w  = goal_batch,
+                    )
 
             predicted_q = q.gather(1,action_batch).squeeze() # shape (batch_size,)
             
@@ -295,7 +321,11 @@ class FeatureGoalAgent():
             return predicted_q, predicted_psi, torch.sum(phi * w, dim = 1)
 
         else:
-            predicted_q, *_ = self.policy_net(agent_position_features_batch, goal_batch)
+            predicted_q, *_ = self.policy_net(
+                    agent_position_features = agent_position_features_batch,
+                    goal_position_sf = goal_batch,
+                    goal_position_w  = goal_batch,
+                    )
 
             return predicted_q.gather(1, action_batch).squeeze()
 
@@ -371,12 +401,14 @@ class FeatureGoalAgent():
 
         self.target_net.load_state_dict(target_net_state_dict)
 
-    def save(self, episode, step):
-        filename = self.config.save.filename_prefix + str(self.policy_net.__class__.__name__) + "_" + str(episode) + self.config.save.extension
+    def save(self, episode, step, total_reward):
+        filename = self.config.save.filename_prefix  + "checkpoint" + self.config.save.extension
         torch.save(
             {
+                "config": self.config,
                 "episode": episode,
                 "step": step,
+                "total_reward": total_reward,
                 "model_state_dict": self.policy_net.state_dict(),
                 "optimizer_state_dict": self.optimizer.state_dict(),
                 "memory": self.memory,
@@ -384,13 +416,31 @@ class FeatureGoalAgent():
             filename
         )
     
-    def load(self, filename):
+    @classmethod
+    def load_from_checkpoint(cls, env, filename):
         checkpoint = torch.load(filename)
 
-        self.policy_net.load_state_dict(checkpoint["model_state_dict"])
-        self.target_net.load_state_dict(checkpoint["model_state_dict"])
+        agent = cls(env, config = checkpoint["config"])
 
-        self.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
+        agent.policy_net.load_state_dict(checkpoint["model_state_dict"])
+        agent.target_net = copy.deepcopy(agent.policy_net)
 
-        self.memory = checkpoint["memory"]
-        self.current_episode = checkpoint["episode"]
+        agent.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
+
+        agent.memory = checkpoint["memory"]
+        agent.current_episode = checkpoint["episode"]
+        agent.total_reward = checkpoint["total_reward"]
+
+        return agent
+    
+
+
+
+
+
+
+
+
+
+
+
