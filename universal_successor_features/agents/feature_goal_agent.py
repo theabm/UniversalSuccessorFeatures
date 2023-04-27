@@ -25,45 +25,44 @@ class FeatureGoalAgent():
     @staticmethod
     def default_config():
         cnf = eu.AttrDict(
-            device = "cuda", # "cuda" or "cpu"
-            discount_factor = 0.99,
-            batch_size = 32,
-            learning_rate = 5e-4,
-            train_for_n_iterations = 1,
-            train_every_n_steps = 1,
-            is_a_usf = False,
-            loss_weight_psi = 0.01,
-            loss_weight_phi = 0.00,
-            network = eu.AttrDict(
-                cls = nn.FeatureGoalPaperDQN,
-                optimizer = torch.optim.Adam,
-                ),
-            target_network_update = eu.AttrDict(
-                rule = "hard",  # "hard" or "soft"
-                every_n_steps = 10, 
-                alpha = 0.0,  # target network params will be updated as P_t = alpha * P_t + (1-alpha) * P_p   where P_p are params of policy network
-                ),
-            epsilon = eu.AttrDict(
-                cls = eps.EpsilonConstant, 
-                ),
-            memory = eu.AttrDict(
-                cls = mem.ExperienceReplayMemory,
-                # Need to be defined for prioritized experience replay
-                alpha = None,
-                beta0 = None,
-                schedule_length = None,
-                ),
-            log = eu.AttrDict(
-                loss_per_step = True,
-                epsilon_per_episode = True,
-                log_name_epsilon = "epsilon_per_episode",
-                log_name_loss = "loss_per_step",
-            ),
-            save = eu.AttrDict(
-                filename_prefix = "data/",
-                extension = ".pt"
-            ),
-        )
+                device = "cuda", # "cuda" or "cpu"
+                discount_factor = 0.99,
+                batch_size = 32,
+                learning_rate = 5e-4,
+                train_for_n_iterations = 1,
+                train_every_n_steps = 1,
+                is_a_usf = False,
+                loss_weight_psi = 0.01,
+                loss_weight_phi = 0.00,
+                network = eu.AttrDict(
+                    cls = nn.FeatureGoalPaperDQN,
+                    optimizer = torch.optim.Adam,
+                    ),
+                target_network_update = eu.AttrDict(
+                    rule = "hard",  # "hard" or "soft"
+                    every_n_steps = 10, 
+                    alpha = 0.0,  # target network params will be updated as P_t = alpha * P_t + (1-alpha) * P_p   where P_p are params of policy network
+                    ),
+                epsilon = eu.AttrDict(
+                    cls = eps.EpsilonConstant, 
+                    ),
+                memory = eu.AttrDict(
+                    cls = mem.ExperienceReplayMemory,
+                    # Need to be defined for prioritized experience replay
+                    alpha = None,
+                    beta0 = None,
+                    schedule_length = None,
+                    ),
+                log = eu.AttrDict(
+                    loss_per_step = True,
+                    epsilon_per_episode = True,
+                    log_name_epsilon = "epsilon_per_episode",
+                    log_name_loss = "loss_per_step",
+                    ),
+                save = eu.AttrDict(
+                    extension = ".pt"
+                    ),
+                )
         return cnf
 
 
@@ -273,7 +272,7 @@ class FeatureGoalAgent():
 
     def _build_target_batch(self,
                             experiences,
-                            goal_batch,
+                            goal_batch
                             ):
         next_agent_position_features_batch = self._build_tensor_from_batch_of_np_arrays(experiences.next_agent_position_features_batch).to(self.device) # shape (batch_size, n)
 
@@ -287,7 +286,7 @@ class FeatureGoalAgent():
                 q, sf_s_g, w, reward_phi_batch = self.target_net(
                                                         agent_position_features = next_agent_position_features_batch,
                                                         policy_goal_position = goal_batch,
-                                                        env_goal_position  = goal_batch,
+                                                        env_goal_position = goal_batch,
                                                         )
                 
                 qm, action = torch.max(q, axis = 1)
@@ -306,7 +305,7 @@ class FeatureGoalAgent():
                 q, *_ = self.target_net(
                         agent_position_features = next_agent_position_features_batch,
                         policy_goal_position = goal_batch,
-                        env_goal_position  = goal_batch,
+                        env_goal_position = goal_batch,
                         )
                 q, _ = torch.max(q, axis = 1)
                 target_q = reward_batch + self.discount_factor * torch.mul(q, ~terminated_batch)
@@ -324,7 +323,7 @@ class FeatureGoalAgent():
             q, sf_s_g, w, phi = self.policy_net(
                     agent_position_features = agent_position_features_batch,
                     policy_goal_position = goal_batch,
-                    env_goal_position  = goal_batch,
+                    env_goal_position = goal_batch,
                     )
 
             predicted_q = q.gather(1,action_batch).squeeze() # shape (batch_size,)
@@ -338,7 +337,7 @@ class FeatureGoalAgent():
             predicted_q, *_ = self.policy_net(
                     agent_position_features = agent_position_features_batch,
                     policy_goal_position = goal_batch,
-                    env_goal_position  = goal_batch,
+                    env_goal_position = goal_batch
                     )
 
             return predicted_q.gather(1, action_batch).squeeze()
@@ -415,7 +414,7 @@ class FeatureGoalAgent():
         self.target_net.load_state_dict(target_net_state_dict)
 
     def save(self, episode, step, total_reward):
-        filename = self.config.save.filename_prefix  + "checkpoint" + self.config.save.extension
+        filename = "checkpoint" + self.config.save.extension
         torch.save(
             {
                 "config": self.config,

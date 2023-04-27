@@ -26,45 +26,44 @@ class FeatureGoalWeightAgent():
     @staticmethod
     def default_config():
         cnf = eu.AttrDict(
-            device = "cuda", # "cuda" or "cpu"
-            discount_factor = 0.99,
-            batch_size = 32,
-            learning_rate = 5e-4,
-            train_for_n_iterations = 1,
-            train_every_n_steps = 1,
-            is_a_usf = False,
-            loss_weight_psi = 0.01,
-            loss_weight_phi = 0.00,
-            network = eu.AttrDict(
-                cls = nn.FeatureGoalWeightUSF,
-                optimizer = torch.optim.Adam,
-                ),
-            target_network_update = eu.AttrDict(
-                rule = "hard",  # "hard" or "soft"
-                every_n_steps = 10, 
-                alpha = 0.0,  # target network params will be updated as P_t = alpha * P_t + (1-alpha) * P_p   where P_p are params of policy network
-                ),
-            epsilon = eu.AttrDict(
-                cls = eps.EpsilonConstant, 
-                ),
-            memory = eu.AttrDict(
-                cls = mem.ExperienceReplayMemory,
-                # Need to be defined for prioritized experience replay
-                alpha = None,
-                beta0 = None,
-                schedule_length = None,
-                ),
-            log = eu.AttrDict(
-                loss_per_step = True,
-                epsilon_per_episode = True,
-                log_name_epsilon = "epsilon_per_episode",
-                log_name_loss = "loss_per_step",
-            ),
-            save = eu.AttrDict(
-                filename_prefix = "data/",
-                extension = ".pt"
-            ),
-        )
+                device = "cuda", # "cuda" or "cpu"
+                discount_factor = 0.99,
+                batch_size = 32,
+                learning_rate = 5e-4,
+                train_for_n_iterations = 1,
+                train_every_n_steps = 1,
+                is_a_usf = False,
+                loss_weight_psi = 0.01,
+                loss_weight_phi = 0.00,
+                network = eu.AttrDict(
+                    cls = nn.FeatureGoalWeightUSF,
+                    optimizer = torch.optim.Adam,
+                    ),
+                target_network_update = eu.AttrDict(
+                    rule = "hard",  # "hard" or "soft"
+                    every_n_steps = 10, 
+                    alpha = 0.0,  # target network params will be updated as P_t = alpha * P_t + (1-alpha) * P_p   where P_p are params of policy network
+                    ),
+                epsilon = eu.AttrDict(
+                    cls = eps.EpsilonConstant, 
+                    ),
+                memory = eu.AttrDict(
+                    cls = mem.ExperienceReplayMemory,
+                    # Need to be defined for prioritized experience replay
+                    alpha = None,
+                    beta0 = None,
+                    schedule_length = None,
+                    ),
+                log = eu.AttrDict(
+                    loss_per_step = True,
+                    epsilon_per_episode = True,
+                    log_name_epsilon = "epsilon_per_episode",
+                    log_name_loss = "loss_per_step",
+                    ),
+                save = eu.AttrDict(
+                    extension = ".pt"
+                    ),
+                )
         return cnf
 
 
@@ -423,7 +422,7 @@ class FeatureGoalWeightAgent():
         self.target_net.load_state_dict(target_net_state_dict)
 
     def save(self, episode, step, total_reward):
-        filename = self.config.save.filename_prefix  + "checkpoint" + self.config.save.extension
+        filename = "checkpoint" + self.config.save.extension
         torch.save(
             {
                 "config": self.config,

@@ -200,12 +200,6 @@ def run_rl_second_phase(config = None, **kwargs):
         goal_sampler = my_env.sample_eval_goal
         goal_list_for_eval= my_env.goal_list_evaluation_tasks
 
-    if config.use_gpi_train:
-        goal_list_iter = iter(goal_list_for_eval)
-        steps_per_goal = (config.n_steps)//len(goal_list_for_eval)
-        goals_so_far = my_env.goal_list_source_tasks
-
-
     step = 0 
     total_reward = agent.total_reward
     episode = agent.current_episode
@@ -225,13 +219,8 @@ def run_rl_second_phase(config = None, **kwargs):
         episode += 1
         agent.start_episode(episode = episode)
 
-        if config.use_gpi_train:
-            if step%steps_per_goal == 0:
-                goal_position = next(goal_list_iter)
-                goals_so_far.append(goal_position)
-        else:
-            goal_position = goal_sampler()
-            goals_so_far = [goal_position]
+        goal_position = goal_sampler()
+        goals_so_far = [goal_position]
 
         obs, _ = my_env.reset(goal_position = goal_position)
         
@@ -290,13 +279,12 @@ def run_rl_second_phase(config = None, **kwargs):
 def evaluate_agent(agent, test_env, step_fn, goal_list_for_eval, use_gpi):
     num_goals = len(goal_list_for_eval)
     completed_goals = 0
-    if use_gpi:
-        # goals_for_gpi = goal_list_for_eval + test_env.goal_list_source_tasks
-        goals_for_gpi = test_env.goal_list_source_tasks
 
     for goal in goal_list_for_eval:
-        if not use_gpi:
-            goals_for_gpi = [goal]
+        if use_gpi:
+            goals_so_far = test_env.goal_list_source_tasks
+        else:
+            goals_so_far = [goal]
 
         terminated = False
         truncated = False
@@ -307,7 +295,7 @@ def evaluate_agent(agent, test_env, step_fn, goal_list_for_eval, use_gpi):
                     obs,
                     agent,
                     test_env,
-                    goals_so_far = goals_for_gpi,
+                    goals_so_far = goals_so_far,
                     training = False
                     )
             obs = next_obs
@@ -323,7 +311,7 @@ def step_feature_goal_agent(obs, agent, my_env, goals_so_far, training):
     action = agent.choose_action(
             agent_position_features = obs["agent_position_features"],
             list_of_goal_positions = goals_so_far,
-            goal_position_w = obs["goal_position"],
+            env_goal_position = obs["goal_position"],
             training = training
             )
 
@@ -343,8 +331,8 @@ def step_feature_goal_agent(obs, agent, my_env, goals_so_far, training):
 def step_feature_goal_weight_agent(obs, agent, my_env, goals_so_far, training):
     action = agent.choose_action(
             agent_position_features=obs["agent_position_features"],
-            list_of_goal_positions=[obs["goal_position"]],
-            goal_weights = obs["goal_weights"],
+            list_of_goal_positions=goals_so_far,
+            env_goal_weights = obs["goal_weights"],
             training=training
             )
             
@@ -362,11 +350,12 @@ def step_feature_goal_weight_agent(obs, agent, my_env, goals_so_far, training):
 
     return next_obs, reward, terminated, truncated, transition
 
-def step_state_goal_agent(obs, agent, my_env, training):
+def step_state_goal_agent(obs, agent, my_env, goals_so_far, training):
     action = agent.choose_action(
-            agent_position=obs["agent_position"],
-            goal_position=obs["goal_position"],
-            training=training
+            agent_position = obs["agent_position"],
+            list_of_goal_positions = goals_so_far,
+            env_goal_position = obs["goal_position"],
+            training = training
             )
             
     next_obs, reward, terminated, truncated, _ = my_env.step(action=action)
