@@ -27,10 +27,10 @@ class FeatureGoalPaperDQN(torch.nn.Module):
             torch.nn.ReLU(),
             torch.nn.Linear(in_features=256, out_features=self.config.num_actions),
         )
-    def forward(self, agent_position_features, goal_position):
-        g_rep = self.layer_goal(goal_position)
-        rep = torch.cat((agent_position_features,g_rep),dim=1)
-        q = self.layer_concat(rep)
+    def forward(self, agent_position_features, env_goal_position, **kwargs):
+        env_goal_representation = self.layer_goal(env_goal_position)
+        joined_representation = torch.cat((agent_position_features,env_goal_representation),dim=1)
+        q = self.layer_concat(joined_representation)
         
         return q, None, None, None
 
@@ -42,12 +42,12 @@ if __name__ == '__main__':
     rand_features = torch.rand(10,100)
     rand_goals = torch.rand(10,2)
 
-    output = my_dqn(rand_features, rand_goals)
-    print(output.shape)
+    q, *_ = my_dqn(rand_features, rand_goals)
+    print(q.shape)
     
     # Emulating behavior of epsilon greedy call for a single state, goal pair (not a batch)
     rand_feature = torch.rand(100).unsqueeze(0)
     rand_goal = torch.rand(2).unsqueeze(0)
 
-    output = my_dqn(rand_feature, rand_goal)
-    print(output.shape)
+    q, *_ = my_dqn(rand_feature, rand_goal)
+    print(q.shape)
