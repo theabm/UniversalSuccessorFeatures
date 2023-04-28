@@ -46,20 +46,22 @@ class StateGoalUSF(torch.nn.Module):
             torch.nn.Linear(in_features=256, out_features=self.config.num_actions*self.config.features_size),
         )
     
-    def forward(self, agent_position, goal_position):
-        phi_s = self.layer_state(agent_position)
-        phi_g = self.layer_goal(goal_position)
-        rep = torch.cat((phi_s,phi_g),dim=1)
-        sf_s_g = self.layer_concat(rep)
+    def forward(self, agent_position, policy_goal_position, env_goal_position):
+        agent_position_features = self.layer_state(agent_position)
+        goal_position_features = self.layer_goal(policy_goal_position)
+        joined_representation = torch.cat((agent_position_features,goal_position_features),dim=1)
 
-        N = sf_s_g.shape[0]
-        sf_s_g = sf_s_g.reshape(N, self.num_actions, self.features_size)
+        # successor feature
+        sf = self.layer_concat(joined_representation)
+
+        batch_size = sf.shape[0]
+        sf = sf.reshape(batch_size, self.num_actions, self.features_size)
         
-        w = self.layer_goal_weights(goal_position)
+        env_goal_weights = self.layer_goal_weights(env_goal_position)
 
-        q = torch.sum(torch.mul(sf_s_g, w.unsqueeze(1)), dim=2)
+        q = torch.sum(torch.mul(sf, env_goal_weights.unsqueeze(1)), dim=2)
 
-        return q, sf_s_g, w, phi_s
+        return q, sf, env_goal_weights, agent_position_features
 
 
 if __name__ == '__main__':
@@ -69,12 +71,12 @@ if __name__ == '__main__':
     rand_states = torch.rand(10,2)
     rand_goals = torch.rand(10,2)
 
-    output = my_dqn(rand_states, rand_goals)
-    print(output.shape)
+    q, *_ = my_dqn(rand_states, rand_goals, rand_goals)
+    print(q.shape)
     
     # Emulating behavior of epsilon greedy call for a single state, goal pair (not a batch)
     rand_state = torch.rand(2).unsqueeze(0)
     rand_goal = torch.rand(2).unsqueeze(0)
 
-    output = my_dqn(rand_state, rand_goal)
-    print(output.shape)
+    q, *_ = my_dqn(rand_state, rand_goal, rand_goals)
+    print(q.shape)

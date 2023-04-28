@@ -45,18 +45,20 @@ class FeatureGoalUSF(torch.nn.Module):
         )
 
     def forward(self, agent_position_features, policy_goal_position, env_goal_position):
-        phi_g = self.layer_goal(policy_goal_position)
-        rep = torch.cat((agent_position_features, phi_g), dim=1)
-        sf_s_g = self.layer_concat(rep)
+        goal_position_features = self.layer_goal(policy_goal_position)
+        joined_representation = torch.cat((agent_position_features, goal_position_features), dim=1)
 
-        batch_size = sf_s_g.shape[0]
-        sf_s_g = sf_s_g.reshape(batch_size, self.num_actions, self.features_size)
+        # successor feature
+        sf = self.layer_concat(joined_representation)
+
+        batch_size = sf.shape[0]
+        sf = sf.reshape(batch_size, self.num_actions, self.features_size)
 
         env_goal_weights = self.layer_goal_weights(env_goal_position)
 
-        q = torch.sum(torch.mul(sf_s_g, env_goal_weights.unsqueeze(1)), dim=2)
+        q = torch.sum(torch.mul(sf, env_goal_weights.unsqueeze(1)), dim=2)
 
-        return q, sf_s_g, env_goal_weights, agent_position_features
+        return q, sf, env_goal_weights, agent_position_features
 
 
 if __name__ == "__main__":

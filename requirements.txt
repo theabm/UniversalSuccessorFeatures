@@ -9,7 +9,7 @@ gradient-descent-the-ultimate-optimizer==1.0
 
 
 # VIM
-"python-lsp-server[all]"
+python-lsp-server
 pylsp-mypy
 python-lsp-black
 pylsp-rope
