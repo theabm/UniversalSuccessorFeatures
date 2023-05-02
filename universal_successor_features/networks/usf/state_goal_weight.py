@@ -16,31 +16,57 @@ class StateGoalWeightUSF(torch.nn.Module):
         super().__init__()
 
         self.config = eu.combine_dicts(kwargs, config, self.default_config())
+        self.is_a_usf = True
 
         self.num_actions = self.config.num_actions
         self.features_size = self.config.features_size
 
         self.layer_state = torch.nn.Sequential(
-            torch.nn.Linear(in_features=self.config.state_size, out_features=81),
+            torch.nn.Linear(
+                in_features=self.config.state_size,
+                out_features=81
+                ),
             torch.nn.ReLU(),
-            torch.nn.Linear(in_features=81, out_features=self.config.features_size),
+            torch.nn.Linear(
+                in_features=81,
+                out_features=self.config.features_size
+                ),
         )
 
         self.layer_goal = torch.nn.Sequential(
-            torch.nn.Linear(in_features=self.config.goal_size, out_features=64),
+            torch.nn.Linear(
+                in_features=self.config.goal_size,
+                out_features=64
+                ),
             torch.nn.ReLU(),
-            torch.nn.Linear(in_features=64, out_features=self.config.features_size),
+            torch.nn.Linear(
+                in_features=64,
+                out_features=self.config.features_size
+                ),
         )
         self.layer_concat = torch.nn.Sequential(
-            torch.nn.Linear(in_features=2*self.config.features_size, out_features=256),
+            torch.nn.Linear(
+                in_features=2*self.config.features_size,
+                out_features=256
+                ),
             torch.nn.ReLU(),
-            torch.nn.Linear(in_features=256, out_features=self.config.num_actions*self.config.features_size),
+            torch.nn.Linear(
+                in_features=256,
+                out_features=self.config.num_actions*self.config.features_size
+                ),
         )
 
-    def forward(self, agent_position, policy_goal_position, env_goal_weights):
+    def forward(self,
+                agent_position,
+                policy_goal_position,
+                env_goal_weights
+                ):
         agent_position_features = self.layer_state(agent_position)
         goal_position_features = self.layer_goal(policy_goal_position)
-        joined_representation = torch.cat((agent_position_features,goal_position_features),dim=1)
+        joined_representation = torch.cat(
+                (agent_position_features,goal_position_features),
+                dim=1
+                )
 
         # successor feature
         sf = self.layer_concat(joined_representation)
@@ -65,7 +91,8 @@ if __name__ == '__main__':
     q, *_ = my_dqn(rand_states, rand_goals, rand_weights)
     print(q.shape)
     
-    # Emulating behavior of epsilon greedy call for a single state, goal pair (not a batch)
+    # Emulating behavior of epsilon greedy call for a single state,
+    # goal pair (not a batch)
     rand_state = torch.rand(2).unsqueeze(0)
     rand_goal = torch.rand(2).unsqueeze(0)
     rand_weight = torch.rand(100).unsqueeze(0)
