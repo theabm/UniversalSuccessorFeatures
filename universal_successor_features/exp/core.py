@@ -151,7 +151,6 @@ def run_rl_second_phase(config = None, **kwargs):
 
         n_steps = np.inf,
         use_gpi_eval = False,
-        use_gpi_train = False,
         use_target_tasks = True, 
 
         log_name_step = 'step',
@@ -330,10 +329,10 @@ def step_feature_goal_agent(obs, agent, my_env, goals_so_far, training):
 
 def step_feature_goal_weight_agent(obs, agent, my_env, goals_so_far, training):
     action = agent.choose_action(
-            agent_position_features=obs["agent_position_features"],
-            list_of_goal_positions=goals_so_far,
+            agent_position_features = obs["agent_position_features"],
+            list_of_goal_positions = goals_so_far,
             env_goal_weights = obs["goal_weights"],
-            training=training
+            training = training
             )
             
     next_obs, reward, terminated, truncated, _ = my_env.step(action=action)
@@ -370,11 +369,12 @@ def step_state_goal_agent(obs, agent, my_env, goals_so_far, training):
 
     return next_obs, reward, terminated, truncated, transition
 
-def step_state_goal_weight_agent(obs, agent, my_env, training):
+def step_state_goal_weight_agent(obs, agent, my_env, goals_so_far, training):
     action = agent.choose_action(
-            agent_position=obs["agent_position"],
-            goal_position=obs["goal_position"],
-            goal_weights = obs["goal_weights"], training=training
+            agent_position = obs["agent_position"],
+            list_of_goal_positions = goals_so_far,
+            env_goal_weights = obs["goal_weights"],
+            training = training
             )
             
     next_obs, reward, terminated, truncated, _ = my_env.step(action=action)

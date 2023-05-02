@@ -40,14 +40,16 @@ class FeatureGoalAgent():
                 target_network_update = eu.AttrDict(
                     rule = "hard",  # "hard" or "soft"
                     every_n_steps = 10, 
-                    alpha = 0.0,  # target network params will be updated as P_t = alpha * P_t + (1-alpha) * P_p   where P_p are params of policy network
+                    alpha = 0.0,  # target network params will be updated as
+                                  # P_t = alpha * P_t + (1-alpha) * P_p
+                                  # where P_p are params of policy network
                     ),
                 epsilon = eu.AttrDict(
                     cls = eps.EpsilonConstant, 
                     ),
                 memory = eu.AttrDict(
                     cls = mem.ExperienceReplayMemory,
-                    # Need to be defined for prioritized experience replay
+                    # Need to be defined only for prioritized experience replay
                     alpha = None,
                     beta0 = None,
                     schedule_length = None,
@@ -67,7 +69,10 @@ class FeatureGoalAgent():
 
     def __init__(self, env, config = None, **kwargs):
 
-        self.config = eu.combine_dicts(kwargs, config, FeatureGoalAgent.default_config())
+        self.config = eu.combine_dicts(kwargs,
+                                       config,
+                                       FeatureGoalAgent.default_config()
+                                       )
         self.action_space = env.action_space.n
         self.position_size = env.observation_space["agent_position"].shape[1]
         self.features_size = env.observation_space["agent_position_features"].shape[1]
