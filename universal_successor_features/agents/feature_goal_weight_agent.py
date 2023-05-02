@@ -32,7 +32,6 @@ class FeatureGoalWeightAgent():
                 learning_rate = 5e-4,
                 train_for_n_iterations = 1,
                 train_every_n_steps = 1,
-                is_a_usf = False,
                 loss_weight_psi = 0.01,
                 loss_weight_phi = 0.00,
                 network = eu.AttrDict(
@@ -92,6 +91,7 @@ class FeatureGoalWeightAgent():
             self.config.network.num_actions = self.action_space
 
             self.policy_net = eu.misc.create_object_from_config(self.config.network)
+            self.is_a_usf = self.policy_net.is_a_usf
         else:
             raise ValueError("Network Config must be a dictionary.")
 
@@ -137,8 +137,6 @@ class FeatureGoalWeightAgent():
         self.current_episode = 0
         self.step = 0
         self.learning_starts_after = self.batch_size*2
-
-        self.is_a_usf = self.config.is_a_usf
 
     def start_episode(self, episode):
         self.current_episode = episode

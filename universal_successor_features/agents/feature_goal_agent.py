@@ -31,7 +31,6 @@ class FeatureGoalAgent():
                 learning_rate = 5e-4,
                 train_for_n_iterations = 1,
                 train_every_n_steps = 1,
-                is_a_usf = False,
                 loss_weight_psi = 0.01,
                 loss_weight_phi = 0.00,
                 network = eu.AttrDict(
@@ -67,7 +66,7 @@ class FeatureGoalAgent():
 
 
     def __init__(self, env, config = None, **kwargs):
-        
+
         self.config = eu.combine_dicts(kwargs, config, FeatureGoalAgent.default_config())
         self.action_space = env.action_space.n
         self.position_size = env.observation_space["agent_position"].shape[1]
@@ -82,7 +81,7 @@ class FeatureGoalAgent():
                 warnings.warn('Cuda not available. Using CPU as device ...')
         else:
             self.device = torch.device("cpu")
-        
+
         # Creating object instances
         if isinstance(self.config.network, dict):
             self.config.network.state_size = self.position_size
@@ -91,6 +90,7 @@ class FeatureGoalAgent():
             self.config.network.num_actions = self.action_space
 
             self.policy_net = eu.misc.create_object_from_config(self.config.network)
+            self.is_a_usf = self.policy_net.is_a_usf
         else:
             raise ValueError("Network Config must be a dictionary.")
 
@@ -114,7 +114,7 @@ class FeatureGoalAgent():
         self.loss_weight_psi = self.config.loss_weight_psi
         self.loss_weight_phi = self.config.loss_weight_phi
         self.optimizer = self.config.network.optimizer(self.policy_net.parameters(), lr = self.config.learning_rate)
-        
+
         self.batch_size = self.config.batch_size      
         self.train_every_n_steps = self.config.train_every_n_steps - 1
         self.steps_since_last_training = 0
@@ -136,8 +136,6 @@ class FeatureGoalAgent():
         self.current_episode = 0
         self.step = 0
         self.learning_starts_after = self.batch_size*2
-
-        self.is_a_usf = self.config.is_a_usf
 
     def start_episode(self, episode):
         self.current_episode = episode
@@ -193,7 +191,7 @@ class FeatureGoalAgent():
             with torch.no_grad():
                 q, *_ = self.policy_net(
                         agent_position_features = torch.tensor(agent_position_features).to(torch.float).to(self.device),
-                        policy_goal_position  = torch.tensor(goal_position).to(torch.float).to(self.device),
+                        policy_goal_position = torch.tensor(goal_position).to(torch.float).to(self.device),
                         env_goal_position = torch.tensor(env_goal_position).to(torch.float).to(self.device),
                         )
                 qm, am = torch.max(q, axis = 1)
@@ -215,7 +213,7 @@ class FeatureGoalAgent():
         batch_of_np_arrays = torch.tensor(batch_of_np_arrays).squeeze().to(torch.float)
 
         return batch_of_np_arrays
-    
+
     def _train_one_batch(self):
         experiences, sample_weights = self._sample_experiences()
         goal_batch = self._build_tensor_from_batch_of_np_arrays(experiences.goal_batch).to(self.device)
@@ -224,19 +222,19 @@ class FeatureGoalAgent():
         self.optimizer.zero_grad()
         if self.is_a_usf:
             target_batch_q, target_batch_psi, r = self._build_target_batch(
-                                                                    experiences,
-                                                                    goal_batch,
-                                                                    )
+                    experiences,
+                    goal_batch,
+                    )
             predicted_batch_q, predicted_batch_psi, phi_w = self._build_predicted_batch(
-                                                                                experiences,
-                                                                                goal_batch,
-                                                                                )
+                    experiences,
+                    goal_batch,
+                    )
 
             td_error_q = torch.square(torch.abs(target_batch_q - predicted_batch_q)) # shape (batch_size,)
             # shape of target_batch_psi is (batch, size_features) so the td_error for that batch must be summed along first dim
             # which automatically squeezed dim = 1 and so the final shape is (batch,)
             td_error_psi = torch.mean(torch.square(torch.abs(target_batch_psi - predicted_batch_psi)), dim = 1) # shape (batch_size,)
-            
+
             td_error_phi = torch.square(torch.abs(r-phi_w)) # shape (batch_size, )
 
             total_td_error = (td_error_q + self.loss_weight_psi*td_error_psi + self.loss_weight_phi*td_error_phi)
@@ -249,13 +247,13 @@ class FeatureGoalAgent():
             loss = torch.mean(sample_weights*total_td_error)
         else:
             target_batch = self._build_target_batch(
-                                            experiences,
-                                            goal_batch,
-                                            )
+                    experiences,
+                    goal_batch,
+                    )
             predicted_batch = self._build_predicted_batch(
-                                                experiences,
-                                                goal_batch,
-                                                )
+                    experiences,
+                    goal_batch,
+                    )
 
             td_error_q = torch.square(torch.abs(target_batch - predicted_batch))
 
@@ -267,7 +265,7 @@ class FeatureGoalAgent():
 
         loss.backward()
         self.optimizer.step()
-        
+
         return loss.item()
 
     def _build_target_batch(self,
@@ -284,11 +282,11 @@ class FeatureGoalAgent():
             with torch.no_grad():
 
                 q, sf_s_g, w, reward_phi_batch = self.target_net(
-                                                        agent_position_features = next_agent_position_features_batch,
-                                                        policy_goal_position = goal_batch,
-                                                        env_goal_position = goal_batch,
-                                                        )
-                
+                        agent_position_features = next_agent_position_features_batch,
+                        policy_goal_position = goal_batch,
+                        env_goal_position = goal_batch,
+                        )
+
                 qm, action = torch.max(q, axis = 1)
 
                 target_q = reward_batch + self.discount_factor * torch.mul(qm, ~terminated_batch) # shape (batch_size,)
@@ -327,7 +325,7 @@ class FeatureGoalAgent():
                     )
 
             predicted_q = q.gather(1,action_batch).squeeze() # shape (batch_size,)
-            
+
             action_batch = action_batch.reshape(self.batch_size, 1, 1).tile(self.features_size)
             predicted_psi = sf_s_g.gather(1, action_batch).squeeze() # shape (batch_size, features_size)
 
@@ -343,9 +341,9 @@ class FeatureGoalAgent():
             return predicted_q.gather(1, action_batch).squeeze()
 
     def train(self, transition):
-        
+
         self.memory.push(transition)
-        
+
         if len(self.memory) < self.learning_starts_after:
             return
 
@@ -361,7 +359,7 @@ class FeatureGoalAgent():
                 log.add_value(self.config.log.log_name_loss, np.mean(losses))
         else:
             self.steps_since_last_training += 1
-        
+
         if self.steps_since_last_network_update >= self.update_target_network_every_n_steps:
             self.steps_since_last_network_update = 0
 
@@ -375,9 +373,9 @@ class FeatureGoalAgent():
         self.eval_memory_buffer = eu.misc.create_object_from_config(self.config.memory)
 
     def train_during_eval_phase(self, transition, p_pick_new_memory_buffer):
-        
+
         self.eval_memory_buffer.push(transition)
-        
+
         if len(self.eval_memory_buffer) < self.learning_starts_after:
             self.memory = self.train_memory_buffer
         else:
@@ -398,7 +396,7 @@ class FeatureGoalAgent():
                 log.add_value(self.config.log.log_name_loss, np.mean(losses))
         else:
             self.steps_since_last_training += 1
-        
+
         if self.steps_since_last_network_update >= self.update_target_network_every_n_steps:
             self.steps_since_last_network_update = 0
 
@@ -416,18 +414,18 @@ class FeatureGoalAgent():
     def save(self, episode, step, total_reward):
         filename = "checkpoint" + self.config.save.extension
         torch.save(
-            {
-                "config": self.config,
-                "episode": episode,
-                "step": step,
-                "total_reward": total_reward,
-                "model_state_dict": self.policy_net.state_dict(),
-                "optimizer_state_dict": self.optimizer.state_dict(),
-                "memory": self.memory,
-            },
-            filename
-        )
-    
+                {
+                    "config": self.config,
+                    "episode": episode,
+                    "step": step,
+                    "total_reward": total_reward,
+                    "model_state_dict": self.policy_net.state_dict(),
+                    "optimizer_state_dict": self.optimizer.state_dict(),
+                    "memory": self.memory,
+                    },
+                filename
+                )
+
     @classmethod
     def load_from_checkpoint(cls, env, filename):
         checkpoint = torch.load(filename)
@@ -444,7 +442,7 @@ class FeatureGoalAgent():
         agent.total_reward = checkpoint["total_reward"]
 
         return agent
-    
+
 
 
 
