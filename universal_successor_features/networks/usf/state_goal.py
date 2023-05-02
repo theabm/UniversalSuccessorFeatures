@@ -21,7 +21,7 @@ class StateGoalUSF(torch.nn.Module):
         self.num_actions = self.config.num_actions
         self.features_size = self.config.features_size
 
-        self.layer_goal_weights = torch.nn.Sequential(
+        self.env_goal_layer = torch.nn.Sequential(
             torch.nn.Linear(
                 in_features=self.config.goal_size,
                 out_features=64
@@ -38,7 +38,7 @@ class StateGoalUSF(torch.nn.Module):
                 ),
         )
 
-        self.layer_state = torch.nn.Sequential(
+        self.agent_position_layer = torch.nn.Sequential(
             torch.nn.Linear(
                 in_features=self.config.state_size,
                 out_features=81
@@ -50,7 +50,7 @@ class StateGoalUSF(torch.nn.Module):
                 ),
         )
 
-        self.layer_goal = torch.nn.Sequential(
+        self.policy_goal_layer = torch.nn.Sequential(
             torch.nn.Linear(
                 in_features=self.config.goal_size,
                 out_features=64
@@ -62,7 +62,7 @@ class StateGoalUSF(torch.nn.Module):
                 ),
         )
 
-        self.layer_concat = torch.nn.Sequential(
+        self.concatenation_layer = torch.nn.Sequential(
             torch.nn.Linear(
                 in_features=2*self.config.features_size,
                 out_features=256
@@ -79,21 +79,24 @@ class StateGoalUSF(torch.nn.Module):
                 policy_goal_position,
                 env_goal_position
                 ):
-        agent_position_features = self.layer_state(agent_position)
-        goal_position_features = self.layer_goal(policy_goal_position)
+        agent_position_features = self.agent_position_layer(agent_position)
+        goal_position_features = self.policy_goal_layer(policy_goal_position)
         joined_representation = torch.cat(
                 (agent_position_features,goal_position_features),
                 dim=1
                 )
 
         # successor feature
-        sf = self.layer_concat(joined_representation)
+        sf = self.concatenation_layer(joined_representation)
 
         batch_size = sf.shape[0]
         sf = sf.reshape(batch_size, self.num_actions, self.features_size)
         
-        env_goal_weights = self.layer_goal_weights(env_goal_position)
+        env_goal_weights = self.env_goal_layer(env_goal_position)
 
+        # Output dot product between sf and env_goal_weights.
+        # sf has shape (batch, num_actions, feature_size) while
+        # env_goal_weights has shape (batch, feature_size)
         q = torch.sum(torch.mul(sf, env_goal_weights.unsqueeze(1)), dim=2)
 
         return q, sf, env_goal_weights, agent_position_features

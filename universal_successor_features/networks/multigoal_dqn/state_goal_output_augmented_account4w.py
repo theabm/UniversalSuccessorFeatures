@@ -20,7 +20,7 @@ class StateGoalAugmentedDQN(torch.nn.Module):
         self.config = eu.combine_dicts(kwargs, config, self.default_config())
         self.is_a_usf = False
 
-        self.state_layer = torch.nn.Sequential(
+        self.agent_position_layer = torch.nn.Sequential(
                 torch.nn.Linear(
                     in_features=self.config.state_size,
                     out_features=81
@@ -31,7 +31,7 @@ class StateGoalAugmentedDQN(torch.nn.Module):
                     out_features=self.config.features_size
                     ),
                 )   
-        self.goal_layer = torch.nn.Sequential(
+        self.goal_position_layer = torch.nn.Sequential(
                 torch.nn.Linear(
                     in_features=self.config.goal_size,
                     out_features=64
@@ -42,7 +42,7 @@ class StateGoalAugmentedDQN(torch.nn.Module):
                     out_features=self.config.features_size
                     ),
                 )
-        self.layer_concat = torch.nn.Sequential(
+        self.concatenation_layer = torch.nn.Sequential(
                 torch.nn.Linear(
                     in_features=2*self.config.features_size,
                     out_features=256
@@ -68,13 +68,13 @@ class StateGoalAugmentedDQN(torch.nn.Module):
                 env_goal_position,
                 **kwargs
                 ):
-        agent_position_representation = self.state_layer(agent_position)
-        env_goal_representation = self.goal_layer(env_goal_position)
+        agent_position_representation = self.agent_position_layer(agent_position)
+        env_goal_representation = self.goal_position_layer(env_goal_position)
         joined_representation = torch.cat(
                 (agent_position_representation,env_goal_representation),
                 dim=1
                 )
-        q = self.layer_concat(joined_representation)
+        q = self.concatenation_layer (joined_representation)
 
         return q, None, None, None
 

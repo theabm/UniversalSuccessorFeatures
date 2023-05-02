@@ -31,7 +31,7 @@ class StateGoalUSFModified(torch.nn.Module):
         self.num_actions = self.config.num_actions
         self.features_size = self.config.features_size
 
-        self.layer_goal_weights = torch.nn.Sequential(
+        self.env_goal_layer= torch.nn.Sequential(
             torch.nn.Linear(
                 in_features=self.config.goal_size,
                 out_features=64
@@ -47,7 +47,7 @@ class StateGoalUSFModified(torch.nn.Module):
                 out_features=self.config.features_size
                 )
         )
-        self.layer_goal = torch.nn.Sequential(
+        self.policy_goal_layer = torch.nn.Sequential(
             torch.nn.Linear(
                 in_features=self.config.goal_size,
                 out_features=64
@@ -58,7 +58,7 @@ class StateGoalUSFModified(torch.nn.Module):
                 out_features=self.config.features_size
                 )
         )
-        self.layer_concat = torch.nn.Sequential(
+        self.concatenation_layer = torch.nn.Sequential(
             torch.nn.Linear(
                 in_features=2*self.config.features_size,
                 out_features=256
@@ -76,17 +76,17 @@ class StateGoalUSFModified(torch.nn.Module):
                 env_goal_position
                 ):
         agent_position_features = self.positions_to_feature(agent_position)
-        goal_position_features = self.layer_goal(policy_goal_position)
+        goal_position_features = self.policy_goal_layer(policy_goal_position)
         joined_representations = torch.cat(
                 (agent_position_features,goal_position_features),
                 dim=1
                 )
-        sf = self.layer_concat(joined_representations)
+        sf = self.concatenation_layer(joined_representations)
 
         batch_size = sf.shape[0]
         sf = sf.reshape(batch_size, self.num_actions, self.features_size)
         
-        env_goal_weigths = self.layer_goal_weights(env_goal_position)
+        env_goal_weigths = self.env_goal_layer(env_goal_position)
 
         q = torch.sum(torch.mul(sf, env_goal_weigths.unsqueeze(1)), dim=2)
 
