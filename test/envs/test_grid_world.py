@@ -126,7 +126,7 @@ def test_boundaries_going_up(i, j):
     )
     start_agent_position = np.array([[i, j]])
     my_env.reset(start_agent_position=start_agent_position)
-    obs, *_ = my_env.step(0)
+    obs, *_ = my_env.step(env.Directions.UP)
     assert (obs["agent_position"] == start_agent_position).all()
 
 
@@ -145,7 +145,7 @@ def test_boundaries_going_left(i, j):
     )
     start_agent_position = np.array([[i, j]])
     my_env.reset(start_agent_position=start_agent_position)
-    obs, *_ = my_env.step(3)
+    obs, *_ = my_env.step(env.Directions.LEFT)
     assert (obs["agent_position"] == start_agent_position).all()
 
 
@@ -164,7 +164,7 @@ def test_boundaries_going_down(i, j):
     )
     start_agent_position = np.array([[i, j]])
     my_env.reset(start_agent_position=start_agent_position)
-    obs, *_ = my_env.step(1)
+    obs, *_ = my_env.step(env.Directions.DOWN)
     assert (obs["agent_position"] == start_agent_position).all()
 
 
@@ -183,5 +183,5 @@ def test_boundaries_going_right(i, j):
     )
     start_agent_position = np.array([[i, j]])
     my_env.reset(start_agent_position=start_agent_position)
-    obs, *_ = my_env.step(2)
+    obs, *_ = my_env.step(env.Directions.RIGHT)
     assert (obs["agent_position"] == start_agent_position).all()
