@@ -4,6 +4,7 @@ import numpy as np
 import exputils as eu
 import random
 import warnings
+from universal_successor_features.envs.directions import Directions
 
 class GridWorld(gym.Env):
     
@@ -22,7 +23,7 @@ class GridWorld(gym.Env):
 
         super().__init__()
         
-        self.config = eu.combine_dicts(kwargs, config, self.default_config())
+        self.config = eu.combine_dicts(kwargs, config, GridWorld.default_config())
 
         #length and width of the grid
         self.rows = self.config.rows 
@@ -54,9 +55,9 @@ class GridWorld(gym.Env):
 
         # generated randomly once for 10x10 and fixed forever.
         self.n_goals = self.config.n_goals
-        self.goal_list_source_tasks, self.goal_list_target_tasks, self.goal_list_evaluation_tasks = self._create_disjoint_goal_list_for_source_target_and_eval_tasks()
+        self.goal_list_source_tasks, self.goal_list_target_tasks, self.goal_list_evaluation_tasks = self._create_three_disjoint_goal_lists()
 
-    def _sample_position_in_matrix(self):
+    def _sample_position_in_grid(self):
         """Samples a row and a column from the predefined matrix dimensions.
            Returns a tuple of int.
         """
@@ -65,7 +66,7 @@ class GridWorld(gym.Env):
         
         return i,j
     
-    def _create_disjoint_goal_list_for_source_target_and_eval_tasks(self):
+    def _create_three_disjoint_goal_lists(self):
         all_possible_goals = [np.array([[i,j]]) for i in range(self.rows) for j in range(self.columns)]
         goals = random.sample(all_possible_goals, 3*self.n_goals)
         return goals[:self.n_goals], goals[self.n_goals:2*self.n_goals], goals[2*self.n_goals:]
@@ -86,7 +87,6 @@ class GridWorld(gym.Env):
     def reset(self, start_agent_position : np.ndarray = None, goal_position : np.ndarray = None, seed = None):
 
         super().reset(seed=seed)
-
         self.cur_step = 0
 
         #position of the agent and goal in x,y coordinates 
@@ -94,7 +94,7 @@ class GridWorld(gym.Env):
             self.agent_i = start_agent_position[0][0]
             self.agent_j = start_agent_position[0][1]
         else:
-            self.agent_i, self.agent_j = self._sample_position_in_matrix()
+            self.agent_i, self.agent_j = self._sample_position_in_grid()
             
         if goal_position is not None:
             self.goal_i = goal_position[0][0]
@@ -103,12 +103,12 @@ class GridWorld(gym.Env):
             #if same, give priority to goal that was set
             while (self.agent_i,self.agent_j)==(self.goal_i,self.goal_j):
                 warnings.warn("Start position and goal position cannot be the same. Proceeding with different start position...")
-                self.agent_i, self.agent_j = self._sample_position_in_matrix()
+                self.agent_i, self.agent_j = self._sample_position_in_grid()
         else:
-            self.goal_i, self.goal_j = self._sample_position_in_matrix()
+            self.goal_i, self.goal_j = self._sample_position_in_grid()
 
             while (self.agent_i,self.agent_j)==(self.goal_i,self.goal_j):
-                self.goal_i, self.goal_j = self._sample_position_in_matrix()
+                self.goal_i, self.goal_j = self._sample_position_in_grid()
             
         #good sanity check
         if (self.agent_i,self.agent_j)==(self.goal_i,self.goal_j):
@@ -119,7 +119,6 @@ class GridWorld(gym.Env):
         self.goal = np.array([[self.goal_i, self.goal_j]])
         self.goal_weights = self._get_current_goal_weights()
 
-        info = {}
         obs = {
             "agent_position": position,
             "agent_position_features": position_features,
@@ -127,45 +126,46 @@ class GridWorld(gym.Env):
             "goal_weights": self.goal_weights
         }
 
-        return obs, info
+        return obs, {}
 
-    def step(self, action):
-        
-        self.cur_step += 1
-
-        #Actions:                   o o o o o               o x o o o               
-        #                           o x o o o   -GO "UP"-   o o o o o 
-        #0 - up                     o o o o o               o o o o o
-        #1 - down                   o o o o o               o o o o o
-        #2 - right
-        #3 - left
-        if action == 0:
-            self.agent_i -= 1
-        elif action == 1:
-            self.agent_i += 1
-        elif action == 2:
-            self.agent_j += 1
-        elif action == 3:
-            self.agent_j -= 1
-        else: 
-            raise ValueError("Unrecognized action. Agent can only perform the following actions: up:0, down:1, right:2, left:3.") 
-
+    def check_boundary_conditions(self):
         if self.agent_i < 0: self.agent_i = 0
         if self.agent_i > self.rows - 1: self.agent_i = self.rows - 1
         
         if self.agent_j < 0: self.agent_j = 0
         if self.agent_j > self.columns - 1: self.agent_j = self.columns - 1
 
+    def modify_agent_position_according_to_action(self, action):
+        #Actions:                   o o o o o               o x o o o               
+        #                           o x o o o   -GO "UP"-   o o o o o 
+        #0 - up                     o o o o o               o o o o o
+        #1 - down                   o o o o o               o o o o o
+        #2 - right
+        #3 - left
+        if action == Directions.UP:
+            self.agent_i -= 1
+        elif action == Directions.DOWN:
+            self.agent_i += 1
+        elif action == Directions.RIGHT:
+            self.agent_j += 1
+        elif action == Directions.LEFT:
+            self.agent_j -= 1
+        else: 
+            raise ValueError("Unrecognized action. Agent can only perform the following actions: up:0, down:1, right:2, left:3.") 
+
+    def get_step_info(self):
         terminated = (self.agent_i, self.agent_j) == (self.goal_i, self.goal_j)
 
         truncated = self.cur_step >= self.nmax_steps
 
         reward = self.config.reward_at_goal_position if terminated else self.config.penalization
 
+        return reward, terminated, truncated
+
+    def build_new_observation(self):
         position = np.array([[self.agent_i, self.agent_j]])
         position_features = self._get_current_agent_position_features()
 
-        info = {}
         obs = {
             "agent_position": position,
             "agent_position_features": position_features,
@@ -173,10 +173,22 @@ class GridWorld(gym.Env):
             "goal_weights": self.goal_weights
         }
 
-        return obs, reward, terminated, truncated, info
+        return obs
+
+    def step(self, action):
+        self.cur_step += 1
+
+        self.modify_agent_position_according_to_action(action) 
+        self.check_boundary_conditions()
+
+        reward, terminated, truncated = self.get_step_info()
+
+        obs = self.build_new_observation()
+
+        return obs, reward, terminated, truncated, {} 
 
     def render(self, action, reward):
-        print(f"Action: {action}, position: ({self.agent_i},{self.agent_j}), reward: {reward}")
+        print(f"Action: {Directions(action).name},\t position: ({self.agent_i},{self.agent_j}),\t reward: {reward}")
 
     def _make_grid_and_place_one_in(self,i,j):
         grd = np.zeros((self.rows, self.columns))
@@ -203,16 +215,13 @@ if __name__ == '__main__':
     # check_env(grid_world_env) #reset missing **kwargs argument but I dont want this functionality.
     print(grid_world_env.observation_space["agent_position_features"].shape[1])
     print(grid_world_env.observation_space["agent_position"].shape[1])
-    l1, l2 = grid_world_env._create_disjoint_goal_list_for_source_target_and_eval_tasks()
+    l1, l2, l3= grid_world_env._create_three_disjoint_goal_lists()
     print(l1)
     print(l2)
-    num_episodes = 1
-    for _ in range(num_episodes):
-        grid_world_env.reset()
-
-        # steps
-        for _ in range(100):
-            action = grid_world_env.action_space.sample()
-            obs, reward, terminated, truncated, info = grid_world_env.step(action)
-            # grid_world_env.render(action, reward)
+    print(l3)
+    grid_world_env.reset()
+    for _ in range(100):
+        action = grid_world_env.action_space.sample()
+        obs, reward, terminated, truncated, info = grid_world_env.step(action)
+        grid_world_env.render(action, reward)
 
