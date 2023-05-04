@@ -2,12 +2,10 @@ import universal_successor_features.envs as envs
 import universal_successor_features.agents as a
 import universal_successor_features.networks as nn
 import universal_successor_features.memory as mem
-import numpy as np
 import pytest
 import exputils as eu
 import torch
-
-
+import agents.utils as u
 
 #Ground truth values for the following configuration (discount = 0.5)
 # o o o
@@ -21,9 +19,8 @@ q_gt_g1_s5 = [0.125,0.500,0.500,0.125]
 q_gt_g1_s6 = [0.250,1.000,0.500,0.250]
 q_gt_g1_s7 = [0.125,0.250,0.500,0.250]
 q_gt_g1_s8 = [0.250,0.500,1.000,0.250]
+q_gt_g1_s9 = [0.,0.,0.,0.]
 # q_gt_g1_s9 = [0.500,1.000,1.000,0.500] #corresponding Q(goal state, actions)
-
-q_gt_g1_array = np.array([q_gt_g1_s1, q_gt_g1_s2, q_gt_g1_s3, q_gt_g1_s4, q_gt_g1_s5, q_gt_g1_s6, q_gt_g1_s7, q_gt_g1_s8])
 
 #Ground truth values for the following configuration (discount = 0.5)
 # o o o
@@ -35,195 +32,111 @@ q_gt_g2_s3 = [0.0625,0.125,0.0625,0.125]
 q_gt_g2_s4 = [0.250,1.000,0.250,0.500]
 q_gt_g2_s5 = [0.125,0.500,0.125,0.500]
 q_gt_g2_s6 = [0.0625,0.250,0.125,0.250] 
+q_gt_g2_s7 = [0.,0.,0.,0.]
 # q_gt_g2_s7 = [0.500,1.000,0.500,1.000]
 q_gt_g2_s8 = [0.250,0.500,0.250,1.000]
 q_gt_g2_s9 = [0.125,0.250,0.250,0.500]
 
-q_gt_g2_array = np.array([q_gt_g2_s1, q_gt_g2_s2, q_gt_g2_s3, q_gt_g2_s4, q_gt_g2_s5, q_gt_g2_s6, q_gt_g2_s8, q_gt_g2_s9])
+q_ground_truth = torch.tensor([q_gt_g1_s1,
+                              q_gt_g1_s2,
+                              q_gt_g1_s3,
+                              q_gt_g1_s4,
+                              q_gt_g1_s5,
+                              q_gt_g1_s6,
+                              q_gt_g1_s7,
+                              q_gt_g1_s8,
+                              q_gt_g1_s9,
+                              q_gt_g2_s1,
+                              q_gt_g2_s2,
+                              q_gt_g2_s3,
+                              q_gt_g2_s4,
+                              q_gt_g2_s5,
+                              q_gt_g2_s6,
+                              q_gt_g2_s7,
+                              q_gt_g2_s8,
+                              q_gt_g2_s9
+                              ]
+                             )
 
 @pytest.mark.parametrize(
-        "network",
+        "network, n_steps",
         [
-            (nn.StateGoalPaperDQN),
-            (nn.StateGoalAugmentedDQN)
+            (nn.StateGoalPaperDQN, 500),
+            (nn.StateGoalAugmentedDQN, 500)
         ]
 )
-def test_training(network, discount_factor = 0.5, num_episodes=50, seed=0):
+def test_training(network, n_steps, seed=0):
 
     if seed is not None:
         eu.misc.seed(seed)
 
-    my_env = envs.GridWorld(rows = 3, columns = 3, penalization = 0, reward_at_goal_position = 1)
+    my_env = envs.GridWorld(rows = 3,
+                            columns = 3,
+                            penalization = 0,
+                            reward_at_goal_position = 1
+                            )
 
     agent = a.StateGoalAgent(
         env = my_env, 
         epsilon = {"value" : 1.0},
         train_for_n_iterations = 2, 
-        discount_factor = discount_factor, 
+        discount_factor = 0.5, 
         network = {"cls":network}
         )
-    device = agent.device
 
-    start_position = np.array([[0,0]])
-    
-    goal_1_position = np.array([[2,2]])
-    goal_2_position = np.array([[2,0]])
-    goal_list = [goal_1_position,goal_2_position]
+    cmp = u.test_training(agent,
+                          my_env,
+                          n_steps,
+                          q_ground_truth,
+                          u.step_state_goal_agent
+                          )
+    assert cmp
 
-    step = 0
-
-    for episode in range(num_episodes):
-
-        goal_position = my_env.sample_a_goal_position_from_list(goal_list=goal_list)
-        obs, _ = my_env.reset(start_agent_position = start_position, goal_position=goal_position)
-        agent.start_episode(episode=episode)
-
-        while True:
-            
-            action = agent.choose_action(agent_position=obs["agent_position"], goal_position=obs["goal_position"], training=True)
-            
-            next_obs, reward, terminated, truncated, _ = my_env.step(action=action)
-
-            transition = (obs["agent_position"], obs["goal_position"], action, reward, next_obs["agent_position"], terminated, truncated)
-
-            agent.train(transition=transition)
-
-            if terminated or truncated:
-                agent.end_episode()
-                break
-
-            obs = next_obs
-            step += 1
-    
-    goal_1_position = torch.tensor(goal_1_position).to(torch.float).to(device)
-    goal_2_position = torch.tensor(goal_2_position).to(torch.float).to(device)
-            
-    q_pred_g1_array = []
-    q_pred_g2_array = []
-    for i in range(my_env.rows):
-        for j in range(my_env.columns):
-            agent_position = torch.tensor([i,j]).to(torch.float).unsqueeze(0).to(device)
-            idx = i*my_env.rows + j
-            if idx == 8:
-                q_pred_g2_array.append(agent.policy_net(agent_position=agent_position, goal_position=goal_2_position)[0].cpu().squeeze().detach().numpy())
-                continue
-            elif idx == 6:
-                q_pred_g1_array.append(agent.policy_net(agent_position=agent_position, goal_position=goal_1_position)[0].cpu().squeeze().detach().numpy())
-                continue
-            else:
-                q_pred_g1_array.append(agent.policy_net(agent_position=agent_position, goal_position=goal_1_position)[0].cpu().squeeze().detach().numpy())
-                q_pred_g2_array.append(agent.policy_net(agent_position=agent_position, goal_position=goal_2_position)[0].cpu().squeeze().detach().numpy())
-
-
-    q_pred_g1_array = np.array(q_pred_g1_array)
-    q_pred_g2_array = np.array(q_pred_g2_array)
-    cmp1 = np.allclose(q_pred_g1_array, q_gt_g1_array, rtol = 0, atol = 0.05)
-    cmp2 = np.allclose(q_pred_g2_array, q_gt_g2_array, rtol = 0, atol = 0.05)
-
-    assert cmp1 and cmp2
-            
+# test_training(nn.StateGoalPaperDQN)
 
 @pytest.mark.parametrize(
-        "network, memory",
+        "network, memory, n_steps",
         [
-            (nn.StateGoalUSF, mem.ExperienceReplayMemory),
-            (nn.StateGoalUSF, mem.CombinedExperienceReplayMemory),
-            (nn.StateGoalUSF, mem.PrioritizedExperienceReplayMemory),
+            (nn.StateGoalUSF, mem.ExperienceReplayMemory, 600),
+            (nn.StateGoalUSF, mem.CombinedExperienceReplayMemory, 600),
+            (nn.StateGoalUSF, mem.PrioritizedExperienceReplayMemory, 600),
         ]
 )
-def test_training_usf(network, memory, discount_factor = 0.5, nmax_steps=1500, seed=0):
+def test_training_usf(network, memory, n_steps, seed=0):
 
     if seed is not None:
         eu.misc.seed(seed)
 
-    my_env = envs.GridWorld(rows = 3, columns = 3, penalization = 0, reward_at_goal_position = 1)
+    my_env = envs.GridWorld(rows = 3,
+                            columns = 3,
+                            penalization = 0,
+                            reward_at_goal_position = 1
+                            )
 
     agent = a.StateGoalAgent(
-        env = my_env, 
-        epsilon = {"value" : 1.0}, 
-        train_for_n_iterations = 2, 
-        train_every_n_steps = 1,
-        discount_factor = discount_factor, 
-        network = {"cls":network},
-        is_a_usf = True,
-        loss_weight_psi = 0.001,
-        memory = eu.AttrDict(
-            cls = memory,
-            alpha = 0.6,
-            beta0 = 0.4,
-            schedule_length = nmax_steps
-        )
-        )
-    device = agent.device
+            env = my_env, 
+            epsilon = {"value" : 1.0}, 
+            train_for_n_iterations = 2, 
+            train_every_n_steps = 1,
+            discount_factor = 0.5, 
+            network = {"cls":network},
+            loss_weight_psi = 0.01,
+            memory = eu.AttrDict(
+                cls = memory,
+                alpha = 0.5,
+                beta0 = 0.5,
+                schedule_length = n_steps
+                )
+            )
 
-    start_position = np.array([[0,0]])
-    
-    goal_1_position = np.array([[2,2]])
-    goal_2_position = np.array([[2,0]])
-    goal_list = [goal_1_position,goal_2_position]
+    cmp = u.test_training(agent,
+                          my_env,
+                          n_steps,
+                          q_ground_truth,
+                          u.step_state_goal_agent
+                          )
 
-    step = 0
-    total_reward_per_step = [0]
-    episode = 0
-
-    while step < nmax_steps:
-        terminated = False 
-        truncated = False
-
-        reward_per_episode = 0
-        step_per_episode = 0
-
-        goal_position = my_env.sample_a_goal_position_from_list(goal_list=goal_list)
-        obs, _ = my_env.reset(start_agent_position = start_position, goal_position=goal_position)
-        agent.start_episode(episode=episode)
-
-        while not terminated and not truncated and step < nmax_steps:
-            
-            action = agent.choose_action(agent_position=obs["agent_position"], goal_position=obs["goal_position"], training=True)
-            
-            next_obs, reward, terminated, truncated, _ = my_env.step(action=action)
-
-            transition = (obs["agent_position"], obs["goal_position"], action, reward, next_obs["agent_position"], terminated, truncated)
-
-            agent.train(transition=transition)
-
-            reward_per_episode += reward
-            total_reward_per_step.append(total_reward_per_step[-1] + reward)
-
-            obs = next_obs
-            step += 1
-            step_per_episode+=1
-
-        agent.end_episode()
-        episode += 1
-
-    goal_1_position = torch.tensor(goal_1_position).to(torch.float).to(device)
-    goal_2_position = torch.tensor(goal_2_position).to(torch.float).to(device)
-            
-    q_pred_g1_array = []
-    q_pred_g2_array = []
-    for i in range(my_env.rows):
-        for j in range(my_env.columns):
-            agent_position = torch.tensor([i,j]).to(torch.float).unsqueeze(0).to(device)
-            idx = i*my_env.rows + j
-            if idx == 8:
-                q_pred_g2_array.append(agent.policy_net(agent_position=agent_position, goal_position=goal_2_position)[0].cpu().squeeze().detach().numpy())
-                continue
-            elif idx == 6:
-                q_pred_g1_array.append(agent.policy_net(agent_position=agent_position, goal_position=goal_1_position)[0].cpu().squeeze().detach().numpy())
-                continue
-            else:
-                q_pred_g1_array.append(agent.policy_net(agent_position=agent_position, goal_position=goal_1_position)[0].cpu().squeeze().detach().numpy())
-                q_pred_g2_array.append(agent.policy_net(agent_position=agent_position, goal_position=goal_2_position)[0].cpu().squeeze().detach().numpy())
-
-
-    q_pred_g1_array = np.array(q_pred_g1_array)
-    q_pred_g2_array = np.array(q_pred_g2_array)
-    print("\n", q_gt_g1_array, "\n", q_pred_g1_array)
-    cmp1 = np.allclose(q_pred_g1_array, q_gt_g1_array, rtol = 0, atol = 0.05)
-    cmp2 = np.allclose(q_pred_g2_array, q_gt_g2_array, rtol = 0, atol = 0.05)
-
-    assert cmp1 and cmp2
+    assert cmp
 
 # test_training_usf(nn.StateGoalUSF, mem.CombinedExperienceReplayMemory)
 # test_training_usf(nn.StateGoalUSF, mem.PrioritizedExperienceReplayMemory)
