@@ -11,7 +11,7 @@ def compute_q_function(agent, env, list_of_goal_positions):
         for j in range(env.columns):
             pos.append([i, j])
             features.append(
-                env._get_current_agent_position_features(np.array([[i, j]]))
+                env._get_agent_position_features_at(np.array([[i, j]]))
             )
 
     # shape size*len(list_of_goal_positions), pos_size

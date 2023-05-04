@@ -59,50 +59,16 @@ q_ground_truth = torch.tensor([q_gt_g1_s1,
                              )
 
 @pytest.mark.parametrize(
-        "network, n_steps",
-        [
-            (nn.StateGoalPaperDQN, 500),
-            (nn.StateGoalAugmentedDQN, 500)
-        ]
-)
-def test_training(network, n_steps, seed=0):
-
-    if seed is not None:
-        eu.misc.seed(seed)
-
-    my_env = envs.GridWorld(rows = 3,
-                            columns = 3,
-                            penalization = 0,
-                            reward_at_goal_position = 1
-                            )
-
-    agent = a.StateGoalAgent(
-        env = my_env, 
-        epsilon = {"value" : 1.0},
-        train_for_n_iterations = 2, 
-        discount_factor = 0.5, 
-        network = {"cls":network}
-        )
-
-    cmp = u.test_training(agent,
-                          my_env,
-                          n_steps,
-                          q_ground_truth,
-                          u.step_state_goal_agent
-                          )
-    assert cmp
-
-# test_training(nn.StateGoalPaperDQN)
-
-@pytest.mark.parametrize(
         "network, memory, n_steps",
         [
+            (nn.StateGoalPaperDQN, mem.ExperienceReplayMemory, 500),
+            (nn.StateGoalAugmentedDQN, mem.ExperienceReplayMemory, 500),
             (nn.StateGoalUSF, mem.ExperienceReplayMemory, 600),
             (nn.StateGoalUSF, mem.CombinedExperienceReplayMemory, 600),
             (nn.StateGoalUSF, mem.PrioritizedExperienceReplayMemory, 600),
         ]
 )
-def test_training_usf(network, memory, n_steps, seed=0):
+def test_training(network, memory, n_steps, seed=0):
 
     if seed is not None:
         eu.misc.seed(seed)
@@ -117,10 +83,8 @@ def test_training_usf(network, memory, n_steps, seed=0):
             env = my_env, 
             epsilon = {"value" : 1.0}, 
             train_for_n_iterations = 2, 
-            train_every_n_steps = 1,
             discount_factor = 0.5, 
             network = {"cls":network},
-            loss_weight_psi = 0.01,
             memory = eu.AttrDict(
                 cls = memory,
                 alpha = 0.5,
@@ -135,8 +99,5 @@ def test_training_usf(network, memory, n_steps, seed=0):
                           q_ground_truth,
                           u.step_state_goal_agent
                           )
-
     assert cmp
 
-# test_training_usf(nn.StateGoalUSF, mem.CombinedExperienceReplayMemory)
-# test_training_usf(nn.StateGoalUSF, mem.PrioritizedExperienceReplayMemory)
