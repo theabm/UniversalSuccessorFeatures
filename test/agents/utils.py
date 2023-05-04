@@ -3,7 +3,7 @@ import numpy as np
 
 
 # Utilities needed for testing the learning of agents
-def compute_q_function(agent, env, list_of_goal_positions):
+def compute_q_function(agent, env, list_of_goal_positions, use_pos, use_weight):
     size = env.rows * env.columns
     pos = []
     features = []
@@ -42,12 +42,13 @@ def compute_q_function(agent, env, list_of_goal_positions):
         .to(agent.device)
     )
 
-    # shape (list_of_goal_positions)*size, goal_size(pos_size)
-    q, *_ = agent.policy_net(
-        agent_position=pos_tensor,
-        policy_goal_position=goal_tensor,
-        env_goal_position=goal_tensor,
-    )
+    if use_pos and not use_weight:
+        # shape (list_of_goal_positions)*size, goal_size(pos_size)
+        q, *_ = agent.policy_net(
+            agent_position=pos_tensor,
+            policy_goal_position=goal_tensor,
+            env_goal_position=goal_tensor,
+        )
 
     # zero out the entries at the goal position index since the Q function is not
     # defined at these points (if you look above the ground truth is set to zero
@@ -58,7 +59,7 @@ def compute_q_function(agent, env, list_of_goal_positions):
     return q
 
 
-def test_training(agent, env, n_steps, q_ground_truth, step_function):
+def test_training(agent, env, n_steps, q_ground_truth, step_function, use_pos, use_weight):
     start_position = np.array([[0, 0]])
 
     goal_list = [np.array([[2, 2]]), np.array([[2, 0]])]
@@ -88,7 +89,7 @@ def test_training(agent, env, n_steps, q_ground_truth, step_function):
         agent.end_episode()
         episode += 1
 
-    q_predicted = compute_q_function(agent, env, goal_list)
+    q_predicted = compute_q_function(agent, env, goal_list, use_pos, use_weight)
     q_gt = q_ground_truth.to(agent.device)
     print("Predicted:\n", q_predicted)
     print("Ground Truth:\n", q_gt)

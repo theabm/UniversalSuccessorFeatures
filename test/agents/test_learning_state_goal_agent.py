@@ -97,7 +97,9 @@ def test_training(network, memory, n_steps, seed=0):
                           my_env,
                           n_steps,
                           q_ground_truth,
-                          u.step_state_goal_agent
+                          u.step_state_goal_agent,
+                          use_pos = True,
+                          use_weight = False
                           )
     assert cmp
 
