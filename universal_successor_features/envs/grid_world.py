@@ -223,29 +223,38 @@ class GridWorld(gym.Env):
             f"Action: {Directions(action).name},\t position: ({self.agent_i},{self.agent_j}),\t reward: {reward}"
         )
 
-    def _make_grid_and_place_one_in(self, i, j):
-        grd = np.zeros((self.rows, self.columns))
-        grd[i][j] = 1.0
+    def _make_full_grid_and_place_val_in(self, i, j, full_val, val):
+        grd = np.full((self.rows, self.columns), full_val)
+        grd[i][j] = val
         return grd.reshape((1, self.rows * self.columns))
 
     def _get_agent_position_features_at(self, position: np.ndarray):
         i = position[0][0]
         j = position[0][1]
-        return self._make_grid_and_place_one_in(i, j)
+        return self._make_full_grid_and_place_val_in(i, j, 0, 1)
 
     def _get_current_agent_position_features(self):
-        position_features = self._make_grid_and_place_one_in(self.agent_i, self.agent_j)
-        return position_features
+        return self._make_full_grid_and_place_val_in(self.agent_i, self.agent_j, 0, 1)
 
     def _get_current_goal_weights(self):
-        grd = np.full((self.rows, self.columns), self.config.penalization)
-        grd[self.goal_i][self.goal_j] = self.config.reward_at_goal_position
-        return grd.reshape((1, self.rows * self.columns))
+        return self._make_full_grid_and_place_val_in(
+            self.goal_i,
+            self.goal_j,
+            self.config.penalization,
+            self.config.reward_at_goal_position,
+        )
 
+    def _get_goal_weights_at(self, goal_pos: np.ndarray):
+        i = goal_pos[0][0]
+        j = goal_pos[0][1]
+        return self._make_full_grid_and_place_val_in(
+            i, j, self.config.penalization, self.config.reward_at_goal_position
+        )
 
 if __name__ == "__main__":
     grid_world_env = GridWorld()
-    # check_env(grid_world_env) #reset missing **kwargs argument but I dont want this functionality.
+    # reset missing **kwargs argument but I dont want this functionality.
+    # check_env(grid_world_env)
     print(grid_world_env.observation_space["agent_position_features"].shape[1])
     print(grid_world_env.observation_space["agent_position"].shape[1])
     l1, l2, l3 = grid_world_env._create_three_disjoint_goal_lists()
