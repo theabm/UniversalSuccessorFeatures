@@ -6,8 +6,8 @@ import universal_successor_features.exp as exp
 import pytest
 import exputils as eu
 import numpy as np
-import test.agents.utils as u  # for pytest
-# import utils as u # for python
+# import test.agents.utils as u  # for pytest
+import utils as u # for python
 
 
 # QUESTION: If I modify nmax_steps for the environment to be 31,
@@ -132,9 +132,9 @@ def test_gpi(agent_type, network, memory, n_steps, seed=0):
         print(f"Goal: {goal_position_3}\tSteps: {step}")
 
         assert terminated
-# test_gpi(
-#             a.FeatureGoalWeightAgent,
-#             nn.FeatureGoalWeightUSF,
-#             mem.ExperienceReplayMemory,
-#             1000,
-#         )
+test_gpi(
+            a.FeatureGoalWeightAgent,
+            nn.FeatureGoalWeightUSF,
+            mem.ExperienceReplayMemory,
+            1000,
+        )
