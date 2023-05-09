@@ -16,14 +16,17 @@ import numpy as np
 # QUESTION: Why does goal [1,1] fail? In this case the GPI procedure is hurting
 #           my ability to solve? 
 @pytest.mark.parametrize(
-    "network, memory, n_steps",
+    "agent_type, network, memory, n_steps",
     [
-        (nn.FeatureGoalUSF, mem.ExperienceReplayMemory, 1000),
+        (a.FeatureGoalAgent, nn.FeatureGoalUSF, mem.ExperienceReplayMemory, 1000),
     ],
 )
-def test_gpi(network, memory, n_steps, seed=0):
+def test_gpi(agent_type, network, memory, n_steps, seed=0):
     if seed is not None:
         eu.misc.seed(seed)
+
+    else:
+        raise ValueError("unknown class of agent")
 
     my_env = envs.GridWorld(
         rows=3,
@@ -33,7 +36,7 @@ def test_gpi(network, memory, n_steps, seed=0):
         nmax_steps=31,
     )
 
-    agent = a.FeatureGoalAgent(
+    agent = agent_type(
         env=my_env,
         epsilon={"value": 1.0},
         train_for_n_iterations=2,
@@ -42,12 +45,21 @@ def test_gpi(network, memory, n_steps, seed=0):
         memory=eu.AttrDict(cls=memory, alpha=0.5, beta0=0.5, schedule_length=n_steps),
     )
 
+    if isinstance(agent, a.FeatureGoalAgent):
+        step_function = exp.step_feature_goal_agent
+    elif isinstance(agent, a.FeatureGoalWeightAgent):
+        step_function = exp.step_feature_goal_weight_agent
+    elif isinstance(agent, a.StateGoalAgent):
+        step_function = exp.step_state_goal_agent
+    elif isinstance(agent, a.StateGoalWeightAgent):
+        step_function = exp.step_state_goal_weight_agent
+
     cmp = u.test_training(
         agent,
         my_env,
         n_steps,
         u.q_ground_truth,
-        exp.step_feature_goal_agent,
+        step_function,
         use_pos=False,
         use_weight=False,
     )
@@ -98,7 +110,7 @@ def test_gpi(network, memory, n_steps, seed=0):
                 terminated,
                 truncated,
                 transition,
-            ) = exp.step_feature_goal_agent(obs, agent, my_env, goals_so_far, False)
+            ) = step_function(obs, agent, my_env, goals_so_far, False)
 
             obs = next_obs
             step += 1
