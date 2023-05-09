@@ -213,7 +213,7 @@ class GridWorld(gym.Env):
 
     def render(self, action, reward):
         print(
-                f"Goal: ({self.goal_i},{self.goal_j})\t action: {Directions(action).name}\t new position: ({self.agent_i},{self.agent_j})\t reward: {reward}"
+            f"Goal: ({self.goal_i},{self.goal_j})\t action: {Directions(action).name}\t new position: ({self.agent_i},{self.agent_j})\t reward: {reward}"
         )
 
     def _make_full_grid_and_place_val_in(self, i, j, full_val, val):
@@ -243,6 +243,7 @@ class GridWorld(gym.Env):
         return self._make_full_grid_and_place_val_in(
             i, j, self.config.penalization, self.config.reward_at_goal_position
         )
+
 
 if __name__ == "__main__":
     grid_world_env = GridWorld()
