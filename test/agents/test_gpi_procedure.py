@@ -25,9 +25,6 @@ def test_gpi(agent_type, network, memory, n_steps, seed=0):
     if seed is not None:
         eu.misc.seed(seed)
 
-    else:
-        raise ValueError("unknown class of agent")
-
     my_env = envs.GridWorld(
         rows=3,
         columns=3,
@@ -111,6 +108,7 @@ def test_gpi(agent_type, network, memory, n_steps, seed=0):
                 truncated,
                 transition,
             ) = step_function(obs, agent, my_env, goals_so_far, False)
+            my_env.render()
 
             obs = next_obs
             step += 1
