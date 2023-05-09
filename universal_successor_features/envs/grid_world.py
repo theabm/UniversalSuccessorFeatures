@@ -201,19 +201,21 @@ class GridWorld(gym.Env):
 
     def step(self, action):
         self.cur_step += 1
+        self.action = action
 
         self.modify_agent_position_according_to_action(action)
         self.check_boundary_conditions()
 
         reward, terminated, truncated = self.get_step_info()
+        self.reward = reward
 
         obs = self.build_new_observation()
 
         return obs, reward, terminated, truncated, {}
 
-    def render(self, action, reward):
+    def render(self):
         print(
-            f"Goal: ({self.goal_i},{self.goal_j})\t action: {Directions(action).name}\t new position: ({self.agent_i},{self.agent_j})\t reward: {reward}"
+            f"Goal: ({self.goal_i},{self.goal_j})\t action: {Directions(self.action).name}\t new position: ({self.agent_i},{self.agent_j})\t reward: {self.reward}"
         )
 
     def _make_full_grid_and_place_val_in(self, i, j, full_val, val):
@@ -246,6 +248,8 @@ class GridWorld(gym.Env):
 
 
 if __name__ == "__main__":
+    eu.misc.seed(0)
+
     grid_world_env = GridWorld()
     # reset missing **kwargs argument but I dont want this functionality.
     # check_env(grid_world_env)
@@ -259,4 +263,4 @@ if __name__ == "__main__":
     for _ in range(100):
         action = grid_world_env.action_space.sample()
         obs, reward, terminated, truncated, info = grid_world_env.step(action)
-        grid_world_env.render(action, reward)
+        grid_world_env.render()
