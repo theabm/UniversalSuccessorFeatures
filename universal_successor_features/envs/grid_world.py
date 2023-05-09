@@ -135,17 +135,10 @@ class GridWorld(gym.Env):
         if (self.agent_i, self.agent_j) == (self.goal_i, self.goal_j):
             raise ValueError("Start and Goal position cannot be the same.")
 
-        position = np.array([[self.agent_i, self.agent_j]])
-        position_features = self._get_current_agent_position_features()
         self.goal = np.array([[self.goal_i, self.goal_j]])
         self.goal_weights = self._get_current_goal_weights()
 
-        obs = {
-            "agent_position": position,
-            "agent_position_features": position_features,
-            "goal_position": self.goal,
-            "goal_weights": self.goal_weights,
-        }
+        obs = self.build_new_observation()
 
         return obs, {}
 
@@ -194,12 +187,12 @@ class GridWorld(gym.Env):
         return reward, terminated, truncated
 
     def build_new_observation(self):
-        position = np.array([[self.agent_i, self.agent_j]])
-        position_features = self._get_current_agent_position_features()
+        self.position = np.array([[self.agent_i, self.agent_j]])
+        self.position_features = self._get_current_agent_position_features()
 
         obs = {
-            "agent_position": position,
-            "agent_position_features": position_features,
+            "agent_position": self.position,
+            "agent_position_features": self.position_features,
             "goal_position": self.goal,
             "goal_weights": self.goal_weights,
         }
@@ -220,7 +213,7 @@ class GridWorld(gym.Env):
 
     def render(self, action, reward):
         print(
-            f"Action: {Directions(action).name},\t position: ({self.agent_i},{self.agent_j}),\t reward: {reward}"
+                f"Goal: ({self.goal_i},{self.goal_j})\t action: {Directions(action).name}\t new position: ({self.agent_i},{self.agent_j})\t reward: {reward}"
         )
 
     def _make_full_grid_and_place_val_in(self, i, j, full_val, val):
