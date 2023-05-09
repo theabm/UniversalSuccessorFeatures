@@ -14,11 +14,17 @@ import numpy as np
 #           On the other hand, if (like in the other tests)
 #           I leave nmax_steps at 1e6, the Q function is learnt in 500 steps.
 # QUESTION: Why does goal [1,1] fail? In this case the GPI procedure is hurting
-#           my ability to solve? 
+#           my ability to solve?
 @pytest.mark.parametrize(
     "agent_type, network, memory, n_steps",
     [
-        (a.FeatureGoalAgent, nn.FeatureGoalUSF, mem.ExperienceReplayMemory, 1000),
+        # (a.FeatureGoalAgent, nn.FeatureGoalUSF, mem.ExperienceReplayMemory, 1000),
+        (
+            a.FeatureGoalWeightAgent,
+            nn.FeatureGoalWeightUSF,
+            mem.ExperienceReplayMemory,
+            1000,
+        ),
     ],
 )
 def test_gpi(agent_type, network, memory, n_steps, seed=0):
@@ -44,12 +50,20 @@ def test_gpi(agent_type, network, memory, n_steps, seed=0):
 
     if isinstance(agent, a.FeatureGoalAgent):
         step_function = exp.step_feature_goal_agent
+        use_pos = False
+        use_weight = False
     elif isinstance(agent, a.FeatureGoalWeightAgent):
         step_function = exp.step_feature_goal_weight_agent
+        use_pos = False
+        use_weight = True
     elif isinstance(agent, a.StateGoalAgent):
         step_function = exp.step_state_goal_agent
+        use_pos = True
+        use_weight = False
     elif isinstance(agent, a.StateGoalWeightAgent):
         step_function = exp.step_state_goal_weight_agent
+        use_pos = True
+        use_weight = True
 
     cmp = u.test_training(
         agent,
@@ -57,8 +71,8 @@ def test_gpi(agent_type, network, memory, n_steps, seed=0):
         n_steps,
         u.q_ground_truth,
         step_function,
-        use_pos=False,
-        use_weight=False,
+        use_pos = use_pos,
+        use_weight = use_weight,
     )
 
     assert cmp
@@ -84,7 +98,7 @@ def test_gpi(agent_type, network, memory, n_steps, seed=0):
         np.array([[0, 1]]),
         np.array([[0, 2]]),
         np.array([[1, 0]]),
-        # np.array([[1, 1]]),
+        np.array([[1, 1]]),
         np.array([[1, 2]]),
         np.array([[2, 1]]),
     ]
