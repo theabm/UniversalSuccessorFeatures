@@ -254,10 +254,9 @@ def evaluate_agent(agent, test_env, step_fn, goal_list_for_eval, use_gpi):
     completed_goals = 0
 
     for goal in goal_list_for_eval:
+        goals_so_far = [goal]
         if use_gpi:
-            goals_so_far = test_env.goal_list_source_tasks
-        else:
-            goals_so_far = [goal]
+            goals_so_far += test_env.goal_list_source_tasks
 
         terminated = False
         truncated = False
