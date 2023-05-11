@@ -72,6 +72,7 @@ class FeatureGoalAgent:
         self.config = eu.combine_dicts(
             kwargs, config, FeatureGoalAgent.default_config()
         )
+        self.env = env
         self.action_space = env.action_space.n
         self.position_size = env.observation_space["agent_position"].shape[1]
         self.features_size = env.observation_space["agent_position_features"].shape[1]
@@ -471,6 +472,7 @@ class FeatureGoalAgent:
                 "model_state_dict": self.policy_net.state_dict(),
                 "optimizer_state_dict": self.optimizer.state_dict(),
                 "memory": self.memory,
+                "env_goals_source": self.env.goal_list_source_tasks,
             },
             filename,
         )
