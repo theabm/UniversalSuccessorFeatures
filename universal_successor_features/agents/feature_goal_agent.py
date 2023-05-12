@@ -5,6 +5,7 @@ import exputils.data.logging as log
 import warnings
 import copy
 from collections import namedtuple
+from gradient_descent_the_ultimate_optimizer import gdtuo
 import universal_successor_features.memory as mem
 import universal_successor_features.networks as nn
 import universal_successor_features.epsilon as eps
@@ -39,6 +40,10 @@ class FeatureGoalAgent:
             loss_weight_phi=0.00,
             network=eu.AttrDict(
                 cls=nn.FeatureGoalPaperDQN,
+                # whether to use hypergradients
+                # setting to true will use SGD
+                # to optimize ADAM
+                use_gdtuo=False,
                 optimizer=torch.optim.Adam,
             ),
             target_network_update=eu.AttrDict(
@@ -117,9 +122,17 @@ class FeatureGoalAgent:
 
         self.loss_weight_psi = self.config.loss_weight_psi
         self.loss_weight_phi = self.config.loss_weight_phi
-        self.optimizer = self.config.network.optimizer(
-            self.policy_net.parameters(), lr=self.config.learning_rate
-        )
+
+        self.use_gdtuo = self.config.network.use_gdtuo
+        if self.use_gdtuo:
+            self.optimizer = gdtuo.ModuleWrapper(
+                self.policy_net, optimizer=gdtuo.Adam(optimizer=gdtuo.SGD(1e-5))
+            )
+            self.optimizer.initialize()
+        else:
+            self.optimizer = self.config.network.optimizer(
+                self.policy_net.parameters(), lr=self.config.learning_rate
+            )
 
         self.batch_size = self.config.batch_size
         self.train_every_n_steps = self.config.train_every_n_steps - 1
@@ -236,6 +249,9 @@ class FeatureGoalAgent:
         ).to(self.device)
         sample_weights = sample_weights.to(self.device)
 
+        if self.use_gdtuo:
+            self.optimizer.begin()
+
         self.optimizer.zero_grad()
         if self.is_a_usf:
             target_batch_q, target_batch_psi, r = self._build_target_batch(
@@ -287,7 +303,11 @@ class FeatureGoalAgent:
 
             loss = torch.mean(sample_weights * td_error_q)
 
-        loss.backward()
+        if self.use_gdtuo:
+            loss.backward(create_graph=True)
+        else:
+            loss.backward()
+
         self.optimizer.step()
 
         return loss.item()
