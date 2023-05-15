@@ -148,8 +148,9 @@ def run_rl_second_phase(config=None, **kwargs):
         log_name_reward_per_episode="reward_per_episode",
         log_name_reward_per_step="reward_per_step",
         log_name_total_reward="total_reward",
-        log_name_done_rate="done_rate",
+        log_name_done_rate_eval="done_rate_eval",
         log_name_done_rate_source="done_rate_source",
+        log_name_done_rate_combined="done_rate_combined",
     )
 
     config = eu.combine_dicts(kwargs, config, default_config)
@@ -163,9 +164,12 @@ def run_rl_second_phase(config=None, **kwargs):
     )
 
     # consider to create environment with same goals from config in the future
-    assert (
-        my_env.goal_list_source_tasks
-        == torch.load(config.checkpoint_path)["env_goals_source"]
+    saved_source_goals = torch.load(config.checkpoint_path)["env_goals_source"]
+    assert all(
+        [
+            (goal1 == goal2).all()
+            for goal1, goal2 in zip(my_env.goal_list_source_tasks, saved_source_goals)
+        ]
     )
 
     # Copy of environment for testing since I dont want to change its state
@@ -234,7 +238,7 @@ def run_rl_second_phase(config=None, **kwargs):
             log.add_value(config.log_name_episode_per_step, episode)
 
             if step % 100 == 0:
-                done_rate = evaluate_agent(
+                done_rate_eval = evaluate_agent(
                     agent,
                     test_env,
                     step_function,
@@ -248,8 +252,12 @@ def run_rl_second_phase(config=None, **kwargs):
                     test_env.goal_list_source_tasks,
                     use_gpi=False,
                 )
-            log.add_value(config.log_name_done_rate, done_rate)
+            log.add_value(config.log_name_done_rate_eval, done_rate_eval)
             log.add_value(config.log_name_done_rate_source, done_rate_source)
+            log.add_value(
+                config.log_name_done_rate_combined,
+                (done_rate_eval + done_rate_source) / 2,
+            )
 
             obs = next_obs
 

@@ -441,7 +441,7 @@ class FeatureGoalAgent:
         self.eval_memory_buffer.push(transition)
 
         if len(self.eval_memory_buffer) < self.learning_starts_after:
-            self.memory = self.train_memory_buffer
+            return
         else:
             if torch.rand(1).item() <= p_pick_new_memory_buffer:
                 self.memory = self.eval_memory_buffer
@@ -492,7 +492,6 @@ class FeatureGoalAgent:
                 "model_state_dict": self.policy_net.state_dict(),
                 "optimizer_state_dict": self.optimizer.state_dict(),
                 "memory": self.memory,
-                "env_goals_source": self.env.goal_list_source_tasks,
             },
             filename,
         )
