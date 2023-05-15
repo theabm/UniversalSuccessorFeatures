@@ -3,6 +3,7 @@ import exputils as eu
 import exputils.data.logging as log
 import copy
 import universal_successor_features.agents as a
+import torch
 
 
 def run_rl_first_phase(config=None, **kwargs):
@@ -148,6 +149,7 @@ def run_rl_second_phase(config=None, **kwargs):
         log_name_reward_per_step="reward_per_step",
         log_name_total_reward="total_reward",
         log_name_done_rate="done_rate",
+        log_name_done_rate_source="done_rate_source",
     )
 
     config = eu.combine_dicts(kwargs, config, default_config)
@@ -158,6 +160,12 @@ def run_rl_second_phase(config=None, **kwargs):
     # build instances
     my_env = eu.misc.create_object_from_config(
         config.env,
+    )
+
+    # consider to create environment with same goals from config in the future
+    assert (
+        my_env.goal_list_source_tasks
+        == torch.load(config.checkpoint_path)["env_goals_source"]
     )
 
     # Copy of environment for testing since I dont want to change its state
@@ -233,8 +241,15 @@ def run_rl_second_phase(config=None, **kwargs):
                     goal_list_for_eval,
                     use_gpi=config.use_gpi_eval,
                 )
-
+                done_rate_source = evaluate_agent(
+                    agent,
+                    test_env,
+                    step_function,
+                    test_env.goal_list_source_tasks,
+                    use_gpi=False,
+                )
             log.add_value(config.log_name_done_rate, done_rate)
+            log.add_value(config.log_name_done_rate_source, done_rate_source)
 
             obs = next_obs
 
