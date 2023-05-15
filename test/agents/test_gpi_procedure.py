@@ -6,8 +6,10 @@ import universal_successor_features.exp as exp
 import pytest
 import exputils as eu
 import numpy as np
-# import test.agents.utils as u  # for pytest
-import utils as u # for python
+
+import test.agents.utils as u  # for pytest
+
+# import utils as u  # for python
 
 
 # QUESTION: If I modify nmax_steps for the environment to be 31,
@@ -19,7 +21,7 @@ import utils as u # for python
 @pytest.mark.parametrize(
     "agent_type, network, memory, n_steps",
     [
-        # (a.FeatureGoalAgent, nn.FeatureGoalUSF, mem.ExperienceReplayMemory, 1000),
+        (a.FeatureGoalAgent, nn.FeatureGoalUSF, mem.ExperienceReplayMemory, 1000),
         (
             a.FeatureGoalWeightAgent,
             nn.FeatureGoalWeightUSF,
@@ -72,8 +74,8 @@ def test_gpi(agent_type, network, memory, n_steps, seed=0):
         n_steps,
         u.q_ground_truth,
         step_function,
-        use_pos = use_pos,
-        use_weight = use_weight,
+        use_pos=use_pos,
+        use_weight=use_weight,
     )
 
     assert cmp
@@ -132,9 +134,11 @@ def test_gpi(agent_type, network, memory, n_steps, seed=0):
         print(f"Goal: {goal_position_3}\tSteps: {step}")
 
         assert terminated
+
+
 test_gpi(
-            a.FeatureGoalWeightAgent,
-            nn.FeatureGoalWeightUSF,
-            mem.ExperienceReplayMemory,
-            1000,
-        )
+    a.FeatureGoalWeightAgent,
+    nn.FeatureGoalWeightUSF,
+    mem.ExperienceReplayMemory,
+    1000,
+)
