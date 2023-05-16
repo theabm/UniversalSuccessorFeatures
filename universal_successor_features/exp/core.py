@@ -4,6 +4,7 @@ import exputils.data.logging as log
 import copy
 import universal_successor_features.agents as a
 import torch
+import universal_successor_features.envs as envs
 
 
 def run_rl_first_phase(config=None, **kwargs):
@@ -390,3 +391,30 @@ def step_state_goal_weight_agent(obs, agent, my_env, goals_so_far, training):
     )
 
     return next_obs, reward, terminated, truncated, transition
+#
+#
+# config = eu.AttrDict(
+#     # random seed for the repetition
+#     seed = 3487 + 0,
+#     env = eu.AttrDict(
+#         cls = envs.RoomGridWorld,
+#         penalization = 0.0,
+#         reward_at_goal_position = 20.0,
+#         nmax_steps = 31,
+#     ),
+#     agent=eu.AttrDict(
+#         cls = a.FeatureGoalWeightAgent,
+#     ),
+#
+#     checkpoint_path = "/home/andres/inria/projects/universalSuccessorFeatures/experiments/second_phase020/checkpoint.pt" ,
+#     # checkpoint_path = "/scratch/pictor/abermeom/projects/universalSuccessorFeatures/experiments/first_phase020/experiments/experiment_000002" + "/repetition_{:06d}/checkpoint.pt".format(0),
+#
+#     n_steps = 12000,
+#     use_gpi_eval = True,
+#     use_target_tasks = True,
+# )
+#
+
+
+
+# run_rl_second_phase(config=config)
