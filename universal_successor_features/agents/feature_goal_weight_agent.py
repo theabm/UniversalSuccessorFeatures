@@ -5,6 +5,7 @@ import exputils.data.logging as log
 import warnings
 import copy
 from collections import namedtuple
+from gradient_descent_the_ultimate_optimizer import gdtuo
 import universal_successor_features.memory as mem
 import universal_successor_features.networks as nn
 import universal_successor_features.epsilon as eps
@@ -40,6 +41,10 @@ class FeatureGoalWeightAgent:
             loss_weight_phi=0.00,
             network=eu.AttrDict(
                 cls=nn.FeatureGoalWeightUSF,
+                # whether to use hypergradients
+                # setting to true will use SGD
+                # to optimize ADAM
+                use_gdtuo=False,
                 optimizer=torch.optim.Adam,
             ),
             target_network_update=eu.AttrDict(
@@ -118,9 +123,17 @@ class FeatureGoalWeightAgent:
 
         self.loss_weight_psi = self.config.loss_weight_psi
         self.loss_weight_phi = self.config.loss_weight_phi
-        self.optimizer = self.config.network.optimizer(
-            self.policy_net.parameters(), lr=self.config.learning_rate
-        )
+
+        self.use_gdtuo = self.config.network.use_gdtuo
+        if self.use_gdtuo:
+            self.optimizer = gdtuo.ModuleWrapper(
+                self.policy_net, optimizer=gdtuo.Adam(optimizer=gdtuo.SGD(1e-5))
+            )
+            self.optimizer.initialize()
+        else:
+            self.optimizer = self.config.network.optimizer(
+                self.policy_net.parameters(), lr=self.config.learning_rate
+            )
 
         self.batch_size = self.config.batch_size
         self.train_every_n_steps = self.config.train_every_n_steps - 1
@@ -210,14 +223,34 @@ class FeatureGoalWeightAgent:
 
         return a_per_goal[amm.item()]
 
+    def _display_successor_features(
+        self, agent_position_features, list_of_goal_positions, env_goal_weights
+    ):
+        for i, goal_position in enumerate(list_of_goal_positions):
+            with torch.no_grad():
+                q, sf, *_ = self.policy_net(
+                    agent_position_features=torch.tensor(agent_position_features)
+                    .to(torch.float)
+                    .to(self.device),
+                    policy_goal_position=torch.tensor(goal_position)
+                    .to(torch.float)
+                    .to(self.device),
+                    env_goal_weights=torch.tensor(env_goal_weights)
+                    .to(torch.float)
+                    .to(self.device),
+                )
+                print(f"Sucessor features at: {agent_position_features}\n", sf)
+
     def _sample_experiences(self):
         experiences, weights = self.memory.sample(self.batch_size)
         return Experiences(*zip(*experiences)), torch.tensor(weights)
 
     def _build_tensor_from_batch_of_np_arrays(self, batch_of_np_arrays):
-        # expected shape: [(1,n), (1,n), ..., (1,n)] where in total we have batch_size elements
+        # expected shape: [(1,n), (1,n), ..., (1,n)] where in total we
+        # have batch_size elements
         batch_of_np_arrays = np.array(batch_of_np_arrays)
-        # batch of np_arrays has form (batch_size, 1, n) so after squeeze() we have (batch_size, n)
+        # batch of np_arrays has form (batch_size, 1, n) so after squeeze()
+        # we have (batch_size, n)
         batch_of_np_arrays = torch.tensor(batch_of_np_arrays).squeeze().to(torch.float)
 
         return batch_of_np_arrays
@@ -231,6 +264,9 @@ class FeatureGoalWeightAgent:
             experiences.goal_weights_batch
         ).to(self.device)
         sample_weights = sample_weights.to(self.device)
+
+        if self.use_gdtuo:
+            self.optimizer.begin()
 
         self.optimizer.zero_grad()
         if self.is_a_usf:
@@ -279,7 +315,11 @@ class FeatureGoalWeightAgent:
 
             loss = torch.mean(sample_weights * td_error_q)
 
-        loss.backward()
+        if self.use_gdtuo:
+            loss.backward(create_graph=True)
+        else:
+            loss.backward()
+
         self.optimizer.step()
 
         return loss.item()
@@ -375,12 +415,7 @@ class FeatureGoalWeightAgent:
 
             return predicted_q.gather(1, action_batch).squeeze()
 
-    def train(self, transition):
-        self.memory.push(transition)
-
-        if len(self.memory) < self.learning_starts_after:
-            return
-
+    def _train(self):
         if self.steps_since_last_training >= self.train_every_n_steps:
             self.steps_since_last_training = 0
 
@@ -403,6 +438,14 @@ class FeatureGoalWeightAgent:
             self._update_target_network()
         else:
             self.steps_since_last_network_update += 1
+
+    def train(self, transition):
+        self.memory.push(transition)
+
+        if len(self.memory) < self.learning_starts_after:
+            return
+
+        self._train()
 
     def prepare_for_eval_phase(self):
         self.train_memory_buffer = copy.deepcopy(self.memory)
@@ -413,35 +456,14 @@ class FeatureGoalWeightAgent:
         self.eval_memory_buffer.push(transition)
 
         if len(self.eval_memory_buffer) < self.learning_starts_after:
-            self.memory = self.train_memory_buffer
+            return
         else:
             if torch.rand(1).item() <= p_pick_new_memory_buffer:
                 self.memory = self.eval_memory_buffer
             else:
                 self.memory = self.train_memory_buffer
 
-        if self.steps_since_last_training >= self.train_every_n_steps:
-            self.steps_since_last_training = 0
-
-            losses = []
-            for _ in range(self.config.train_for_n_iterations):
-                loss = self._train_one_batch()
-                losses.append(loss)
-
-            if self.config.log.loss_per_step:
-                log.add_value(self.config.log.log_name_loss, np.mean(losses))
-        else:
-            self.steps_since_last_training += 1
-
-        if (
-            self.steps_since_last_network_update
-            >= self.update_target_network_every_n_steps
-        ):
-            self.steps_since_last_network_update = 0
-
-            self._update_target_network()
-        else:
-            self.steps_since_last_network_update += 1
+            self._train()
 
     def _update_target_network(self):
         target_net_state_dict = self.target_net.state_dict()
@@ -454,7 +476,9 @@ class FeatureGoalWeightAgent:
         self.target_net.load_state_dict(target_net_state_dict)
 
     def save(self, episode, step, total_reward):
-        filename = "checkpoint" + self.config.save.extension
+        filename = (
+            str(self.__class__.__name__) + "_checkpoint" + self.config.save.extension
+        )
         torch.save(
             {
                 "config": self.config,
