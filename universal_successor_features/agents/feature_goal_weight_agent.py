@@ -1,6 +1,7 @@
 import torch
 import exputils as eu
 import universal_successor_features.networks as nn
+import universal_successor_features.envs as envs
 from universal_successor_features.agents.base_agent import BaseAgent
 
 class FeatureGoalWeightAgent(BaseAgent):
@@ -113,3 +114,7 @@ class FeatureGoalWeightAgent(BaseAgent):
             )
 
             return predicted_q.gather(1, action_batch).squeeze()
+         
+if __name__ == "__main__":
+    env = envs.GridWorld()
+    agent = FeatureGoalWeightAgent(env)

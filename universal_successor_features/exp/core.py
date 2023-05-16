@@ -46,17 +46,6 @@ def run_rl_first_phase(config=None, **kwargs):
 
     agent = eu.misc.create_object_from_config(config.agent, env=my_env)
 
-    if isinstance(agent, a.FeatureGoalAgent):
-        step_function = step_feature_goal_agent
-    elif isinstance(agent, a.FeatureGoalWeightAgent):
-        step_function = step_feature_goal_weight_agent
-    elif isinstance(agent, a.StateGoalAgent):
-        step_function = step_state_goal_agent
-    elif isinstance(agent, a.StateGoalWeightAgent):
-        step_function = step_state_goal_weight_agent
-    else:
-        raise ValueError("unknown class of agent")
-
     step = 0
     total_reward = 0
     episode = 0
@@ -81,7 +70,7 @@ def run_rl_first_phase(config=None, **kwargs):
             # In the first part of the training I do not use GPI so goals_so_far is
             # the single goal I am working with. If I was using GPI it would be a list
             # of goals I have seen so far.
-            next_obs, reward, terminated, truncated, transition = step_function(
+            next_obs, reward, terminated, truncated, transition = general_step_function(
                 obs, agent, my_env, goals_so_far=[goal_position], training=True
             )
 
@@ -99,14 +88,14 @@ def run_rl_first_phase(config=None, **kwargs):
                 done_rate = evaluate_agent(
                     agent,
                     test_env,
-                    step_function,
+                    general_step_function,
                     test_env.goal_list_source_tasks,
                     use_gpi=False,
                 )
                 done_rate_eval = evaluate_agent(
                     agent,
                     test_env,
-                    step_function,
+                    general_step_function,
                     test_env.goal_list_evaluation_tasks,
                     use_gpi=False,
                 )
@@ -179,17 +168,6 @@ def run_rl_second_phase(config=None, **kwargs):
     # Instantiate agent from saved checkpoint with same config
     agent = config.agent.cls.load_from_checkpoint(my_env, config.checkpoint_path)
 
-    if isinstance(agent, a.FeatureGoalAgent):
-        step_function = step_feature_goal_agent
-    elif isinstance(agent, a.FeatureGoalWeightAgent):
-        step_function = step_feature_goal_weight_agent
-    elif isinstance(agent, a.StateGoalAgent):
-        step_function = step_state_goal_agent
-    elif isinstance(agent, a.StateGoalWeightAgent):
-        step_function = step_state_goal_weight_agent
-    else:
-        raise ValueError("unknown class of agent")
-
     if config.use_target_tasks:
         goal_sampler = my_env.sample_target_goal
         goal_list_for_eval = my_env.goal_list_target_tasks
@@ -222,7 +200,7 @@ def run_rl_second_phase(config=None, **kwargs):
         obs, _ = my_env.reset(goal_position=goal_position)
 
         while not terminated and not truncated and step <= config.n_steps:
-            next_obs, reward, terminated, truncated, transition = step_function(
+            next_obs, reward, terminated, truncated, transition = general_step_function(
                 obs, agent, my_env, goals_so_far, training=True
             )
 
@@ -242,14 +220,14 @@ def run_rl_second_phase(config=None, **kwargs):
                 done_rate_eval = evaluate_agent(
                     agent,
                     test_env,
-                    step_function,
+                    general_step_function,
                     goal_list_for_eval,
                     use_gpi=config.use_gpi_eval,
                 )
                 done_rate_source = evaluate_agent(
                     agent,
                     test_env,
-                    step_function,
+                    general_step_function,
                     test_env.goal_list_source_tasks,
                     use_gpi=False,
                 )
@@ -298,22 +276,23 @@ def evaluate_agent(agent, test_env, step_fn, goal_list_for_eval, use_gpi):
 
     return done_rate
 
-
-def step_feature_goal_agent(obs, agent, my_env, goals_so_far, training):
+def general_step_function(obs, agent, my_env, goals_so_far, training):
     action = agent.choose_action(
-        agent_position_features=obs["agent_position_features"],
+        obs=obs,
         list_of_goal_positions=goals_so_far,
-        env_goal_position=obs["goal_position"],
         training=training,
     )
 
     next_obs, reward, terminated, truncated, _ = my_env.step(action=action)
 
     transition = (
+        obs["agent_position"],
         obs["agent_position_features"],
         obs["goal_position"],
+        obs["goal_weights"],
         action,
         reward,
+        next_obs["agent_position"],
         next_obs["agent_position_features"],
         terminated,
         truncated,
@@ -322,75 +301,6 @@ def step_feature_goal_agent(obs, agent, my_env, goals_so_far, training):
     return next_obs, reward, terminated, truncated, transition
 
 
-def step_feature_goal_weight_agent(obs, agent, my_env, goals_so_far, training):
-    action = agent.choose_action(
-        agent_position_features=obs["agent_position_features"],
-        list_of_goal_positions=goals_so_far,
-        env_goal_weights=obs["goal_weights"],
-        training=training,
-    )
-
-    next_obs, reward, terminated, truncated, _ = my_env.step(action=action)
-
-    transition = (
-        obs["agent_position_features"],
-        obs["goal_position"],
-        obs["goal_weights"],
-        action,
-        reward,
-        next_obs["agent_position_features"],
-        terminated,
-        truncated,
-    )
-
-    return next_obs, reward, terminated, truncated, transition
-
-
-def step_state_goal_agent(obs, agent, my_env, goals_so_far, training):
-    action = agent.choose_action(
-        agent_position=obs["agent_position"],
-        list_of_goal_positions=goals_so_far,
-        env_goal_position=obs["goal_position"],
-        training=training,
-    )
-
-    next_obs, reward, terminated, truncated, _ = my_env.step(action=action)
-
-    transition = (
-        obs["agent_position"],
-        obs["goal_position"],
-        action,
-        reward,
-        next_obs["agent_position"],
-        terminated,
-        truncated,
-    )
-
-    return next_obs, reward, terminated, truncated, transition
-
-
-def step_state_goal_weight_agent(obs, agent, my_env, goals_so_far, training):
-    action = agent.choose_action(
-        agent_position=obs["agent_position"],
-        list_of_goal_positions=goals_so_far,
-        env_goal_weights=obs["goal_weights"],
-        training=training,
-    )
-
-    next_obs, reward, terminated, truncated, _ = my_env.step(action=action)
-
-    transition = (
-        obs["agent_position"],
-        obs["goal_position"],
-        obs["goal_weights"],
-        action,
-        reward,
-        next_obs["agent_position"],
-        terminated,
-        truncated,
-    )
-
-    return next_obs, reward, terminated, truncated, transition
 #
 #
 # config = eu.AttrDict(

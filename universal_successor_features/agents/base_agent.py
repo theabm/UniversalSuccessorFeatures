@@ -8,6 +8,7 @@ from collections import namedtuple
 from gradient_descent_the_ultimate_optimizer import gdtuo
 import universal_successor_features.memory as mem
 import universal_successor_features.epsilon as eps
+from abc import ABC, abstractmethod
 
 
 Experiences = namedtuple(
@@ -27,7 +28,7 @@ Experiences = namedtuple(
 )
 
 
-class BaseAgent:
+class BaseAgent(ABC):
     @staticmethod
     def default_config():
         cnf = eu.AttrDict(
@@ -195,9 +196,6 @@ class BaseAgent:
         else:
             return torch.randint(0, self.action_space, (1,))
 
-    def _build_arguments_from_obs(self):
-        pass
-
     def _greedy_action_selection(self, obs, list_of_goal_positions):
         q_per_goal = torch.zeros(len(list_of_goal_positions))
         a_per_goal = torch.zeros(len(list_of_goal_positions), dtype=int)
@@ -219,6 +217,10 @@ class BaseAgent:
 
         return a_per_goal[amm.item()]
 
+    @abstractmethod
+    def _build_arguments_from_obs(self):
+        pass
+
     def _display_successor_features(self, obs, list_of_goal_positions):
         if self.is_a_usf:
             obs_dict = self._build_arguments_from_obs(obs)
@@ -234,7 +236,7 @@ class BaseAgent:
                         f"Sucessor features at: {obs['agent_position_features']}\n", sf
                     )
         else:
-            warnings.warn("No successor features for DQN")
+            warnings.warn("SF's are only for USF")
 
     def _sample_experiences(self):
         experiences, weights = self.memory.sample(self.batch_size)
@@ -250,7 +252,7 @@ class BaseAgent:
 
         return batch_of_np_arrays
 
-    def _build_batch_args(self, experiences):
+    def _build_dictionary_of_batch_from_experiences(self, experiences):
         return {
             # shape (batch_size, position_size)
             "agent_position_batch": self._build_tensor_from_batch_of_np_arrays(
@@ -298,7 +300,7 @@ class BaseAgent:
         experiences, sample_weights = self._sample_experiences()
         sample_weights = sample_weights.to(self.device)
 
-        batch_args = self._build__batch_args(experiences)
+        batch_args = self._build_dictionary_of_batch_from_experiences(experiences)
 
         if self.use_gdtuo:
             self.optimizer.begin()
@@ -359,9 +361,11 @@ class BaseAgent:
 
         return loss.item()
 
+    @abstractmethod
     def _build_target_batch(self):
         pass
 
+    @abstractmethod
     def _build_predicted_batch(self):
         pass
 

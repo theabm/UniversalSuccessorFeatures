@@ -37,7 +37,7 @@ def test_training(network, memory, n_steps, seed=0):
         my_env,
         n_steps,
         u.q_ground_truth,
-        exp.step_state_goal_weight_agent,
+        exp.general_step_function,
         use_pos=True,
         use_weight=True,
     )

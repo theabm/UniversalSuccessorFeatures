@@ -138,7 +138,6 @@ def test_choose_action():
     assert action is not None
     assert isinstance(action, int)
 
-
 def test_build_tensor_from_batch_of_np_arrays(batch_size=32):
     my_env = env.GridWorld()
     agent = a.FeatureGoalAgent(env=my_env)
