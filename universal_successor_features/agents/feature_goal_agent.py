@@ -118,3 +118,4 @@ class FeatureGoalAgent(BaseAgent):
 if __name__ == "__main__":
     env = envs.GridWorld()
     agent = FeatureGoalAgent(env)
+    # agent.save(episode = 1, step = 0, total_reward=3)

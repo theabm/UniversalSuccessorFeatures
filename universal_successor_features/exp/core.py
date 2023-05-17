@@ -114,6 +114,7 @@ def run_rl_first_phase(config=None, **kwargs):
         log.add_value(config.log_name_reward_per_episode, reward_per_episode)
 
     agent.save(episode=episode, step=step, total_reward=total_reward)
+    my_env.save()
     log.save()
 
 
@@ -122,12 +123,12 @@ def run_rl_second_phase(config=None, **kwargs):
         seed=None,
         env=eu.AttrDict(
             cls=None,
-            nmax_steps=np.inf,
         ),
         agent=eu.AttrDict(
             cls=None,
         ),
-        checkpoint_path=None,
+        env_checkpoint_path=None,
+        agent_checkpoint_path=None,
         n_steps=np.inf,
         use_gpi_eval=False,
         use_target_tasks=True,
@@ -149,24 +150,28 @@ def run_rl_second_phase(config=None, **kwargs):
         eu.misc.seed(config.seed)
 
     # build instances
-    my_env = eu.misc.create_object_from_config(
-        config.env,
-    )
+    if config.env_checkpoint_path is None:
+        my_env = eu.misc.create_object_from_config(
+            config.env,
+        )
+    else:
+        my_env = config.env.cls.load_from_checkpoint(config.env_checkpoint_path)
 
-    # consider to create environment with same goals from config in the future
-    saved_source_goals = torch.load(config.checkpoint_path)["env_goals_source"]
+    # Assert that source goals that agent learned are the same goals that the
+    # environment has
+    saved_source_goals = torch.load(config.agent_checkpoint_path)["env_goals_source"]
     assert all(
         [
             (goal1 == goal2).all()
             for goal1, goal2 in zip(my_env.goal_list_source_tasks, saved_source_goals)
         ]
-    )
+    ), "The agent did not learn the goals of this environment"
 
     # Copy of environment for testing since I dont want to change its state
     test_env = copy.deepcopy(my_env)
 
     # Instantiate agent from saved checkpoint with same config
-    agent = config.agent.cls.load_from_checkpoint(my_env, config.checkpoint_path)
+    agent = config.agent.cls.load_from_checkpoint(my_env, config.agent_checkpoint_path)
 
     if config.use_target_tasks:
         goal_sampler = my_env.sample_target_goal
@@ -248,8 +253,16 @@ def run_rl_second_phase(config=None, **kwargs):
         log.add_value(config.log_name_step_per_episode, step_per_episode)
         log.add_value(config.log_name_reward_per_episode, reward_per_episode)
 
+    # Only for debugging purposes, can delete later
+    done_rate_eval = evaluate_agent(
+                    agent,
+                    test_env,
+                    general_step_function,
+                    goal_list_for_eval,
+                    use_gpi=config.use_gpi_eval,
+                )
     log.save()
-
+    agent.save(episode=episode, step=step, total_reward=total_reward)
 
 def evaluate_agent(agent, test_env, step_fn, goal_list_for_eval, use_gpi):
     num_goals = len(goal_list_for_eval)
@@ -301,30 +314,32 @@ def general_step_function(obs, agent, my_env, goals_so_far, training):
     return next_obs, reward, terminated, truncated, transition
 
 
-#
-#
-# config = eu.AttrDict(
-#     # random seed for the repetition
-#     seed = 3487 + 0,
-#     env = eu.AttrDict(
-#         cls = envs.RoomGridWorld,
-#         penalization = 0.0,
-#         reward_at_goal_position = 20.0,
-#         nmax_steps = 31,
-#     ),
-#     agent=eu.AttrDict(
-#         cls = a.FeatureGoalWeightAgent,
-#     ),
-#
-#     checkpoint_path = "/home/andres/inria/projects/universalSuccessorFeatures/experiments/second_phase020/checkpoint.pt" ,
-#     # checkpoint_path = "/scratch/pictor/abermeom/projects/universalSuccessorFeatures/experiments/first_phase020/experiments/experiment_000002" + "/repetition_{:06d}/checkpoint.pt".format(0),
-#
-#     n_steps = 12000,
-#     use_gpi_eval = True,
-#     use_target_tasks = True,
-# )
-#
+# Only for debugging, can delete later
+config = eu.AttrDict(
+    # random seed for the repetition
+    seed = 3487 + 0,
+    env=eu.AttrDict(
+        cls=envs.RoomGridWorld,
+        penalization=0.0,
+        reward_at_goal_position=20.0,
+        nmax_steps=31,
+    ),
+    agent=eu.AttrDict(
+        cls = a.FeatureGoalWeightAgent,
+    ),
+
+    agent_checkpoint_path = "/home/andres/inria/projects/universalSuccessorFeatures/experiments/second_phase020n/FeatureGoalWeightAgent_checkpoint.pt",
+    env_checkpoint_path = "/home/andres/inria/projects/universalSuccessorFeatures/experiments/second_phase020n/env_config.cfg",
+    # agent_checkpoint_path="/scratch/pictor/abermeom/projects/universalSuccessorFeatures/experiments/first_phase020n/experiments/"
+    # + "experiment_000002" +"/repetition_{:06d}/".format(0) + "FeatureGoalWeightAgent" 
+    # + "_checkpoint.pt",
+    # env_checkpoint_path = "/scratch/pictor/abermeom/projects/universalSuccessorFeatures/experiments/first_phase020n/experiments/"
+    # + "experiment_000002" +"/repetition_{:06d}/".format(0) + "env_config.cfg",
 
 
+    n_steps=12000,
+    use_gpi_eval = True,
+    use_target_tasks = True,
+)
 
-# run_rl_second_phase(config=config)
+run_rl_second_phase(config=config)

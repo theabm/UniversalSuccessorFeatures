@@ -221,7 +221,7 @@ class BaseAgent(ABC):
     def _build_arguments_from_obs(self):
         pass
 
-    def _display_successor_features(self, obs, list_of_goal_positions):
+    def _print_successor_features(self, obs, list_of_goal_positions):
         if self.is_a_usf:
             obs_dict = self._build_arguments_from_obs(obs)
             for i, goal_position in enumerate(list_of_goal_positions):
@@ -232,11 +232,15 @@ class BaseAgent(ABC):
                         .to(self.device),
                         **obs_dict,
                     )
+                    sf = sf.squeeze().reshape(
+                        self.action_space, self.env.rows, self.env.columns
+                    )
                     print(
-                        f"Sucessor features at: {obs['agent_position_features']}\n", sf
+                        f"Sucessor features at: {obs['agent_position_features']}\nFor goal{goal_position}\n",
+                        sf,
                     )
         else:
-            warnings.warn("SF's are only for USF")
+            raise "This function is only available for USF's"
 
     def _sample_experiences(self):
         experiences, weights = self.memory.sample(self.batch_size)
