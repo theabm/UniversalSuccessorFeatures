@@ -131,6 +131,7 @@ def run_rl_second_phase(config=None, **kwargs):
         agent_checkpoint_path=None,
         n_steps=np.inf,
         use_gpi_eval=False,
+        use_gpi_train=False,
         use_target_tasks=True,
         log_name_step="step",
         log_name_episode="episode",
@@ -201,6 +202,9 @@ def run_rl_second_phase(config=None, **kwargs):
 
         goal_position = goal_sampler()
         goals_so_far = [goal_position]
+
+        if config.use_gpi_train:
+            goals_so_far += my_env.goal_list_source_tasks 
 
         obs, _ = my_env.reset(goal_position=goal_position)
 
@@ -313,33 +317,33 @@ def general_step_function(obs, agent, my_env, goals_so_far, training):
 
     return next_obs, reward, terminated, truncated, transition
 
-
+if __name__ == "__main__":
 # Only for debugging, can delete later
-config = eu.AttrDict(
-    # random seed for the repetition
-    seed = 3487 + 0,
-    env=eu.AttrDict(
-        cls=envs.RoomGridWorld,
-        penalization=0.0,
-        reward_at_goal_position=20.0,
-        nmax_steps=31,
-    ),
-    agent=eu.AttrDict(
-        cls = a.FeatureGoalWeightAgent,
-    ),
+    config = eu.AttrDict(
+        # random seed for the repetition
+        seed = 3487 + 0,
+        env=eu.AttrDict(
+            cls=envs.RoomGridWorld,
+            penalization=0.0,
+            reward_at_goal_position=20.0,
+            nmax_steps=31,
+        ),
+        agent=eu.AttrDict(
+            cls = a.FeatureGoalWeightAgent,
+        ),
 
-    agent_checkpoint_path = "/home/andres/inria/projects/universalSuccessorFeatures/experiments/second_phase020n/FeatureGoalWeightAgent_checkpoint.pt",
-    env_checkpoint_path = "/home/andres/inria/projects/universalSuccessorFeatures/experiments/second_phase020n/env_config.cfg",
-    # agent_checkpoint_path="/scratch/pictor/abermeom/projects/universalSuccessorFeatures/experiments/first_phase020n/experiments/"
-    # + "experiment_000002" +"/repetition_{:06d}/".format(0) + "FeatureGoalWeightAgent" 
-    # + "_checkpoint.pt",
-    # env_checkpoint_path = "/scratch/pictor/abermeom/projects/universalSuccessorFeatures/experiments/first_phase020n/experiments/"
-    # + "experiment_000002" +"/repetition_{:06d}/".format(0) + "env_config.cfg",
+        agent_checkpoint_path = "/home/andres/inria/projects/universalSuccessorFeatures/experiments/second_phase020n/FeatureGoalWeightAgent_checkpoint.pt",
+        env_checkpoint_path = "/home/andres/inria/projects/universalSuccessorFeatures/experiments/second_phase020n/env_config.cfg",
+        # agent_checkpoint_path="/scratch/pictor/abermeom/projects/universalSuccessorFeatures/experiments/first_phase020n/experiments/"
+        # + "experiment_000002" +"/repetition_{:06d}/".format(0) + "FeatureGoalWeightAgent" 
+        # + "_checkpoint.pt",
+        # env_checkpoint_path = "/scratch/pictor/abermeom/projects/universalSuccessorFeatures/experiments/first_phase020n/experiments/"
+        # + "experiment_000002" +"/repetition_{:06d}/".format(0) + "env_config.cfg",
 
 
-    n_steps=12000,
-    use_gpi_eval = True,
-    use_target_tasks = True,
-)
+        n_steps=12000,
+        use_gpi_eval = True,
+        use_target_tasks = True,
+    )
 
-run_rl_second_phase(config=config)
+    run_rl_second_phase(config=config)
