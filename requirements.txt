@@ -5,3 +5,5 @@ pytest==7.2.2
 numpy==1.24.2
 jupyter_contrib_nbextensions==0.7.0
 gradient-descent-the-ultimate-optimizer
+dash
+dash-bootstrap-components

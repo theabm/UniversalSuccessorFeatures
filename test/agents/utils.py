@@ -108,7 +108,7 @@ def compute_q_function(agent, env, list_of_goal_positions, use_pos, use_weight):
         .to(agent.device)
     )
 
-    # state goal agent
+    # position goal agent
     if use_pos and not use_weight:
         # shape (list_of_goal_positions)*size, goal_size(pos_size)
         q, *_ = agent.policy_net(
@@ -123,7 +123,7 @@ def compute_q_function(agent, env, list_of_goal_positions, use_pos, use_weight):
             policy_goal_position=goal_tensor,
             env_goal_position=goal_tensor,
         )
-    # state goal weight agent
+    # position goal weight agent
     elif use_pos and use_weight:
         q, *_ = agent.policy_net(
             agent_position=pos_tensor,

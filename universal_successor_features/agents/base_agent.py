@@ -317,16 +317,19 @@ class BaseAgent(ABC):
             predicted_batch_q, predicted_batch_psi, phi_w = self._build_predicted_batch(
                 batch_args,
             )
+
             # shape (batch_size,)
             td_error_q = torch.square(torch.abs(target_batch_q - predicted_batch_q))
+
             # shape of target_batch_psi is (batch, size_features) so the td_error for
-            # that batch must be summed along first dim which automatically squeezed
-            # dim = 1 and so the final shape is (batch,)
+            # that batch must be summed along first dim which automatically squeezes
+            # the dim = 1 and so the final shape is (batch_size,)
             td_error_psi = torch.mean(
                 torch.square(torch.abs(target_batch_psi - predicted_batch_psi)), dim=1
-            )  # shape (batch_size,)
+            )
 
-            td_error_phi = torch.square(torch.abs(r - phi_w))  # shape (batch_size, )
+            # shape (batch_size, )
+            td_error_phi = torch.square(torch.abs(r - phi_w))  
 
             total_td_error = (
                 td_error_q
@@ -435,10 +438,11 @@ class BaseAgent(ABC):
 
     def save(self, episode, step, total_reward):
         filename = (
-            str(self.__class__.__name__) + "_checkpoint" + self.config.save.extension
+            "checkpoint" + self.config.save.extension
         )
         torch.save(
             {
+                "cls": self.__class__,
                 "config": self.config,
                 "episode": episode,
                 "step": step,
@@ -447,6 +451,8 @@ class BaseAgent(ABC):
                 "optimizer_state_dict": self.optimizer.state_dict(),
                 "memory": self.memory,
                 "env_goals_source": self.env.goal_list_source_tasks,
+                "env_goals_target": self.env.goal_list_target_tasks,
+                "env_goals_eval": self.env.goal_list_evaluation_tasks,
             },
             filename,
         )

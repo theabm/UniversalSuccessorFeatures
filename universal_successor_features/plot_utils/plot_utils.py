@@ -5,6 +5,8 @@ import numpy as np
 import universal_successor_features.envs as envs
 import universal_successor_features.agents as agents
 import universal_successor_features.plot_utils.dropdowns as drop
+import os
+import sys
 
 from dash import Dash, dcc, html, Output, Input
 import dash_bootstrap_components as dbc
@@ -12,19 +14,44 @@ import dash_bootstrap_components as dbc
 # If we want to use bootstrap componets we HAVE to declare a theme
 app = Dash(__name__, external_stylesheets=[dbc.themes.DARKLY])
 
-dropdown_menu_agent_type = dcc.Dropdown(
-    id="agent_type",
+experiments_path = (
+    "/scratch/pictor/abermeom/projects/universalSuccessorFeatures/experiments/"
+)
+# experiments_path = "/home/andres/inria/projects/universalSuccessorFeatures/experiments/"
+
+dropdown_menu_campaign = dcc.Dropdown(
+    id="campaign",
+    # label: "directory_name", value: "experiment_path/directory_name"
     options=[
-        {
-            "label": "FGW USF",
-            "value": "FeatureGoalWeightAgent",
-        },
-        {
-            "label": "FG USF",
-            "value": "FeatureGoalAgent",
-        },
+        {"label": f.name, "value": f.path}
+        for f in os.scandir(experiments_path)
+        if f.is_dir()
     ],
-    placeholder="Please Select...",
+    value=experiments_path + os.listdir(experiments_path)[0],
+)
+
+dropdown_menu_experiment_number = dcc.Dropdown(
+    id="experiment_num",
+    options=[
+        {"label": f.name, "value": f.path}
+        for f in os.scandir(dropdown_menu_campaign.value + "/experiments")
+        if f.is_dir()
+    ],
+    value=dropdown_menu_campaign.value
+    + "/experiments/"
+    + os.listdir(dropdown_menu_campaign.value + "/experiments")[0],
+)
+
+dropdown_menu_experiment_rep = dcc.Dropdown(
+    id="experiment_rep",
+    options=[
+        {"label": f.name, "value": f.path}
+        for f in os.scandir(dropdown_menu_experiment_number.value)
+        if f.is_dir()
+    ],
+    value=dropdown_menu_experiment_number.value
+    + "/"
+    + os.listdir(dropdown_menu_experiment_number.value)[0],
 )
 
 dropdown_menu_policy_goal = dcc.Dropdown(
@@ -43,17 +70,6 @@ dropdown_menu_color_scheme = dcc.Dropdown(
     clearable=False,
 )
 
-dropdown_menu_graph_type = dcc.Dropdown(
-    id="graph_type",
-    options=[
-        {"label": "Pixels", "value": "Heatmap"},
-        {"label": "Contour Lines", "value": "Contour"},
-        {"label": "Smooth", "value": "Heatmap"},
-    ],
-    value="Heatmap",
-    clearable=False,
-)
-
 app.layout = dbc.Container(
     [
         dbc.Row(
@@ -69,65 +85,57 @@ app.layout = dbc.Container(
             [
                 dbc.Col(
                     [
-                        html.Label(
-                            "Agent Type",
+                        html.H2(
+                            "Experiment Details",
                             style={"textAlign": "center", "color": "white"},
                         ),
-                        dropdown_menu_agent_type,
+                        html.Label(
+                            "Campaign",
+                            style={"textAlign": "center", "color": "white"},
+                        ),
+                        dropdown_menu_campaign,
+                        html.Label(
+                            "Experiment Number",
+                            style={"textAlign": "center", "color": "white"},
+                        ),
+                        dropdown_menu_experiment_number,
+                        html.Label(
+                            "Experiment Repetition",
+                            style={"textAlign": "center", "color": "white"},
+                        ),
+                        dropdown_menu_experiment_rep,
+                        dcc.Graph(id="fig0", figure={}),
+                        dcc.Graph(id="fig2", figure={}),
                     ],
-                    width=5,
-                )
-            ],
-            justify="around",
-        ),
-        dbc.Row(
-            [
+                    width={"size": 5, "offset": 0, "order": 1},
+                ),
                 dbc.Col(
                     [
+                        html.H2(
+                            "Agent Details",
+                            style={"textAlign": "center", "color": "white"},
+                        ),
                         html.Label(
                             "Agent Position",
                             style={"textAlign": "center", "color": "white"},
                         ),
                         dropdown_menu_agent_position,
                         html.Label(
-                            "Color Scheme",
-                            style={"textAlign": "center", "color": "white"},
-                        ),
-                        dropdown_menu_color_scheme,
-                        dcc.Graph(id="fig0", figure={}),
-                        dcc.Graph(id="fig2", figure={}),
-                    ],
-                    # We can set width as width = 5
-                    # However, here we show another way which gives many more
-                    # options
-                    # size -> how many columns wide
-                    # offset -> how many empty columns before content
-                    # order -> by default, order is write order, but here we can
-                    # specify in case we want to switch the order.
-                    # Note, we must always be sure that size+offset for all columns
-                    # is <= 12
-                    width={"size": 5, "offset": 0, "order": 1},
-                ),
-                dbc.Col(
-                    [
-                        html.Label(
                             "Goal Position",
                             style={"textAlign": "center", "color": "white"},
                         ),
                         dropdown_menu_policy_goal,
                         html.Label(
-                            "Graph Type",
+                            "Color Scheme",
                             style={"textAlign": "center", "color": "white"},
                         ),
-                        dropdown_menu_graph_type,
+                        dropdown_menu_color_scheme,
                         dcc.Graph(id="fig1", figure={}),
                         dcc.Graph(id="fig3", figure={}),
                     ],
                     width={"size": 5, "offset": 0, "order": 2},
                 ),
-            ],
-            justify="around"  # values can be
-            #'start', 'center', 'end', 'around', 'between', 'evenly'
+            ]
         ),
     ],
     # fluid: If False (default), we have some space in the margins
@@ -138,55 +146,70 @@ app.layout = dbc.Container(
 )
 
 
-# Note order is top to bottom
+@app.callback(
+    Output(dropdown_menu_experiment_number, "options"),
+    Output(dropdown_menu_experiment_number, "value"),
+    Output(dropdown_menu_experiment_rep, "options"),
+    Output(dropdown_menu_experiment_rep, "value"),
+    Input(dropdown_menu_campaign, "value"),
+)
+def update_exp_number_and_rep_dropdown(campaign_path):
+    options_experiment_number = [
+        {"label": f.name, "value": f.path}
+        for f in os.scandir(campaign_path + "/experiments")
+        if f.is_dir()
+    ]
+    options_experiment_rep = [
+        {"label": f.name, "value": f.path}
+        for f in os.scandir(options_experiment_number[0]["value"])
+        if f.is_dir()
+    ]
+
+    return (
+        options_experiment_number,
+        options_experiment_number[0]["value"],
+        options_experiment_rep,
+        options_experiment_rep[0]["value"],
+    )
+
+
+# # Note order is top to bottom
 @app.callback(
     Output(dropdown_menu_policy_goal, "options"),
     Output(dropdown_menu_policy_goal, "value"),
     Output(dropdown_menu_agent_position, "options"),
     Output(dropdown_menu_agent_position, "value"),
-    Input(dropdown_menu_agent_type, "value"),
+    Input(dropdown_menu_experiment_rep, "value"),
 )
-def update_dropdown(agent_type):
-    if agent_type is None:
-        return [], None, [], None
-    base_path = "/home/andres/inria/projects/universalSuccessorFeatures/agent_checkpoints_for_testing/"
-
-    if agent_type == "FeatureGoalWeightAgent":
-        env = envs.RoomGridWorld.load_from_checkpoint(
-            base_path + "env_config.cfg",
-        )
-        agent = agents.FeatureGoalWeightAgent.load_from_checkpoint(
-            env,
-            base_path + agent_type + "_checkpoint.pt",
-        )
-    else:
-        env = envs.RoomGridWorld.load_from_checkpoint(
-            base_path + "env_config1.cfg",
-        )
-        agent = agents.FeatureGoalAgent.load_from_checkpoint(
-            env,
-            base_path + agent_type + "_checkpoint.pt",
-        )
+def update_agent_pos_and_goal_dropdown(experiment_rep_path):
+    print(experiment_rep_path)
+    env = envs.RoomGridWorld.load_from_checkpoint(
+        experiment_rep_path + "/env_config.cfg"
+    )
 
     options_agent_position = [
-        f"({i},{j})" for i in range(env.rows) for j in range(env.columns)
+        {"label": f"({i},{j})", "value": f"({i},{j})"}
+        for i in range(env.rows)
+        for j in range(env.columns)
+        if (i, j) not in env.forbidden_cells
     ]
 
     options_agent_goal = [
-        f"({goal[0][0]},{goal[0][1]})" for goal in env.goal_list_source_tasks
+        {
+            "label": f"({goal[0][0]},{goal[0][1]})",
+            "value": f"({goal[0][0]},{goal[0][1]})",
+        }
+        for goal in env.goal_list_source_tasks
+        + env.goal_list_target_tasks
+        + env.goal_list_evaluation_tasks
     ]
 
     return (
         options_agent_goal,
-        options_agent_goal[0],
+        options_agent_goal[0]["value"],
         options_agent_position,
-        options_agent_position[0],
+        options_agent_position[0]["value"],
     )
-
-
-# @app.callback(Output("fig"))
-# def display_successor_features_UP():
-#     pass
 
 
 @app.callback(
@@ -194,19 +217,28 @@ def update_dropdown(agent_type):
     Output("fig1", "figure"),
     Output("fig2", "figure"),
     Output("fig3", "figure"),
-    Input(dropdown_menu_agent_type, "value"),
+    Input(dropdown_menu_experiment_rep, "value"),
     Input(dropdown_menu_policy_goal, "value"),
     Input(dropdown_menu_agent_position, "value"),
     Input(dropdown_menu_color_scheme, "value"),
-    Input(dropdown_menu_graph_type, "value"),
 )
 def display_successor_features(
-    agent_type, policy_goal_position, agent_position, colors, graph_type
+    experiment_repetition_path, policy_goal_position, agent_position, colors
 ):
-    if policy_goal_position is None or agent_position is None:
-        return {}, {}, {}, {}
+    env = envs.RoomGridWorld.load_from_checkpoint(
+        experiment_rep_path + "/env_config.cfg"
+    )
+    # Incredibly ugly, will change later 
+    # The harcorded value is because I save checkpoints as "classname_checkpoint.pt"
+    # so to extract class name for now I need to eliminate _checkpoint.pt which is 14 
+    # char long
+    for file in os.listdir("experiment_rep_path"):
+        if file.endswith(".pt"):
+            agent_type = eval(file[:-14])
 
-    base_path = "/home/andres/inria/projects/universalSuccessorFeatures/agent_checkpoints_for_testing/"
+
+    agent = agents
+
     if agent_type == "FeatureGoalWeightAgent":
         env = envs.RoomGridWorld.load_from_checkpoint(
             base_path + "env_config.cfg",
@@ -266,25 +298,25 @@ def display_successor_features(
     #########################################################################################
 
     fig0 = make_heap_map_figure(
-        data=sf[0], positions=positions, colorscale=colors, title="UP"
+        data=sf[0], positions=positions, env=env, colorscale=colors, title="UP"
     )
 
     #########################################################################################
 
     fig1 = make_heap_map_figure(
-        data=sf[1], positions=positions, colorscale=colors, title="DOWN"
+        data=sf[1], positions=positions, env=env, colorscale=colors, title="DOWN"
     )
 
     #########################################################################################
 
     fig2 = make_heap_map_figure(
-        data=sf[2], positions=positions, colorscale=colors, title="RIGHT"
+        data=sf[2], positions=positions, env=env, colorscale=colors, title="RIGHT"
     )
 
     #########################################################################################
 
     fig3 = make_heap_map_figure(
-        data=sf[3], positions=positions, colorscale=colors, title="LEFT"
+        data=sf[3], positions=positions, env=env, colorscale=colors, title="LEFT"
     )
 
     #########################################################################################
@@ -292,22 +324,38 @@ def display_successor_features(
     return fig0, fig1, fig2, fig3
 
 
-def make_heap_map_figure(data, colorscale, positions, title):
+def make_heap_map_figure(data, positions, env, colorscale, title):
     fig = go.Figure(
         data=go.Heatmap(z=data, visible=True, colorscale=colorscale),
     )
-    fig = add_shapes_to_figure(
+    fig = add_rectangles_to_figure(
         fig,
         positions["agent_i"],
         positions["agent_j"],
         positions["policy_goal_i"],
         positions["policy_goal_j"],
     )
+    fig = color_forbidden_cells(fig, fill_color="green", border_color="red", env=env)
+
     fig = modify_layout_of_figure(fig, title=title)
     return fig
 
 
-def add_shapes_to_figure(fig, agent_i, agent_j, policy_goal_i, policy_goal_j):
+def color_forbidden_cells(fig, fill_color, border_color, env):
+    for i, j in env.forbidden_cells:
+        fig.add_shape(
+            type="rect",
+            x0=j - 0.5,
+            y0=i - 0.5,
+            x1=j + 0.5,
+            y1=i + 0.5,
+            line=dict(color=border_color),
+            fillcolor=fill_color,
+        )
+    return fig
+
+
+def add_rectangles_to_figure(fig, agent_i, agent_j, policy_goal_i, policy_goal_j):
     fig.add_shape(
         type="rect",
         x0=agent_j - 0.5,
@@ -340,4 +388,4 @@ def list_of_goals_to_list_of_strings(list_of_goals):
 
 
 if __name__ == "__main__":
-    app.run_server(debug=True, port=8054)
+    app.run_server(debug=True, port=9000)

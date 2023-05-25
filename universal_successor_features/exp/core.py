@@ -115,6 +115,8 @@ def run_rl_first_phase(config=None, **kwargs):
 
     agent.save(episode=episode, step=step, total_reward=total_reward)
     my_env.save()
+    log.add_single_object("agent", agent)
+    log.add_single_object("env", my_env)
     log.save()
 
 
@@ -265,8 +267,9 @@ def run_rl_second_phase(config=None, **kwargs):
                     goal_list_for_eval,
                     use_gpi=config.use_gpi_eval,
                 )
-    log.save()
     agent.save(episode=episode, step=step, total_reward=total_reward)
+    log.add_single_object("agent", agent)
+    log.save()
 
 def evaluate_agent(agent, test_env, step_fn, goal_list_for_eval, use_gpi):
     num_goals = len(goal_list_for_eval)
