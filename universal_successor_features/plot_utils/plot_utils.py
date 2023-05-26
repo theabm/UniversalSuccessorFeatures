@@ -6,7 +6,7 @@ import universal_successor_features.envs as envs
 import universal_successor_features.agents as agents
 import universal_successor_features.plot_utils.dropdowns as drop
 import os
-import sys
+import exputils.data.logging as log
 
 from dash import Dash, dcc, html, Output, Input
 import dash_bootstrap_components as dbc
@@ -14,10 +14,10 @@ import dash_bootstrap_components as dbc
 # If we want to use bootstrap componets we HAVE to declare a theme
 app = Dash(__name__, external_stylesheets=[dbc.themes.DARKLY])
 
-experiments_path = (
-    "/scratch/pictor/abermeom/projects/universalSuccessorFeatures/experiments/"
-)
-# experiments_path = "/home/andres/inria/projects/universalSuccessorFeatures/experiments/"
+# experiments_path = (
+#     "/scratch/pictor/abermeom/projects/universalSuccessorFeatures/experiments/"
+# )
+experiments_path = "/home/andres/inria/projects/universalSuccessorFeatures/experiments/"
 
 dropdown_menu_campaign = dcc.Dropdown(
     id="campaign",
@@ -27,6 +27,7 @@ dropdown_menu_campaign = dcc.Dropdown(
         for f in os.scandir(experiments_path)
         if f.is_dir()
     ],
+    # default campaign is the first it finds in the list (random order)
     value=experiments_path + os.listdir(experiments_path)[0],
 )
 
@@ -37,6 +38,7 @@ dropdown_menu_experiment_number = dcc.Dropdown(
         for f in os.scandir(dropdown_menu_campaign.value + "/experiments")
         if f.is_dir()
     ],
+    # default value is first in list
     value=dropdown_menu_campaign.value
     + "/experiments/"
     + os.listdir(dropdown_menu_campaign.value + "/experiments")[0],
@@ -49,18 +51,19 @@ dropdown_menu_experiment_rep = dcc.Dropdown(
         for f in os.scandir(dropdown_menu_experiment_number.value)
         if f.is_dir()
     ],
+    # default value is first in list
     value=dropdown_menu_experiment_number.value
     + "/"
     + os.listdir(dropdown_menu_experiment_number.value)[0],
 )
 
 dropdown_menu_policy_goal = dcc.Dropdown(
-    id="goal_position", placeholder="Select Agent Type..."
+    id="goal_position", placeholder="Select Experiment Number ..."
 )
 
 
 dropdown_menu_agent_position = dcc.Dropdown(
-    id="agent_position", placeholder="Select Agent Type..."
+    id="agent_position", placeholder="Select Experiment Number ..."
 )
 
 dropdown_menu_color_scheme = dcc.Dropdown(
@@ -149,25 +152,43 @@ app.layout = dbc.Container(
 @app.callback(
     Output(dropdown_menu_experiment_number, "options"),
     Output(dropdown_menu_experiment_number, "value"),
-    Output(dropdown_menu_experiment_rep, "options"),
-    Output(dropdown_menu_experiment_rep, "value"),
     Input(dropdown_menu_campaign, "value"),
 )
-def update_exp_number_and_rep_dropdown(campaign_path):
+def update_experiment_number_dropdown(
+    campaign_path
+):
+    # Changing the campaign resets the possible experiments options available
+    # and the experiment reps available (since they may not be the same across
+    # campaigns)
+
+    # os.list dir lists the directories at the path /path_to_campaign_selected/experiments
     options_experiment_number = [
         {"label": f.name, "value": f.path}
         for f in os.scandir(campaign_path + "/experiments")
-        if f.is_dir()
-    ]
-    options_experiment_rep = [
-        {"label": f.name, "value": f.path}
-        for f in os.scandir(options_experiment_number[0]["value"])
         if f.is_dir()
     ]
 
     return (
         options_experiment_number,
         options_experiment_number[0]["value"],
+    )
+
+@app.callback(
+    Output(dropdown_menu_experiment_rep, "options"),
+    Output(dropdown_menu_experiment_rep, "value"),
+    Input(dropdown_menu_experiment_number, "value"),
+)
+def update_experiment_repetition_dropdown(
+    experiment_number_path
+):
+
+    options_experiment_rep = [
+        {"label": f.name, "value": f.path}
+        for f in os.scandir(experiment_number_path)
+        if f.is_dir()
+    ]
+
+    return (
         options_experiment_rep,
         options_experiment_rep[0]["value"],
     )
@@ -182,10 +203,11 @@ def update_exp_number_and_rep_dropdown(campaign_path):
     Input(dropdown_menu_experiment_rep, "value"),
 )
 def update_agent_pos_and_goal_dropdown(experiment_rep_path):
-    print(experiment_rep_path)
-    env = envs.RoomGridWorld.load_from_checkpoint(
-        experiment_rep_path + "/env_config.cfg"
-    )
+    # something like /scratch/.../experiment0000001/repetition_000000
+    new_path = experiment_rep_path + "/data/"
+
+    log.set_directory(new_path)
+    env = log.load_single_object("env")
 
     options_agent_position = [
         {"label": f"({i},{j})", "value": f"({i},{j})"}
@@ -223,38 +245,12 @@ def update_agent_pos_and_goal_dropdown(experiment_rep_path):
     Input(dropdown_menu_color_scheme, "value"),
 )
 def display_successor_features(
-    experiment_repetition_path, policy_goal_position, agent_position, colors
+    experiment_rep_path, policy_goal_position, agent_position, colors
 ):
-    env = envs.RoomGridWorld.load_from_checkpoint(
-        experiment_rep_path + "/env_config.cfg"
-    )
-    # Incredibly ugly, will change later 
-    # The harcorded value is because I save checkpoints as "classname_checkpoint.pt"
-    # so to extract class name for now I need to eliminate _checkpoint.pt which is 14 
-    # char long
-    for file in os.listdir("experiment_rep_path"):
-        if file.endswith(".pt"):
-            agent_type = eval(file[:-14])
-
-
-    agent = agents
-
-    if agent_type == "FeatureGoalWeightAgent":
-        env = envs.RoomGridWorld.load_from_checkpoint(
-            base_path + "env_config.cfg",
-        )
-        agent = agents.FeatureGoalWeightAgent.load_from_checkpoint(
-            env,
-            base_path + agent_type + "_checkpoint.pt",
-        )
-    else:
-        env = envs.RoomGridWorld.load_from_checkpoint(
-            base_path + "env_config1.cfg",
-        )
-        agent = agents.FeatureGoalAgent.load_from_checkpoint(
-            env,
-            base_path + agent_type + "_checkpoint.pt",
-        )
+    new_path = experiment_rep_path + "/data/"
+    log.set_directory(new_path)
+    env = log.load_single_object("env")
+    agent = log.load_single_object("agent")
 
     agent_position = np.array([[int(agent_position[1]), int(agent_position[3])]])
 
@@ -388,4 +384,5 @@ def list_of_goals_to_list_of_strings(list_of_goals):
 
 
 if __name__ == "__main__":
-    app.run_server(debug=True, port=9000)
+    # app.run_server(debug=True, port=9000)
+    app.run_server(debug=True, port=8000)

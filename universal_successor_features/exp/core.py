@@ -27,8 +27,10 @@ def run_rl_first_phase(config=None, **kwargs):
         log_name_reward_per_episode="reward_per_episode",
         log_name_reward_per_step="reward_per_step",
         log_name_total_reward="total_reward",
-        log_name_done_rate="done_rate",
-        log_name_done_rate_eval="done_rate_eval",
+        log_name_done_rate_primary="done_rate_primary",
+        log_name_done_rate_tertiary="done_rate_tertiary",
+        log_name_agent = "agent",
+        log_name_env = "env",
     )
 
     config = eu.combine_dicts(kwargs, config, default_config)
@@ -85,14 +87,14 @@ def run_rl_first_phase(config=None, **kwargs):
             log.add_value(config.log_name_episode_per_step, episode)
 
             if step % 100 == 0:
-                done_rate = evaluate_agent(
+                done_rate_primary = evaluate_agent(
                     agent,
                     test_env,
                     general_step_function,
                     test_env.goal_list_source_tasks,
                     use_gpi=False,
                 )
-                done_rate_eval = evaluate_agent(
+                done_rate_tertiary = evaluate_agent(
                     agent,
                     test_env,
                     general_step_function,
@@ -100,8 +102,8 @@ def run_rl_first_phase(config=None, **kwargs):
                     use_gpi=False,
                 )
 
-            log.add_value(config.log_name_done_rate, done_rate)
-            log.add_value(config.log_name_done_rate_eval, done_rate_eval)
+            log.add_value(config.log_name_done_rate_primary, done_rate_primary)
+            log.add_value(config.log_name_done_rate_tertiary, done_rate_tertiary)
 
             obs = next_obs
 
@@ -115,8 +117,8 @@ def run_rl_first_phase(config=None, **kwargs):
 
     agent.save(episode=episode, step=step, total_reward=total_reward)
     my_env.save()
-    log.add_single_object("agent", agent)
-    log.add_single_object("env", my_env)
+    log.add_single_object(config.log_name_agent, agent)
+    log.add_single_object(config.log_name_env, my_env)
     log.save()
 
 
@@ -131,6 +133,7 @@ def run_rl_second_phase(config=None, **kwargs):
         ),
         env_checkpoint_path=None,
         agent_checkpoint_path=None,
+        log_directory=None,
         n_steps=np.inf,
         use_gpi_eval=False,
         use_gpi_train=False,
@@ -142,9 +145,11 @@ def run_rl_second_phase(config=None, **kwargs):
         log_name_reward_per_episode="reward_per_episode",
         log_name_reward_per_step="reward_per_step",
         log_name_total_reward="total_reward",
-        log_name_done_rate_eval="done_rate_eval",
         log_name_done_rate_source="done_rate_source",
+        log_name_done_rate_eval="done_rate_eval",
         log_name_done_rate_combined="done_rate_combined",
+        log_name_agent = "agent",
+        log_name_env = "env",
     )
 
     config = eu.combine_dicts(kwargs, config, default_config)
@@ -152,29 +157,45 @@ def run_rl_second_phase(config=None, **kwargs):
     if config.seed is not None:
         eu.misc.seed(config.seed)
 
-    # build instances
-    if config.env_checkpoint_path is None:
-        my_env = eu.misc.create_object_from_config(
-            config.env,
-        )
-    else:
-        my_env = config.env.cls.load_from_checkpoint(config.env_checkpoint_path)
+    log.load(directory=config.log_directory, load_objects=True)
 
-    # Assert that source goals that agent learned are the same goals that the
-    # environment has
-    saved_source_goals = torch.load(config.agent_checkpoint_path)["env_goals_source"]
+    # build instances
+    my_env = log.get_item("env")
+    agent = log.get_item("agent")
+
+    agent_saved_source_goals = agent.env.goal_list_source_tasks
+    agent_saved_target_goals = agent.env.goal_list_target_tasks
+    agent_saved_evaluation_goals = agent.env.goal_list_evaluation_tasks
+
     assert all(
         [
             (goal1 == goal2).all()
-            for goal1, goal2 in zip(my_env.goal_list_source_tasks, saved_source_goals)
+            for goal1, goal2 in zip(
+                my_env.goal_list_source_tasks, agent_saved_source_goals
+            )
+        ]
+    ), "The agent did not learn the goals of this environment"
+
+    assert all(
+        [
+            (goal1 == goal2).all()
+            for goal1, goal2 in zip(
+                my_env.goal_list_target_tasks, agent_saved_target_goals
+            )
+        ]
+    ), "The agent did not learn the goals of this environment"
+
+    assert all(
+        [
+            (goal1 == goal2).all()
+            for goal1, goal2 in zip(
+                my_env.goal_list_evaluation_tasks, agent_saved_evaluation_goals
+            )
         ]
     ), "The agent did not learn the goals of this environment"
 
     # Copy of environment for testing since I dont want to change its state
     test_env = copy.deepcopy(my_env)
-
-    # Instantiate agent from saved checkpoint with same config
-    agent = config.agent.cls.load_from_checkpoint(my_env, config.agent_checkpoint_path)
 
     if config.use_target_tasks:
         goal_sampler = my_env.sample_target_goal
@@ -184,8 +205,8 @@ def run_rl_second_phase(config=None, **kwargs):
         goal_list_for_eval = my_env.goal_list_evaluation_tasks
 
     step = 0
-    total_reward = agent.total_reward
-    episode = agent.current_episode
+    total_reward = log.get_item(config.log_name_total_reward)[-1]
+    episode = log.get_item(config.log_name_episode)[-1]
 
     # Begin of Eval Phase
     agent.prepare_for_eval_phase()
@@ -206,7 +227,7 @@ def run_rl_second_phase(config=None, **kwargs):
         goals_so_far = [goal_position]
 
         if config.use_gpi_train:
-            goals_so_far += my_env.goal_list_source_tasks 
+            goals_so_far += my_env.goal_list_source_tasks
 
         obs, _ = my_env.reset(goal_position=goal_position)
 
@@ -261,14 +282,16 @@ def run_rl_second_phase(config=None, **kwargs):
 
     # Only for debugging purposes, can delete later
     done_rate_eval = evaluate_agent(
-                    agent,
-                    test_env,
-                    general_step_function,
-                    goal_list_for_eval,
-                    use_gpi=config.use_gpi_eval,
-                )
-    agent.save(episode=episode, step=step, total_reward=total_reward)
+        agent,
+        test_env,
+        general_step_function,
+        goal_list_for_eval,
+        use_gpi=config.use_gpi_eval,
+    )
+    # agent.save(episode=episode, step=step, total_reward=total_reward)
+    # my_env.save()
     log.add_single_object("agent", agent)
+    log.add_single_object("env", my_env)
     log.save()
 
 def evaluate_agent(agent, test_env, step_fn, goal_list_for_eval, use_gpi):
@@ -296,6 +319,7 @@ def evaluate_agent(agent, test_env, step_fn, goal_list_for_eval, use_gpi):
 
     return done_rate
 
+
 def general_step_function(obs, agent, my_env, goals_so_far, training):
     action = agent.choose_action(
         obs=obs,
@@ -320,11 +344,12 @@ def general_step_function(obs, agent, my_env, goals_so_far, training):
 
     return next_obs, reward, terminated, truncated, transition
 
+
 if __name__ == "__main__":
-# Only for debugging, can delete later
+    # Only for debugging, can delete later
     config = eu.AttrDict(
         # random seed for the repetition
-        seed = 3487 + 0,
+        seed=3487 + 0,
         env=eu.AttrDict(
             cls=envs.RoomGridWorld,
             penalization=0.0,
@@ -332,21 +357,18 @@ if __name__ == "__main__":
             nmax_steps=31,
         ),
         agent=eu.AttrDict(
-            cls = a.FeatureGoalWeightAgent,
+            cls=a.FeatureGoalWeightAgent,
         ),
-
-        agent_checkpoint_path = "/home/andres/inria/projects/universalSuccessorFeatures/experiments/second_phase020n/FeatureGoalWeightAgent_checkpoint.pt",
-        env_checkpoint_path = "/home/andres/inria/projects/universalSuccessorFeatures/experiments/second_phase020n/env_config.cfg",
+        agent_checkpoint_path="/home/andres/inria/projects/universalSuccessorFeatures/experiments/second_phase020n/FeatureGoalWeightAgent_checkpoint.pt",
+        env_checkpoint_path="/home/andres/inria/projects/universalSuccessorFeatures/experiments/second_phase020n/env_config.cfg",
         # agent_checkpoint_path="/scratch/pictor/abermeom/projects/universalSuccessorFeatures/experiments/first_phase020n/experiments/"
-        # + "experiment_000002" +"/repetition_{:06d}/".format(0) + "FeatureGoalWeightAgent" 
+        # + "experiment_000002" +"/repetition_{:06d}/".format(0) + "FeatureGoalWeightAgent"
         # + "_checkpoint.pt",
         # env_checkpoint_path = "/scratch/pictor/abermeom/projects/universalSuccessorFeatures/experiments/first_phase020n/experiments/"
         # + "experiment_000002" +"/repetition_{:06d}/".format(0) + "env_config.cfg",
-
-
         n_steps=12000,
-        use_gpi_eval = True,
-        use_target_tasks = True,
+        use_gpi_eval=True,
+        use_target_tasks=True,
     )
 
     run_rl_second_phase(config=config)
