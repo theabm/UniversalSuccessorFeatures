@@ -161,7 +161,8 @@ def update_experiment_number_dropdown(
     # and the experiment reps available (since they may not be the same across
     # campaigns)
 
-    # os.list dir lists the directories at the path /path_to_campaign_selected/experiments
+    # os.list dir lists the directories at the path
+    # /path_to_campaign_selected/experiments
     options_experiment_number = [
         {"label": f.name, "value": f.path}
         for f in os.scandir(campaign_path + "/experiments")
