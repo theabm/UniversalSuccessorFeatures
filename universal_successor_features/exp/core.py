@@ -3,7 +3,6 @@ import exputils as eu
 import exputils.data.logging as log
 import copy
 import universal_successor_features.agents as a
-import torch
 import universal_successor_features.envs as envs
 
 
@@ -115,8 +114,8 @@ def run_rl_first_phase(config=None, **kwargs):
         log.add_value(config.log_name_step_per_episode, step_per_episode)
         log.add_value(config.log_name_reward_per_episode, reward_per_episode)
 
-    agent.save(episode=episode, step=step, total_reward=total_reward)
-    my_env.save()
+    # agent.save(episode=episode, step=step, total_reward=total_reward)
+    # my_env.save()
     log.add_single_object(config.log_name_agent, agent)
     log.add_single_object(config.log_name_env, my_env)
     log.save()
@@ -346,6 +345,7 @@ def general_step_function(obs, agent, my_env, goals_so_far, training):
 
 
 if __name__ == "__main__":
+
     # Only for debugging, can delete later
     config = eu.AttrDict(
         # random seed for the repetition
@@ -359,15 +359,10 @@ if __name__ == "__main__":
         agent=eu.AttrDict(
             cls=a.FeatureGoalWeightAgent,
         ),
-        agent_checkpoint_path="/home/andres/inria/projects/universalSuccessorFeatures/experiments/second_phase020n/FeatureGoalWeightAgent_checkpoint.pt",
-        env_checkpoint_path="/home/andres/inria/projects/universalSuccessorFeatures/experiments/second_phase020n/env_config.cfg",
-        # agent_checkpoint_path="/scratch/pictor/abermeom/projects/universalSuccessorFeatures/experiments/first_phase020n/experiments/"
-        # + "experiment_000002" +"/repetition_{:06d}/".format(0) + "FeatureGoalWeightAgent"
-        # + "_checkpoint.pt",
-        # env_checkpoint_path = "/scratch/pictor/abermeom/projects/universalSuccessorFeatures/experiments/first_phase020n/experiments/"
-        # + "experiment_000002" +"/repetition_{:06d}/".format(0) + "env_config.cfg",
+        log_directory="/home/andres/inria/projects/universalSuccessorFeatures/experiments/second_phase020/experiments/experiment_000002/repetition_000000/data",
         n_steps=12000,
-        use_gpi_eval=True,
+        use_gpi_eval=False,
+        use_gpi_train = False, 
         use_target_tasks=True,
     )
 

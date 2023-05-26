@@ -39,6 +39,7 @@ class BaseAgent(ABC):
             learning_rate=5e-4,
             train_for_n_iterations=1,
             train_every_n_steps=1,
+            loss_weight_q=1.0,
             loss_weight_psi=0.01,
             loss_weight_phi=0.00,
             network=eu.AttrDict(
@@ -121,6 +122,7 @@ class BaseAgent(ABC):
         self.policy_net.to(self.device)
         self.target_net.to(self.device)
 
+        self.loss_weight_q = self.config.loss_weight_q
         self.loss_weight_psi = self.config.loss_weight_psi
         self.loss_weight_phi = self.config.loss_weight_phi
 
@@ -329,10 +331,10 @@ class BaseAgent(ABC):
             )
 
             # shape (batch_size, )
-            td_error_phi = torch.square(torch.abs(r - phi_w))  
+            td_error_phi = torch.square(torch.abs(r - phi_w))
 
             total_td_error = (
-                td_error_q
+                self.loss_weight_q * td_error_q
                 + self.loss_weight_psi * td_error_psi
                 + self.loss_weight_phi * td_error_phi
             )
@@ -437,9 +439,7 @@ class BaseAgent(ABC):
         self.target_net.load_state_dict(target_net_state_dict)
 
     def save(self, episode, step, total_reward):
-        filename = (
-            "checkpoint" + self.config.save.extension
-        )
+        filename = "checkpoint" + self.config.save.extension
         torch.save(
             {
                 "cls": self.__class__,
