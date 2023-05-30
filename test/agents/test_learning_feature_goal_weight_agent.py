@@ -16,7 +16,7 @@ import test.agents.utils as u  # for pytest
         (nn.FeatureGoalWeightUSF, mem.ExperienceReplayMemory, 500),
     ],
 )
-def test_training(network, memory, n_steps, seed=0):
+def test_learned_q_funtion_matches_expected_q_function(network, memory, n_steps, seed=0):
     if seed is not None:
         eu.misc.seed(seed)
 

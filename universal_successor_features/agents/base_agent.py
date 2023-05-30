@@ -302,6 +302,87 @@ class BaseAgent(ABC):
             ),
         }
 
+    @staticmethod
+    @abstractmethod
+    def _build_target_args(batch_args):
+        pass
+
+    def _build_q_target(self, batch_args):
+        q, sf_s_g, w, reward_phi_batch = self.target_net(
+            **self._build_target_args(batch_args)
+        )
+
+        q_max, action = torch.max(q, axis=1)
+
+        # shape (batch_size,)
+        target_q = batch_args["reward_batch"] + self.discount_factor * torch.mul(
+            q_max, ~batch_args["terminated_batch"]
+        )
+
+        return target_q, action, sf_s_g, w, reward_phi_batch
+
+    def _build_target_batch(self, batch_args):
+        terminated_batch = batch_args["terminated_batch"]
+        reward_batch = batch_args["reward_batch"]
+
+        if self.is_a_usf:
+            with torch.no_grad():
+                target_q, action, sf_s_g, _, reward_phi_batch = self._build_q_target(
+                    batch_args
+                )
+
+                terminated_batch = terminated_batch.unsqueeze(1)
+                # shape (batch_size,1,n)
+                action = (
+                    action.reshape(self.batch_size, 1, 1)
+                    .tile(self.features_size)
+                    .to(self.device)
+                )
+                # shape (batch, features_size)
+                target_psi = reward_phi_batch + self.discount_factor * torch.mul(
+                    sf_s_g.gather(1, action).squeeze(), ~terminated_batch
+                )
+
+            return target_q, target_psi, reward_batch
+
+        else:
+            with torch.no_grad():
+                target_q, *_ = self._build_q_target(batch_args)
+
+            return target_q
+
+    @staticmethod
+    @abstractmethod
+    def _build_predicted_args(batch_args):
+        pass
+
+    def _build_q_predicted(self, batch_args):
+        q, sf_s_g, w, phi = self.policy_net(**self._build_predicted_args(batch_args))
+        # shape (batch_size,)
+        predicted_q = q.gather(1, batch_args["action_batch"]).squeeze()
+
+        return predicted_q, sf_s_g, w, phi
+
+    def _build_predicted_batch(self, batch_args):
+        action_batch = batch_args["action_batch"]
+
+        if self.is_a_usf:
+            predicted_q, sf_s_g, w, phi = self._build_q_predicted(batch_args)
+
+            action_batch = action_batch.reshape(self.batch_size, 1, 1).tile(
+                self.features_size
+            )
+
+            # shape (batch_size, features_size)
+            predicted_psi = sf_s_g.gather(1, action_batch).squeeze()
+
+            return predicted_q, predicted_psi, torch.sum(phi * w, dim=1)
+
+        else:
+            predicted_q, *_ = self._build_q_predicted(batch_args)
+
+            return predicted_q
+
     def _train_one_batch(self):
         experiences, sample_weights = self._sample_experiences()
         sample_weights = sample_weights.to(self.device)
@@ -369,14 +450,6 @@ class BaseAgent(ABC):
         self.optimizer.step()
 
         return loss.item()
-
-    @abstractmethod
-    def _build_target_batch(self):
-        pass
-
-    @abstractmethod
-    def _build_predicted_batch(self):
-        pass
 
     def _train(self):
         if self.steps_since_last_training >= self.train_every_n_steps:

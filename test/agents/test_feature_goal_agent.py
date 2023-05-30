@@ -24,6 +24,7 @@ def test_default_configuration():
         learning_rate=5e-4,
         train_for_n_iterations=1,
         train_every_n_steps=1,
+        loss_weight_q=1.0,
         loss_weight_psi=0.01,
         loss_weight_phi=0.00,
         network=eu.AttrDict(
@@ -74,6 +75,7 @@ def test_agent_matches_custom_config():
         learning_rate=3e-4,
         train_for_n_iterations=4,
         train_every_n_steps=6,
+        loss_weight_q = 3,
         loss_weight_psi=4.01,
         loss_weight_phi=-3.50,
         network=eu.AttrDict(

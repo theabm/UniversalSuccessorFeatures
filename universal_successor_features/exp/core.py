@@ -2,9 +2,7 @@ import numpy as np
 import exputils as eu
 import exputils.data.logging as log
 import copy
-import universal_successor_features.agents as a
-import universal_successor_features.envs as envs
-
+import universal_successor_features as usf
 
 def run_rl_first_phase(config=None, **kwargs):
     # default config
@@ -349,21 +347,34 @@ if __name__ == "__main__":
     # Only for debugging, can delete later
     config = eu.AttrDict(
         # random seed for the repetition
-        seed=3487 + 0,
-        env=eu.AttrDict(
-            cls=envs.RoomGridWorld,
-            penalization=0.0,
-            reward_at_goal_position=20.0,
-            nmax_steps=31,
+        seed = 3487 + 0,
+        env = eu.AttrDict(
+            cls = usf.envs.RoomGridWorld,
+            penalization = 0.0,
+            reward_at_goal_position = 20.0,
+            nmax_steps = 31,
         ),
         agent=eu.AttrDict(
-            cls=a.FeatureGoalWeightAgent,
+            cls = usf.agents.FeatureGoalAgent,
+            network=eu.AttrDict(
+                cls=usf.networks.FeatureGoalUSF,
+            ),
+            loss_weight_q = 1.0,
+            loss_weight_psi=0.01,
+            loss_weight_phi = 0.0,
+            discount_factor=0.90,
+            batch_size=32,
+            learning_rate=5e-4,
+            epsilon=eu.AttrDict(
+                value=0.25
+            ),
+            memory = eu.AttrDict(
+                cls = usf.memory.ExperienceReplayMemory,
+                alpha = None,
+                beta0 = None,
+            )
         ),
-        log_directory="/home/andres/inria/projects/universalSuccessorFeatures/experiments/second_phase020/experiments/experiment_000002/repetition_000000/data",
-        n_steps=12000,
-        use_gpi_eval=False,
-        use_gpi_train = False, 
-        use_target_tasks=True,
+        n_steps = 48000,
     )
 
-    run_rl_second_phase(config=config)
+    run_rl_first_phase(config=config)
