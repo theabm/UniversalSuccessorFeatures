@@ -16,8 +16,6 @@ import test.agents.utils as u  # for pytest
 #           I need 1000 steps to learn the Q function well.
 #           On the other hand, if (like in the other tests)
 #           I leave nmax_steps at 1e6, the Q function is learnt in 500 steps.
-# QUESTION: Why does goal [1,1] fail? In this case the GPI procedure is hurting
-#           my ability to solve?
 @pytest.mark.parametrize(
     "agent_type, network, memory, n_steps",
     [

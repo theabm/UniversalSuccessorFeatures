@@ -11,6 +11,7 @@ class StateGoalWeightAgent(BaseAgent):
         cnf = eu.AttrDict(
             network=eu.AttrDict(
                 cls=nn.StateGoalWeightUSF,
+                use_gdtuo=False,
                 optimizer=torch.optim.Adam,
             ),
         )

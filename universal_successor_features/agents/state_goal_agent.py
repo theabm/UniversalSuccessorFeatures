@@ -11,6 +11,7 @@ class StateGoalAgent(BaseAgent):
         cnf = eu.AttrDict(
             network=eu.AttrDict(
                 cls=nn.StateGoalPaperDQN,
+                use_gdtuo=False,
                 optimizer=torch.optim.Adam,
             ),
         )

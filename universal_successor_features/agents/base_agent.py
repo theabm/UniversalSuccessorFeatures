@@ -27,7 +27,6 @@ Experiences = namedtuple(
     ),
 )
 
-
 class BaseAgent(ABC):
     @staticmethod
     def default_config():
@@ -511,38 +510,39 @@ class BaseAgent(ABC):
 
         self.target_net.load_state_dict(target_net_state_dict)
 
-    def save(self, episode, step, total_reward):
-        filename = "checkpoint" + self.config.save.extension
-        torch.save(
-            {
-                "cls": self.__class__,
-                "config": self.config,
-                "episode": episode,
-                "step": step,
-                "total_reward": total_reward,
-                "model_state_dict": self.policy_net.state_dict(),
-                "optimizer_state_dict": self.optimizer.state_dict(),
-                "memory": self.memory,
-                "env_goals_source": self.env.goal_list_source_tasks,
-                "env_goals_target": self.env.goal_list_target_tasks,
-                "env_goals_eval": self.env.goal_list_evaluation_tasks,
-            },
-            filename,
-        )
-
-    @classmethod
-    def load_from_checkpoint(cls, env, filename):
-        checkpoint = torch.load(filename)
-
-        agent = cls(env, config=checkpoint["config"])
-
-        agent.policy_net.load_state_dict(checkpoint["model_state_dict"])
-        agent.target_net = copy.deepcopy(agent.policy_net)
-
-        agent.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
-
-        agent.memory = checkpoint["memory"]
-        agent.current_episode = checkpoint["episode"]
-        agent.total_reward = checkpoint["total_reward"]
-
-        return agent
+    # Not needed since I will use exputils functionality
+    # def save(self, episode, step, total_reward):
+    #     filename = "checkpoint" + self.config.save.extension
+    #     torch.save(
+    #         {
+    #             "cls": self.__class__,
+    #             "config": self.config,
+    #             "episode": episode,
+    #             "step": step,
+    #             "total_reward": total_reward,
+    #             "model_state_dict": self.policy_net.state_dict(),
+    #             "optimizer_state_dict": self.optimizer.state_dict(),
+    #             "memory": self.memory,
+    #             "env_goals_source": self.env.goal_list_source_tasks,
+    #             "env_goals_target": self.env.goal_list_target_tasks,
+    #             "env_goals_eval": self.env.goal_list_evaluation_tasks,
+    #         },
+    #         filename,
+    #     )
+    #
+    # @classmethod
+    # def load_from_checkpoint(cls, env, filename):
+    #     checkpoint = torch.load(filename)
+    #
+    #     agent = cls(env, config=checkpoint["config"])
+    #
+    #     agent.policy_net.load_state_dict(checkpoint["model_state_dict"])
+    #     agent.target_net = copy.deepcopy(agent.policy_net)
+    #
+    #     agent.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
+    #
+    #     agent.memory = checkpoint["memory"]
+    #     agent.current_episode = checkpoint["episode"]
+    #     agent.total_reward = checkpoint["total_reward"]
+    #
+    #     return agent

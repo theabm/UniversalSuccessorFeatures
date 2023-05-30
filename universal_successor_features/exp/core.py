@@ -112,8 +112,6 @@ def run_rl_first_phase(config=None, **kwargs):
         log.add_value(config.log_name_step_per_episode, step_per_episode)
         log.add_value(config.log_name_reward_per_episode, reward_per_episode)
 
-    # agent.save(episode=episode, step=step, total_reward=total_reward)
-    # my_env.save()
     log.add_single_object(config.log_name_agent, agent)
     log.add_single_object(config.log_name_env, my_env)
     log.save()
