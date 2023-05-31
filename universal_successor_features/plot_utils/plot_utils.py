@@ -2,9 +2,6 @@ import torch
 import plotly.graph_objs as go
 import plotly.express as px
 import numpy as np
-import universal_successor_features.envs as envs
-import universal_successor_features.agents as agents
-import universal_successor_features.plot_utils.dropdowns as drop
 import os
 import exputils.data.logging as log
 

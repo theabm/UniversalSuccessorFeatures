@@ -59,6 +59,14 @@ class RoomGridWorld(GridWorld):
         return i, j
 
     def _create_three_disjoint_goal_lists(self):
+        """Create three disjoint set of goals. 
+        Primary/Source goals are the initial goals to train on.
+
+        Secondary/Target goals are the goals trained on in second phase
+
+        Tertiary/Evaluation goals are goals we evaluate on in the first
+        phase
+        """
         possible_goals_room_0 = [np.array([[i, j]]) for i in range(4) for j in range(4)]
         possible_goals_room_1 = [
             np.array([[i, j]]) for i in range(4) for j in range(5, 9)
@@ -88,6 +96,10 @@ class RoomGridWorld(GridWorld):
         return source_tasks, target_tasks, eval_tasks
 
     def check_boundary_conditions(self):
+        """
+        Check agent cannot violate physical constraints of the grid
+        world. 
+        """
         super().check_boundary_conditions()
         if (self.agent_i, self.agent_j) in self.forbidden_cells:
             self.agent_i = self.old_agent_i

@@ -316,6 +316,10 @@ def evaluate_agent(agent, test_env, step_fn, goal_list_for_eval, use_gpi):
 
 
 def general_step_function(obs, agent, my_env, goals_so_far, training):
+    """Choose an action and take a step in the environment. 
+
+    Creates the transition and returns it among the various arguments.
+    """
     action = agent.choose_action(
         obs=obs,
         list_of_goal_positions=goals_so_far,

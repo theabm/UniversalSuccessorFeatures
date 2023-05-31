@@ -76,6 +76,14 @@ class GridWorld(gym.Env):
         return i, j
 
     def _create_three_disjoint_goal_lists(self):
+        """Create three disjoint set of goals. 
+        Primary/Source goals are the initial goals to train on.
+
+        Secondary/Target goals are the goals trained on in second phase
+
+        Tertiary/Evaluation goals are goals we evaluate on in the first
+        phase
+        """
         all_possible_goals = [
             np.array([[i, j]]) for i in range(self.rows) for j in range(self.columns)
         ]
@@ -87,15 +95,19 @@ class GridWorld(gym.Env):
         )
 
     def sample_source_goal(self):
+        """Randomly sample a goal from the primary/source goals."""
         return self.sample_a_goal_position_from_list(self.goal_list_source_tasks)
 
     def sample_target_goal(self):
+        """Randomly sample a goal from the secondary/target goals."""
         return self.sample_a_goal_position_from_list(self.goal_list_target_tasks)
 
     def sample_eval_goal(self):
+        """Randomly sample a goal from the tertiary/evaluation goals."""
         return self.sample_a_goal_position_from_list(self.goal_list_evaluation_tasks)
 
     def sample_a_goal_position_from_list(self, goal_list):
+        """Randomly sample a goal position from a list of goals."""
         idx = random.randrange(len(goal_list))
         return goal_list[idx]
 
@@ -105,6 +117,7 @@ class GridWorld(gym.Env):
         goal_position: np.ndarray = None,
         seed=None,
     ):
+        """Reset the environment."""
         super().reset(seed=seed)
         self.cur_step = 0
 
@@ -143,6 +156,7 @@ class GridWorld(gym.Env):
         return obs, {}
 
     def check_boundary_conditions(self):
+        "Check the boundary conditions of the grid."
         if self.agent_i < 0:
             self.agent_i = 0
         if self.agent_i > self.rows - 1:
