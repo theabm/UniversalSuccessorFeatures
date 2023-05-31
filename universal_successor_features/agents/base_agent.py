@@ -313,31 +313,53 @@ class BaseAgent(ABC):
         pass
 
     def _build_q_target(self, batch_args):
+        """Build the q function target.
+        """
         q, sf_s_g, w, reward_phi_batch = self.target_net(
             **self._build_target_args(batch_args)
         )
+        
+        assert q.shape == (self.batch_size, self.action_space)
+
+        assert sf_s_g.shape == (self.batch_size, self.action_space, self.features_size) 
 
         q_max, action = torch.max(q, axis=1)
+
+        assert q_max.shape == (self.batch_size,)
+        assert action.shape == (self.batch_size,)
+        assert batch_args["reward_batch"].shape == (self.batch_size,)
+        assert batch_args["terminated_batch"].shape == (self.batch_size,)
 
         # shape (batch_size,)
         target_q = batch_args["reward_batch"] + self.discount_factor * torch.mul(
             q_max, ~batch_args["terminated_batch"]
         )
+        assert target_q.shape == (self.batch_size,)
 
         return target_q, action, sf_s_g, w, reward_phi_batch
 
     def _build_psi_target(self, batch_args, action, sf_s_g, reward_phi_batch):
+        assert batch_args["terminated_batch"].shape == (self.batch_size,)
+        assert action.shape == (self.batch_size,)
+        assert sf_s_g.shape == (self.batch_size, self.action_space, self.features_size)
+        assert reward_phi_batch.shape == (self.batch_size, self.features_size)
+
         terminated_batch = batch_args["terminated_batch"].unsqueeze(1)
+
         # shape (batch_size,1,n)
         action = (
             action.reshape(self.batch_size, 1, 1)
             .tile(self.features_size)
             .to(self.device)
         )
-        # shape (batch, features_size)
+
+        assert action.shape == (self.batch_size, 1, self.features_size)
+
         target_psi = reward_phi_batch + self.discount_factor * torch.mul(
             sf_s_g.gather(1, action).squeeze(), ~terminated_batch
         )
+
+        assert target_psi.shape == (self.batch_size, self.features_size)
 
         return target_psi
 
