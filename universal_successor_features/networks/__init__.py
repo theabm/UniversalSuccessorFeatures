@@ -7,4 +7,5 @@ from .usf.state_goal import StateGoalUSF
 from .usf.state_goal_weight import StateGoalWeightUSF
 from .usf.feature_goal import FeatureGoalUSF
 from .usf.feature_goal_weight import FeatureGoalWeightUSF
+from .usf.feature_goal_weight_augmented import FeatureGoalWeightAugmentedUSF
 from .usf.state_goal_modified import StateGoalUSFModified
