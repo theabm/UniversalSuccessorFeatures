@@ -16,6 +16,7 @@ class GridWorld(gym.Env):
             nmax_steps=1e6,
             penalization=-0.1,
             reward_at_goal_position=0,
+            one_hot_weight=1,
             n_goals=1,
         )
 
@@ -76,7 +77,7 @@ class GridWorld(gym.Env):
         return i, j
 
     def _create_three_disjoint_goal_lists(self):
-        """Create three disjoint set of goals. 
+        """Create three disjoint set of goals.
         Primary/Source goals are the initial goals to train on.
 
         Secondary/Target goals are the goals trained on in second phase
@@ -240,10 +241,14 @@ class GridWorld(gym.Env):
     def _get_agent_position_features_at(self, position: np.ndarray):
         i = position[0][0]
         j = position[0][1]
-        return self._make_full_grid_and_place_val_in(i, j, 0, 1)
+        return self._make_full_grid_and_place_val_in(
+            i, j, 0, self.config.one_hot_weight
+        )
 
     def _get_current_agent_position_features(self):
-        return self._make_full_grid_and_place_val_in(self.agent_i, self.agent_j, 0, 1)
+        return self._make_full_grid_and_place_val_in(
+            self.agent_i, self.agent_j, 0, self.config.one_hot_weight
+        )
 
     def _get_current_goal_weights(self):
         return self._make_full_grid_and_place_val_in(

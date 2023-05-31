@@ -259,7 +259,7 @@ class BaseAgent(ABC):
         return batch_of_np_arrays
 
     def _build_dictionary_of_batch_from_experiences(self, experiences):
-        return {
+        batch_dict = {
             # shape (batch_size, position_size)
             "agent_position_batch": self._build_tensor_from_batch_of_np_arrays(
                 experiences.agent_position_batch
@@ -296,15 +296,20 @@ class BaseAgent(ABC):
             ).to(
                 self.device
             ),
-            # shape (batch_size, 1)
+            # shape (batch_size,)
             "terminated_batch": torch.tensor(experiences.terminated_batch).to(
                 self.device
             ),
         }
 
+        return batch_dict
+
     @staticmethod
     @abstractmethod
     def _build_target_args(batch_args):
+        """Extract the needed arguments for the network from the dictionary of batch
+        arguments
+        """
         pass
 
     def _build_q_target(self, batch_args):
