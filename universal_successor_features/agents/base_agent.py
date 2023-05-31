@@ -27,6 +27,7 @@ Experiences = namedtuple(
     ),
 )
 
+
 class BaseAgent(ABC):
     @staticmethod
     def default_config():
@@ -319,30 +320,32 @@ class BaseAgent(ABC):
         )
 
         return target_q, action, sf_s_g, w, reward_phi_batch
+    
+    def _build_psi_target(self, batch_args, action, sf_s_g, reward_phi_batch):
+        terminated_batch = batch_args["terminated_batch"].unsqueeze(1)
+        # shape (batch_size,1,n)
+        action = (
+            action.reshape(self.batch_size, 1, 1)
+            .tile(self.features_size)
+            .to(self.device)
+        )
+        # shape (batch, features_size)
+        target_psi = reward_phi_batch + self.discount_factor * torch.mul(
+            sf_s_g.gather(1, action).squeeze(), ~terminated_batch
+        )
+
+        return target_psi
 
     def _build_target_batch(self, batch_args):
-        terminated_batch = batch_args["terminated_batch"]
-        reward_batch = batch_args["reward_batch"]
-
         if self.is_a_usf:
             with torch.no_grad():
                 target_q, action, sf_s_g, _, reward_phi_batch = self._build_q_target(
                     batch_args
                 )
+                target_psi = self._build_psi_target(batch_args, action, sf_s_g, reward_phi_batch)
 
-                terminated_batch = terminated_batch.unsqueeze(1)
-                # shape (batch_size,1,n)
-                action = (
-                    action.reshape(self.batch_size, 1, 1)
-                    .tile(self.features_size)
-                    .to(self.device)
-                )
-                # shape (batch, features_size)
-                target_psi = reward_phi_batch + self.discount_factor * torch.mul(
-                    sf_s_g.gather(1, action).squeeze(), ~terminated_batch
-                )
 
-            return target_q, target_psi, reward_batch
+            return target_q, target_psi, batch_args["reward_batch"]
 
         else:
             with torch.no_grad():
