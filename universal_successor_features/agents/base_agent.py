@@ -320,7 +320,7 @@ class BaseAgent(ABC):
         )
 
         return target_q, action, sf_s_g, w, reward_phi_batch
-    
+
     def _build_psi_target(self, batch_args, action, sf_s_g, reward_phi_batch):
         terminated_batch = batch_args["terminated_batch"].unsqueeze(1)
         # shape (batch_size,1,n)
@@ -342,10 +342,14 @@ class BaseAgent(ABC):
                 target_q, action, sf_s_g, _, reward_phi_batch = self._build_q_target(
                     batch_args
                 )
-                target_psi = self._build_psi_target(batch_args, action, sf_s_g, reward_phi_batch)
 
+                target_psi = self._build_psi_target(
+                    batch_args, action, sf_s_g, reward_phi_batch
+                )
 
-            return target_q, target_psi, batch_args["reward_batch"]
+                target_r = batch_args["reward_batch"]
+
+            return target_q, target_psi, target_r
 
         else:
             with torch.no_grad():
@@ -365,20 +369,27 @@ class BaseAgent(ABC):
 
         return predicted_q, sf_s_g, w, phi
 
-    def _build_predicted_batch(self, batch_args):
-        action_batch = batch_args["action_batch"]
+    def _build_psi_predicted(self, batch_args, sf_s_g):
+        action_batch = (
+            batch_args["action_batch"]
+            .reshape(self.batch_size, 1, 1)
+            .tile(self.features_size)
+        )
 
+        # shape (batch_size, features_size)
+        predicted_psi = sf_s_g.gather(1, action_batch).squeeze()
+
+        return predicted_psi
+
+    def _build_predicted_batch(self, batch_args):
         if self.is_a_usf:
             predicted_q, sf_s_g, w, phi = self._build_q_predicted(batch_args)
 
-            action_batch = action_batch.reshape(self.batch_size, 1, 1).tile(
-                self.features_size
-            )
+            predicted_psi = self._build_psi_predicted(batch_args, sf_s_g)
 
-            # shape (batch_size, features_size)
-            predicted_psi = sf_s_g.gather(1, action_batch).squeeze()
+            predicted_r = torch.sum(phi * w, dim=1)
 
-            return predicted_q, predicted_psi, torch.sum(phi * w, dim=1)
+            return predicted_q, predicted_psi, predicted_r
 
         else:
             predicted_q, *_ = self._build_q_predicted(batch_args)
