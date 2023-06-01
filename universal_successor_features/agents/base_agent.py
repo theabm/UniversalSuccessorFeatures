@@ -314,8 +314,16 @@ class BaseAgent(ABC):
         pass
 
     def _build_q_target(self, batch_args):
-        """Build the q function target.
+        """Build the q function target from batch args.
+        Input: batch_args (dict) is a dictionary of batches of experience.
+        Output: target of the Q values.
         """
+        # We only assert the data that we use for computations. Any other 
+        # data not explicitly used in the body of this function, such as 
+        # sf_s_g will be checked in the appropriate function that uses it.
+
+        assert len(batch_args)==9
+
         q, sf_s_g, w, reward_phi_batch = self.target_net(
             **self._build_target_args(batch_args)
         )
@@ -329,7 +337,6 @@ class BaseAgent(ABC):
         assert batch_args["reward_batch"].shape == (self.batch_size,)
         assert batch_args["terminated_batch"].shape == (self.batch_size,)
 
-        # shape (batch_size,)
         target_q = batch_args["reward_batch"] + self.discount_factor * torch.mul(
             q_max, ~batch_args["terminated_batch"]
         )
@@ -344,6 +351,8 @@ class BaseAgent(ABC):
         assert reward_phi_batch.shape == (self.batch_size, self.features_size)
 
         terminated_batch = batch_args["terminated_batch"].unsqueeze(1)
+
+        assert terminated_batch.shape == (self.batch_size, 1)
 
         # shape (batch_size,1,n)
         action = (
@@ -389,21 +398,37 @@ class BaseAgent(ABC):
         pass
 
     def _build_q_predicted(self, batch_args):
+        assert len(batch_args) == 9
+
         q, sf_s_g, w, phi = self.policy_net(**self._build_predicted_args(batch_args))
+
+        assert q.shape == (self.batch_size, self.action_space)
+        assert batch_args["action_batch"].shape == (self.batch_size, )
+
         # shape (batch_size,)
         predicted_q = q.gather(1, batch_args["action_batch"]).squeeze()
+
+        assert predicted_q.shape == (self.batch_size, )
 
         return predicted_q, sf_s_g, w, phi
 
     def _build_psi_predicted(self, batch_args, sf_s_g):
+        assert len(batch_args) == 9
+        assert sf_s_g.shape == (self.batch_size, self.action_space, self.features_size)
+        assert batch_args["action_batch"].shape == (self.batch_size, )
+
         action_batch = (
             batch_args["action_batch"]
             .reshape(self.batch_size, 1, 1)
             .tile(self.features_size)
         )
 
+        assert action_batch.shape == (self.batch_size, 1, self.features_size)
+
         # shape (batch_size, features_size)
         predicted_psi = sf_s_g.gather(1, action_batch).squeeze()
+
+        assert predicted_psi.shape == (self.batch_size, self.features_size)
 
         return predicted_psi
 
