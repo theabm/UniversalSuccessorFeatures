@@ -248,14 +248,26 @@ class BaseAgent(ABC):
         experiences, weights = self.memory.sample(self.batch_size)
         return Experiences(*zip(*experiences)), torch.tensor(weights)
 
-    @staticmethod
-    def _build_tensor_from_batch_of_np_arrays(batch_of_np_arrays):
+    def _build_tensor_from_batch_of_np_arrays(self, list_of_np_arrays):
+        assert len(list_of_np_arrays) == self.batch_size
+        assert len(list_of_np_arrays[0].shape) == 2
+
+        len_input = list_of_np_arrays[0].shape[1]
+
         # expected shape: [(1,n), (1,n), ..., (1,n)] where in total we
         # have batch_size elements
-        batch_of_np_arrays = np.array(batch_of_np_arrays)
+        list_of_np_arrays = np.array(list_of_np_arrays)
+        assert list_of_np_arrays.shape == (self.batch_size, 1, len_input)
+
         # batch of np_arrays has form (batch_size, 1, n) so after squeeze()
         # we have (batch_size, n)
-        batch_of_np_arrays = torch.tensor(batch_of_np_arrays).squeeze().to(torch.float)
+        batch_of_np_arrays = (
+            torch.tensor(list_of_np_arrays)
+            .reshape(self.batch_size, len_input)
+            .to(torch.float)
+        )
+
+        assert batch_of_np_arrays.shape == (self.batch_size, len_input)
 
         return batch_of_np_arrays
 
@@ -363,8 +375,14 @@ class BaseAgent(ABC):
 
         assert action.shape == (self.batch_size, 1, self.features_size)
 
+        max_sf = sf_s_g.gather(1, action)
+        assert max_sf.shape == (self.batch_size, 1, self.features_size)
+
+        max_sf = max_sf.reshape(self.batch_size, self.features_size)
+        assert max_sf.shape == (self.batch_size, self.features_size)
+
         target_psi = reward_phi_batch + self.discount_factor * torch.mul(
-            sf_s_g.gather(1, action).squeeze(), ~terminated_batch
+            max_sf, ~terminated_batch
         )
 
         assert target_psi.shape == (self.batch_size, self.features_size)
@@ -403,10 +421,10 @@ class BaseAgent(ABC):
         q, sf_s_g, w, phi = self.policy_net(**self._build_predicted_args(batch_args))
 
         assert q.shape == (self.batch_size, self.action_space)
-        assert batch_args["action_batch"].shape == (self.batch_size,1)
+        assert batch_args["action_batch"].shape == (self.batch_size, 1)
 
         # shape (batch_size,)
-        predicted_q = q.gather(1, batch_args["action_batch"]).squeeze()
+        predicted_q = q.gather(1, batch_args["action_batch"]).reshape(self.batch_size)
 
         assert predicted_q.shape == (self.batch_size,)
 
@@ -415,7 +433,7 @@ class BaseAgent(ABC):
     def _build_psi_predicted(self, batch_args, sf_s_g):
         assert len(batch_args) == 9
         assert sf_s_g.shape == (self.batch_size, self.action_space, self.features_size)
-        assert batch_args["action_batch"].shape == (self.batch_size,1)
+        assert batch_args["action_batch"].shape == (self.batch_size, 1)
 
         action_batch = (
             batch_args["action_batch"]
@@ -426,7 +444,9 @@ class BaseAgent(ABC):
         assert action_batch.shape == (self.batch_size, 1, self.features_size)
 
         # shape (batch_size, features_size)
-        predicted_psi = sf_s_g.gather(1, action_batch).squeeze()
+        predicted_psi = sf_s_g.gather(1, action_batch).reshape(
+            self.batch_size, self.features_size
+        )
 
         assert predicted_psi.shape == (self.batch_size, self.features_size)
 

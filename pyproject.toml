@@ -1,11 +1,13 @@
 [project]
 name = "universalSuccessorFeatures"
-description = "rlan"
+description = "usf"
 
 version = "0.1"
 authors = [
     { name = "Andres Bermeo Marinelli", email = "andres.bermeo-marinelli@inria.fr" }
 ]
-dependencies = [
-]
-#url = ""
+dependencies = [ ]
+
+[tool.pytest.ini_options]
+testpaths = ["test"]
+filterwarnings = [ "ignore::DeprecationWarning" ]
