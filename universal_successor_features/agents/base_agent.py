@@ -248,7 +248,8 @@ class BaseAgent(ABC):
         experiences, weights = self.memory.sample(self.batch_size)
         return Experiences(*zip(*experiences)), torch.tensor(weights)
 
-    def _build_tensor_from_batch_of_np_arrays(self, batch_of_np_arrays):
+    @staticmethod
+    def _build_tensor_from_batch_of_np_arrays(batch_of_np_arrays):
         # expected shape: [(1,n), (1,n), ..., (1,n)] where in total we
         # have batch_size elements
         batch_of_np_arrays = np.array(batch_of_np_arrays)
@@ -320,8 +321,6 @@ class BaseAgent(ABC):
         )
         
         assert q.shape == (self.batch_size, self.action_space)
-
-        assert sf_s_g.shape == (self.batch_size, self.action_space, self.features_size) 
 
         q_max, action = torch.max(q, axis=1)
 
