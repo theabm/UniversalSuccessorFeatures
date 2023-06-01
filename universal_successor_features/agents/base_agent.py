@@ -318,16 +318,16 @@ class BaseAgent(ABC):
         Input: batch_args (dict) is a dictionary of batches of experience.
         Output: target of the Q values.
         """
-        # We only assert the data that we use for computations. Any other 
-        # data not explicitly used in the body of this function, such as 
+        # We only assert the data that we use for computations. Any other
+        # data not explicitly used in the body of this function, such as
         # sf_s_g will be checked in the appropriate function that uses it.
 
-        assert len(batch_args)==9
+        assert len(batch_args) == 9
 
         q, sf_s_g, w, reward_phi_batch = self.target_net(
             **self._build_target_args(batch_args)
         )
-        
+
         assert q.shape == (self.batch_size, self.action_space)
 
         q_max, action = torch.max(q, axis=1)
@@ -403,19 +403,19 @@ class BaseAgent(ABC):
         q, sf_s_g, w, phi = self.policy_net(**self._build_predicted_args(batch_args))
 
         assert q.shape == (self.batch_size, self.action_space)
-        assert batch_args["action_batch"].shape == (self.batch_size, )
+        assert batch_args["action_batch"].shape == (self.batch_size,1)
 
         # shape (batch_size,)
         predicted_q = q.gather(1, batch_args["action_batch"]).squeeze()
 
-        assert predicted_q.shape == (self.batch_size, )
+        assert predicted_q.shape == (self.batch_size,)
 
         return predicted_q, sf_s_g, w, phi
 
     def _build_psi_predicted(self, batch_args, sf_s_g):
         assert len(batch_args) == 9
         assert sf_s_g.shape == (self.batch_size, self.action_space, self.features_size)
-        assert batch_args["action_batch"].shape == (self.batch_size, )
+        assert batch_args["action_batch"].shape == (self.batch_size,1)
 
         action_batch = (
             batch_args["action_batch"]
@@ -447,6 +447,44 @@ class BaseAgent(ABC):
 
             return predicted_q
 
+    def _get_td_error_for_usf(
+        self,
+        target_batch_q,
+        target_batch_psi,
+        target_batch_r,
+        predicted_batch_q,
+        predicted_batch_psi,
+        predicted_batch_r,
+    ):
+        """Compute MSE loss for batches"""
+
+        td_error_q = torch.square(torch.abs(target_batch_q - predicted_batch_q))
+
+        assert td_error_q.shape == (self.batch_size,)
+
+        # shape of target_batch_psi is (batch, size_features) so the td_error for
+        # that batch must be summed along first dim which automatically squeezes
+        # the dim = 1 and so the final shape is (batch_size,)
+        td_error_psi = torch.mean(
+            torch.square(torch.abs(target_batch_psi - predicted_batch_psi)), dim=1
+        )
+
+        assert td_error_psi.shape == (self.batch_size,)
+
+        # shape (batch_size, )
+        td_error_phi = torch.square(torch.abs(target_batch_r - predicted_batch_r))
+
+        assert td_error_phi.shape == (self.batch_size,)
+
+        total_td_error = (
+            self.loss_weight_q * td_error_q
+            + self.loss_weight_psi * td_error_psi
+            + self.loss_weight_phi * td_error_phi
+        )
+        assert total_td_error.shape == (self.batch_size,)
+
+        return total_td_error
+
     def _train_one_batch(self):
         experiences, sample_weights = self._sample_experiences()
         sample_weights = sample_weights.to(self.device)
@@ -457,31 +495,27 @@ class BaseAgent(ABC):
             self.optimizer.begin()
 
         self.optimizer.zero_grad()
+
         if self.is_a_usf:
-            target_batch_q, target_batch_psi, r = self._build_target_batch(
-                batch_args,
-            )
-            predicted_batch_q, predicted_batch_psi, phi_w = self._build_predicted_batch(
+            target_batch_q, target_batch_psi, target_batch_r = self._build_target_batch(
                 batch_args,
             )
 
-            # shape (batch_size,)
-            td_error_q = torch.square(torch.abs(target_batch_q - predicted_batch_q))
-
-            # shape of target_batch_psi is (batch, size_features) so the td_error for
-            # that batch must be summed along first dim which automatically squeezes
-            # the dim = 1 and so the final shape is (batch_size,)
-            td_error_psi = torch.mean(
-                torch.square(torch.abs(target_batch_psi - predicted_batch_psi)), dim=1
+            (
+                predicted_batch_q,
+                predicted_batch_psi,
+                predicted_batch_r,
+            ) = self._build_predicted_batch(
+                batch_args,
             )
 
-            # shape (batch_size, )
-            td_error_phi = torch.square(torch.abs(r - phi_w))
-
-            total_td_error = (
-                self.loss_weight_q * td_error_q
-                + self.loss_weight_psi * td_error_psi
-                + self.loss_weight_phi * td_error_phi
+            total_td_error = self._get_td_error_for_usf(
+                target_batch_q,
+                target_batch_psi,
+                target_batch_r,
+                predicted_batch_q,
+                predicted_batch_psi,
+                predicted_batch_r,
             )
 
             # update the priority of batch samples in memory
@@ -490,6 +524,7 @@ class BaseAgent(ABC):
             self.memory.anneal_beta()
 
             loss = torch.mean(sample_weights * total_td_error)
+
         else:
             target_batch_q = self._build_target_batch(
                 batch_args,

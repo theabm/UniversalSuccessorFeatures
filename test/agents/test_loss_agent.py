@@ -48,13 +48,19 @@ def test_build_q_target():
     agent.target_net = stub_feature_goal_network(features_size=3 * 3).to(agent.device)
 
     batch_args = {
+        "agent_position_batch": None,
+        "agent_position_features_batch": None,
+        "goal_batch": torch.tensor([[1, 0]]).to(agent.device),
+        "goal_weights_batch": torch.tensor([[1, 1, 1, 1, 1, 1, 1, 1, 1]]).to(
+            agent.device
+        ),
+        "action_batch": None,
         "reward_batch": torch.tensor([0]).to(agent.device),
-        "terminated_batch": torch.tensor([False]).to(agent.device),
+        "next_agent_position_batch": None,
         "next_agent_position_features_batch": torch.tensor(
             [[1, 0, 0, 0, 0, 0, 0, 0, 0]]
         ).to(agent.device),
-        "goal_batch": torch.tensor([[1, 0]]).to(agent.device),
-        "goal_weights_batch": torch.tensor([[1, 1, 1, 1, 1, 1, 1, 1, 1]]).to(agent.device),
+        "terminated_batch": torch.tensor([False]).to(agent.device),
     }
     # The stub will take the features, repeat them 4 times, multiply the entire thirdf
     # entry by 5 and then multiply each of the four rows by the weights vector
@@ -87,15 +93,19 @@ def test_build_psi_target():
     agent.target_net = stub_feature_goal_network(features_size=3 * 3).to(agent.device)
 
     batch_args = {
-        "reward_batch": torch.tensor([0]).to(agent.device),
-        "terminated_batch": torch.tensor([False]).to(agent.device),
-        "next_agent_position_features_batch": torch.tensor(
-            [[1, 0, 0, 0, 0, 0, 0, 0, 0]]
-        ).to(agent.device),
+        "agent_position_batch": None,
+        "agent_position_features_batch": None,
         "goal_batch": torch.tensor([[1, 0]]).to(agent.device),
         "goal_weights_batch": torch.tensor([[1, 1, 1, 1, 1, 1, 1, 1, 1]]).to(
             agent.device
         ),
+        "action_batch": None,
+        "reward_batch": torch.tensor([0]).to(agent.device),
+        "next_agent_position_batch": None,
+        "next_agent_position_features_batch": torch.tensor(
+            [[1, 0, 0, 0, 0, 0, 0, 0, 0]]
+        ).to(agent.device),
+        "terminated_batch": torch.tensor([False]).to(agent.device),
     }
 
     action = torch.tensor([2]).to(agent.device)
@@ -120,6 +130,10 @@ def test_build_psi_target():
     cmp = expected_psi == target_psi
 
     assert cmp.all()
+
+
+def test_usf_loss():
+    pass
 
 
 if __name__ == "__main__":
