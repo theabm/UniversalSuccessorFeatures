@@ -32,17 +32,17 @@ class FeatureGoalWeightAugmentedUSF(torch.nn.Module):
                 torch.nn.ReLU(),
                 torch.nn.Linear(
                     in_features=64,
+                    out_features=64,
+                    ),
+                torch.nn.ReLU(),
+                torch.nn.Linear(
+                    in_features=64,
                     out_features=self.config.features_size
                     )
                 )
         self.concatenation_layer = torch.nn.Sequential(
                 torch.nn.Linear(
                     in_features=2*self.config.features_size,
-                    out_features=512
-                    ),
-                torch.nn.ReLU(),
-                torch.nn.Linear(
-                    in_features=512,
                     out_features=256,
                     ),
                 torch.nn.ReLU(),
@@ -54,7 +54,7 @@ class FeatureGoalWeightAugmentedUSF(torch.nn.Module):
                 torch.nn.Linear(
                     in_features=256,
                     out_features=self.config.num_actions*self.config.features_size
-                    )
+                    ),
                 )
 
     def forward(self,
