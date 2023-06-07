@@ -117,9 +117,57 @@ def test_sampling_is_correct_proportions_using_memory():
 
     assert np.isclose(counter_b / counter_a, 4, rtol=0, atol=0.5)
 
+def test_sampling_is_correct_proportions_using_memory_a0b0():
+    """
+    Insert two elements in the memory, manually modify their weights,
+    sample them many times.
+    Alpha = 0, Beta = 0.
+    This means that even though I manually insert td error, I should 
+    still sample uniformly
+    """
+    eu.misc.seed(0)
+
+    exp_repl = mem.PrioritizedExperienceReplayMemory(
+            alpha = 0,
+            beta0 = 0,
+            )
+
+    # I push two elements
+    exp_repl.push("a")
+    exp_repl.push("b")
+    exp_repl.push("c")
+    exp_repl.push("d")
+
+    samples, weight = exp_repl.sample(2)
+    sample1 = samples[0]
+    sample2 = samples[1]
+
+    new_td_error = [1, 4]
+
+    # This should make no difference since alpha and beta are 0
+    exp_repl.update_samples(torch.tensor(new_td_error))
+
+    # counter for sample 1 and sample 2
+    counter_1 = 0
+    counter_2 = 0
+    for _ in range(10000):
+        item, _ = exp_repl.sample(1)
+        if item[0] == sample1:
+            counter_1 += 1
+        elif item[0] == sample2:
+            counter_2 += 1
+    exp_repl.push("e")
+    exp_repl.push("f")
+    _, weight = exp_repl.sample(2)
+    assert (
+        np.isclose(counter_2 / counter_1, 1, rtol=0, atol=0.5)
+    )
+    assert (weight <= 1).all()
+
 def test_updating_samples_work_as_expected():
     """
-
+    I push a few transitions, sample a batch_size = 2, update the weights 
+    with a td-error manually, and then verify that the sampling is correct.
     """
     eu.misc.seed(0)
 
@@ -156,4 +204,3 @@ def test_updating_samples_work_as_expected():
     assert (weight <= 1).all()
 
 
-# test_updating_samples_work_as_expected()
