@@ -9,11 +9,10 @@ class RoomGridWorld(GridWorld):
     @staticmethod
     def default_config():
         return eu.AttrDict(
-            nmax_steps=1e6,
+            nmax_steps=31,
             penalization=-0.1,
             reward_at_goal_position=0,
-            rows=9,
-            columns=9,
+            one_hot_weight=1,
         )
 
     def __init__(self, config=None, **kwargs):
@@ -113,15 +112,8 @@ class RoomGridWorld(GridWorld):
         return obs, reward, terminated, truncated, info
 
     def save(self):
-        filename = "env_config.cfg"
-
-        self.config.goal_list_source_tasks = self.goal_list_source_tasks
-        self.config.goal_list_target_tasks = self.goal_list_target_tasks
-        self.config.goal_list_evaluation_tasks = self.goal_list_evaluation_tasks
         self.config.forbidden_cells = self.forbidden_cells
-
-        with open(filename, "wb") as fp:
-            pickle.dump(self.config, fp)
+        super().save()
 
     @classmethod
     def load_from_checkpoint(cls, filename):

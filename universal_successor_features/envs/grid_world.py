@@ -5,19 +5,20 @@ import exputils as eu
 import random
 import warnings
 from universal_successor_features.envs.directions import Directions
+import pickle
 
 
 class GridWorld(gym.Env):
     @staticmethod
     def default_config():
         return eu.AttrDict(
-            rows=10,
-            columns=10,
-            nmax_steps=1e6,
+            rows=9,
+            columns=9,
+            nmax_steps=31,
             penalization=-0.1,
             reward_at_goal_position=0,
             one_hot_weight=1,
-            n_goals=1,
+            n_goals=12,
         )
 
     def __init__(self, config=None, **kwargs):
@@ -29,7 +30,8 @@ class GridWorld(gym.Env):
         self.rows = self.config.rows
         self.columns = self.config.columns
 
-        # action space of the environment. Agent can only move up, down, left, right, or stay
+        # action space of the environment. 
+        # Agent can only move up, down, left, right, or stay
         self.action_space = gym.spaces.Discrete(4)
 
         # observation space of the agent are the x,y coordinates
@@ -136,7 +138,7 @@ class GridWorld(gym.Env):
             # if same, give priority to goal that was set
             while (self.agent_i, self.agent_j) == (self.goal_i, self.goal_j):
                 warnings.warn(
-                    "Start position and goal position cannot be the same. Proceeding with different start position..."
+                    "Start and goal position cannot be the same. Using different start"
                 )
                 self.agent_i, self.agent_j = self._sample_position_in_grid()
         else:
@@ -185,7 +187,7 @@ class GridWorld(gym.Env):
             self.agent_j -= 1
         else:
             raise ValueError(
-                "Unrecognized action. Agent can only perform the following actions: up:0, down:1, right:2, left:3."
+                    "Agent can only perform: up:0, down:1, right:2, left:3."
             )
 
     def get_step_info(self):
@@ -230,7 +232,10 @@ class GridWorld(gym.Env):
 
     def render(self):
         print(
-            f"Goal: ({self.goal_i},{self.goal_j})\t action: {Directions(self.action).name}\t new position: ({self.agent_i},{self.agent_j})\t reward: {self.reward}"
+            f"Goal: ({self.goal_i},{self.goal_j})\t", 
+            f"action: {Directions(self.action).name}\t", 
+            f"new position: ({self.agent_i},{self.agent_j})\t", 
+            f"reward: {self.reward}"
         )
 
     def _make_full_grid_and_place_val_in(self, i, j, full_val, val):
@@ -264,6 +269,16 @@ class GridWorld(gym.Env):
         return self._make_full_grid_and_place_val_in(
             i, j, self.config.penalization, self.config.reward_at_goal_position
         )
+
+    def save(self):
+        filename = "env_config.cfg"
+
+        self.config.goal_list_source_tasks = self.goal_list_source_tasks
+        self.config.goal_list_target_tasks = self.goal_list_target_tasks
+        self.config.goal_list_evaluation_tasks = self.goal_list_evaluation_tasks
+
+        with open(filename, "wb") as fp:
+            pickle.dump(self.config, fp)
 
 
 if __name__ == "__main__":
