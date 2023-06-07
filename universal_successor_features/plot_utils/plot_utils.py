@@ -365,7 +365,7 @@ def add_rectangles_to_figure(fig, agent_i, agent_j, policy_goal_i, policy_goal_j
         y0=policy_goal_i - 0.5,
         x1=policy_goal_j + 0.5,
         y1=policy_goal_i + 0.5,
-        line=dict(color="Red"),
+        line=dict(color="Purple"),
     )
     return fig
 
