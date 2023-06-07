@@ -21,7 +21,7 @@ dropdown_menu_campaign = dcc.Dropdown(
     # label: "directory_name", value: "experiment_path/directory_name"
     options=[
         {"label": f.name, "value": f.path}
-        for f in os.scandir(experiments_path)
+        for f in sorted(os.scandir(experiments_path), key=lambda e: e.name)
         if f.is_dir()
     ],
     # default campaign is the first it finds in the list (random order)
@@ -32,7 +32,10 @@ dropdown_menu_experiment_number = dcc.Dropdown(
     id="experiment_num",
     options=[
         {"label": f.name, "value": f.path}
-        for f in os.scandir(dropdown_menu_campaign.value + "/experiments")
+        for f in sorted(
+            os.scandir(dropdown_menu_campaign.value + "/experiments"),
+            key=lambda e: e.name,
+        )
         if f.is_dir()
     ],
     # default value is first in list
@@ -45,7 +48,9 @@ dropdown_menu_experiment_rep = dcc.Dropdown(
     id="experiment_rep",
     options=[
         {"label": f.name, "value": f.path}
-        for f in os.scandir(dropdown_menu_experiment_number.value)
+        for f in sorted(
+            os.scandir(dropdown_menu_experiment_number.value), key=lambda e: e.name
+        )
         if f.is_dir()
     ],
     # default value is first in list
@@ -151,9 +156,7 @@ app.layout = dbc.Container(
     Output(dropdown_menu_experiment_number, "value"),
     Input(dropdown_menu_campaign, "value"),
 )
-def update_experiment_number_dropdown(
-    campaign_path
-):
+def update_experiment_number_dropdown(campaign_path):
     # Changing the campaign resets the possible experiments options available
     # and the experiment reps available (since they may not be the same across
     # campaigns)
@@ -162,7 +165,9 @@ def update_experiment_number_dropdown(
     # /path_to_campaign_selected/experiments
     options_experiment_number = [
         {"label": f.name, "value": f.path}
-        for f in os.scandir(campaign_path + "/experiments")
+        for f in sorted(
+            os.scandir(campaign_path + "/experiments"), key=lambda e: e.name
+        )
         if f.is_dir()
     ]
 
@@ -171,18 +176,16 @@ def update_experiment_number_dropdown(
         options_experiment_number[0]["value"],
     )
 
+
 @app.callback(
     Output(dropdown_menu_experiment_rep, "options"),
     Output(dropdown_menu_experiment_rep, "value"),
     Input(dropdown_menu_experiment_number, "value"),
 )
-def update_experiment_repetition_dropdown(
-    experiment_number_path
-):
-
+def update_experiment_repetition_dropdown(experiment_number_path):
     options_experiment_rep = [
         {"label": f.name, "value": f.path}
-        for f in os.scandir(experiment_number_path)
+        for f in sorted(os.scandir(experiment_number_path), key=lambda e: e.name)
         if f.is_dir()
     ]
 
@@ -207,12 +210,19 @@ def update_agent_pos_and_goal_dropdown(experiment_rep_path):
     log.set_directory(new_path)
     env = log.load_single_object("env")
 
-    options_agent_position = [
-        {"label": f"({i},{j})", "value": f"({i},{j})"}
-        for i in range(env.rows)
-        for j in range(env.columns)
-        if (i, j) not in env.forbidden_cells
-    ]
+    try:
+        options_agent_position = [
+            {"label": f"({i},{j})", "value": f"({i},{j})"}
+            for i in range(env.rows)
+            for j in range(env.columns)
+            if (i, j) not in env.forbidden_cells
+        ]
+    except:
+        options_agent_position = [
+            {"label": f"({i},{j})", "value": f"({i},{j})"}
+            for i in range(env.rows)
+            for j in range(env.columns)
+        ]
 
     options_agent_goal = [
         {
@@ -336,17 +346,20 @@ def make_heap_map_figure(data, positions, env, colorscale, title):
 
 
 def color_forbidden_cells(fig, fill_color, border_color, env):
-    for i, j in env.forbidden_cells:
-        fig.add_shape(
-            type="rect",
-            x0=j - 0.5,
-            y0=i - 0.5,
-            x1=j + 0.5,
-            y1=i + 0.5,
-            line=dict(color=border_color),
-            fillcolor=fill_color,
-        )
-    return fig
+    try:
+        for i, j in env.forbidden_cells:
+            fig.add_shape(
+                type="rect",
+                x0=j - 0.5,
+                y0=i - 0.5,
+                x1=j + 0.5,
+                y1=i + 0.5,
+                line=dict(color=border_color),
+                fillcolor=fill_color,
+            )
+        return fig
+    except:
+        return fig
 
 
 def add_rectangles_to_figure(fig, agent_i, agent_j, policy_goal_i, policy_goal_j):
