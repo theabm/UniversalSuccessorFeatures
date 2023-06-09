@@ -14,17 +14,22 @@ import test.agents.utils as u  # for pytest
     [
         (nn.FeatureGoalPaperDQN, mem.ExperienceReplayMemory, 900),
         (nn.FeatureGoalAugmentedDQN, mem.ExperienceReplayMemory, 900),
-        (nn.FeatureGoalUSF, mem.ExperienceReplayMemory, 500),
-        (nn.FeatureGoalUSF, mem.CombinedExperienceReplayMemory, 500),
-        (nn.FeatureGoalUSF, mem.PrioritizedExperienceReplayMemory, 500),
+        (nn.FeatureGoalUSF, mem.ExperienceReplayMemory, 1000),
+        (nn.FeatureGoalUSF, mem.CombinedExperienceReplayMemory, 1000),
+        (nn.FeatureGoalUSF, mem.PrioritizedExperienceReplayMemory, 1000),
     ],
 )
 def test_training(network, memory, n_steps, seed=0):
     if seed is not None:
         eu.misc.seed(seed)
 
+    # n_goals is useless in this example as I manually pass the goals. 
+    # however, since I create the disjoint list, if I leave it to default 
+    # 12, it will give me an error due to the sampling.
+    # (it will try to sample 12 goals from a 3x3 grid without replacement)
     my_env = envs.GridWorld(
-        rows=3, columns=3, penalization=0, reward_at_goal_position=1
+        rows=3, columns=3, penalization=0, reward_at_goal_position=1, 
+        nmax_steps = 31, n_goals=1
     )
 
     agent = a.FeatureGoalAgent(
@@ -45,4 +50,5 @@ def test_training(network, memory, n_steps, seed=0):
         use_pos=False,
         use_weight=False,
     )
+
     assert cmp

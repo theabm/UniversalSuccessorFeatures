@@ -12,6 +12,7 @@ def test_setup_is_as_expected(
         nmax_steps=nmax_steps,
         penalization=penalization,
         reward_at_goal_position=reward_at_goal_position,
+        n_goals=1,
     )
     assert my_env.rows == rows
     assert my_env.columns == columns
@@ -29,9 +30,9 @@ def test_observation_space():
     my_env = env.GridWorld()
     obs, _ = my_env.reset()
     assert obs["agent_position"].shape == (1, 2)
-    assert obs["agent_position_features"].shape == (1, 100)
+    assert obs["agent_position_features"].shape == (1, 81)
     assert obs["goal_position"].shape == (1, 2)
-    assert obs["goal_weights"].shape == (1, 100)
+    assert obs["goal_weights"].shape == (1, 81)
     my_env.step(0)
 
 
@@ -51,7 +52,7 @@ def test_observation_space():
 )
 def test_goal_weights(i, j):
     my_env = env.GridWorld(
-        rows=3, columns=3, penalization=-5, reward_at_goal_position=100
+        rows=3, columns=3, penalization=-5, reward_at_goal_position=100, n_goals=1
     )
     goal_position = np.array([[i, j]])
     obs, *_ = my_env.reset(goal_position=goal_position)
@@ -83,7 +84,7 @@ def test_goal_weights(i, j):
 )
 def test_position_features(i, j):
     my_env = env.GridWorld(
-        rows=3, columns=3, penalization=-5, reward_at_goal_position=100
+        rows=3, columns=3, penalization=-5, reward_at_goal_position=100, n_goals=1
     )
     start_agent_position = np.array([[i, j]])
     obs, *_ = my_env.reset(start_agent_position=start_agent_position)
@@ -99,7 +100,7 @@ def test_position_features(i, j):
 
 def test_reward_is_dot_product_of_feature_and_weight():
     my_env = env.GridWorld(
-        rows=3, columns=3, penalization=-5, reward_at_goal_position=100
+        rows=3, columns=3, penalization=-5, reward_at_goal_position=100, n_goals=1
     )
     # set the goal at 0,0 -> reward for going here should be 100
     # everywhere else it will be -5
@@ -120,10 +121,7 @@ def test_reward_is_dot_product_of_feature_and_weight():
     ],
 )
 def test_boundaries_going_up(i, j):
-    my_env = env.GridWorld(
-        rows=3,
-        columns=3,
-    )
+    my_env = env.GridWorld(rows=3, columns=3, n_goals=1)
     start_agent_position = np.array([[i, j]])
     my_env.reset(start_agent_position=start_agent_position)
     obs, *_ = my_env.step(env.Directions.UP)
@@ -139,10 +137,7 @@ def test_boundaries_going_up(i, j):
     ],
 )
 def test_boundaries_going_left(i, j):
-    my_env = env.GridWorld(
-        rows=3,
-        columns=3,
-    )
+    my_env = env.GridWorld(rows=3, columns=3, n_goals=1)
     start_agent_position = np.array([[i, j]])
     my_env.reset(start_agent_position=start_agent_position)
     obs, *_ = my_env.step(env.Directions.LEFT)
@@ -158,10 +153,7 @@ def test_boundaries_going_left(i, j):
     ],
 )
 def test_boundaries_going_down(i, j):
-    my_env = env.GridWorld(
-        rows=3,
-        columns=3,
-    )
+    my_env = env.GridWorld(rows=3, columns=3, n_goals=1)
     start_agent_position = np.array([[i, j]])
     my_env.reset(start_agent_position=start_agent_position)
     obs, *_ = my_env.step(env.Directions.DOWN)
@@ -177,10 +169,7 @@ def test_boundaries_going_down(i, j):
     ],
 )
 def test_boundaries_going_right(i, j):
-    my_env = env.GridWorld(
-        rows=3,
-        columns=3,
-    )
+    my_env = env.GridWorld(rows=3, columns=3, n_goals=1)
     start_agent_position = np.array([[i, j]])
     my_env.reset(start_agent_position=start_agent_position)
     obs, *_ = my_env.step(env.Directions.RIGHT)

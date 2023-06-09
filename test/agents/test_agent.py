@@ -6,7 +6,7 @@ import universal_successor_features.networks as nn
 import universal_successor_features.epsilon as eps
 import universal_successor_features.memory as mem
 import torch
-import pytest 
+import pytest
 
 
 @pytest.mark.parametrize(
@@ -23,11 +23,8 @@ import pytest
     ],
 )
 def test_default_configuration(agent_type, network_type):
-    my_env = env.GridWorld(
-        rows=3,
-        columns=3,
-    )
-    agent = agent_type(env=my_env, network = eu.AttrDict(cls = network_type))
+    my_env = env.GridWorld(rows=3, columns=3, n_goals=1)
+    agent = agent_type(env=my_env, network=eu.AttrDict(cls=network_type))
 
     # Assert default config is as expected
 
@@ -78,10 +75,7 @@ def test_default_configuration(agent_type, network_type):
 
 
 def test_agent_matches_custom_config():
-    my_env = env.GridWorld(
-        rows=3,
-        columns=3,
-    )
+    my_env = env.GridWorld(rows=3, columns=3, n_goals=1)
 
     expected_config = eu.AttrDict(
         device="cuda",
@@ -90,7 +84,7 @@ def test_agent_matches_custom_config():
         learning_rate=3e-4,
         train_for_n_iterations=4,
         train_every_n_steps=6,
-        loss_weight_q = 3,
+        loss_weight_q=3,
         loss_weight_psi=4.01,
         loss_weight_phi=-3.50,
         network=eu.AttrDict(
@@ -128,17 +122,19 @@ def test_agent_matches_custom_config():
 
     assert agent.config == expected_config
 
-def test_dimensions_of_network_match_env(rows = 4, columns = 5):
+
+def test_dimensions_of_network_match_env(rows=4, columns=5):
     my_env = env.GridWorld(
         rows=rows,
         columns=columns,
+        n_goals=1
     )
 
     agent = a.FeatureGoalAgent(env=my_env)
-    assert agent.policy_net.config.state_size==2
-    assert agent.policy_net.config.goal_size==2
-    assert agent.policy_net.features_size==rows*columns
-    assert agent.policy_net.num_actions==4
+    assert agent.policy_net.config.state_size == 2
+    assert agent.policy_net.config.goal_size == 2
+    assert agent.policy_net.features_size == rows * columns
+    assert agent.policy_net.num_actions == 4
 
 
 def test_choose_action():
@@ -154,6 +150,7 @@ def test_choose_action():
     )
     assert action is not None
     assert isinstance(action, int)
+
 
 def test_build_tensor_from_batch_of_np_arrays(batch_size=32):
     my_env = env.GridWorld()

@@ -9,14 +9,15 @@ import test.agents.utils as u  # for pytest
 
 # import utils as u # for python
 
+
 @pytest.mark.parametrize(
     "network, memory, n_steps",
     [
-        (nn.StateGoalPaperDQN, mem.ExperienceReplayMemory, 500),
+        (nn.StateGoalPaperDQN, mem.ExperienceReplayMemory, 700),
         (nn.StateGoalAugmentedDQN, mem.ExperienceReplayMemory, 500),
-        (nn.StateGoalUSF, mem.ExperienceReplayMemory, 600),
-        (nn.StateGoalUSF, mem.CombinedExperienceReplayMemory, 600),
-        (nn.StateGoalUSF, mem.PrioritizedExperienceReplayMemory, 600),
+        (nn.StateGoalUSF, mem.ExperienceReplayMemory, 1000),
+        (nn.StateGoalUSF, mem.CombinedExperienceReplayMemory, 1000),
+        (nn.StateGoalUSF, mem.PrioritizedExperienceReplayMemory, 1000),
     ],
 )
 def test_training(network, memory, n_steps, seed=0):
@@ -24,7 +25,12 @@ def test_training(network, memory, n_steps, seed=0):
         eu.misc.seed(seed)
 
     my_env = envs.GridWorld(
-        rows=3, columns=3, penalization=0, reward_at_goal_position=1
+        rows=3,
+        columns=3,
+        penalization=0,
+        reward_at_goal_position=1,
+        nmax_steps=31,
+        n_goals=1,
     )
 
     agent = a.StateGoalAgent(

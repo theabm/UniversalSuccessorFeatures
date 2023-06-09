@@ -38,6 +38,7 @@ def test_gpi(agent_type, network, memory, n_steps, seed=0):
         penalization=0,
         reward_at_goal_position=1,
         nmax_steps=31,
+        n_goals = 1
     )
 
     agent = agent_type(

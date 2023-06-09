@@ -39,6 +39,7 @@ def build_env_agent_and_batch_args():
         columns=3,
         penalization=0,
         reward_at_goal_position=20,
+        n_goals=1
     )
 
     agent = usf.agents.feature_goal_weight_agent.FeatureGoalWeightAgent(

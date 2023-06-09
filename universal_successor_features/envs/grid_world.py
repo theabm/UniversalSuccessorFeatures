@@ -61,7 +61,7 @@ class GridWorld(gym.Env):
         self.cur_step = None
         self.nmax_steps = self.config.nmax_steps
 
-        # generated randomly once for 10x10 and fixed forever.
+        # generated randomly once for 9x9 and fixed forever.
         self.n_goals = self.config.n_goals
         (
             self.goal_list_source_tasks,
