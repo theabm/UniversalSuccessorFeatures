@@ -1,36 +1,6 @@
 import universal_successor_features as usf
 import torch
-import exputils as eu
-import copy
-
-
-class stub_feature_goal_network(torch.nn.Module):
-    @staticmethod
-    def default_config():
-        return eu.AttrDict(
-            state_size=2,
-            goal_size=2,
-            features_size=None,
-            num_actions=4,
-        )
-
-    def __init__(self, **kwargs):
-        super().__init__()
-
-    def forward(self, agent_position_features, policy_goal_position, env_goal_weights):
-        # This network simply takes the agent features, repeats it 4 times in the
-        # last dimension, and then multiplies the third element by 5.
-        # Therefore, when calculating the max, it should always be the third action
-        #
-        # Expected shape (1,features_size)
-        sf = copy.deepcopy(agent_position_features)
-        sf = (sf).tile(4, 1)
-        sf[2] *= 5
-        sf = sf.unsqueeze(0)
-
-        q = torch.sum(torch.mul(sf, (env_goal_weights).unsqueeze(1)), dim=2)
-
-        return q, sf, env_goal_weights, agent_position_features
+from test.agents.stub_classes import StubFeatureGoalNetwork
 
 
 def build_env_agent_and_batch_args():
@@ -52,8 +22,8 @@ def build_env_agent_and_batch_args():
     )
 
     # replace the policy and target net with the stub network
-    agent.target_net = stub_feature_goal_network(features_size=3 * 3).to(agent.device)
-    agent.policy_net = stub_feature_goal_network(features_size=3 * 3).to(agent.device)
+    agent.target_net = StubFeatureGoalNetwork(features_size=3 * 3).to(agent.device)
+    agent.policy_net = StubFeatureGoalNetwork(features_size=3 * 3).to(agent.device)
 
     # simulate a batch (size 1) of experience
     batch_args = {
@@ -197,7 +167,7 @@ def test_get_td_error_for_usf():
 
 
 if __name__ == "__main__":
-    sn = stub_feature_goal_network()
+    sn = StubFeatureGoalNetwork()
 
     my_features = torch.ones(9)
 
