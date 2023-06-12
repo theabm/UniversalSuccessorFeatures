@@ -18,6 +18,9 @@ class FeatureGoalPaperDQN(torch.nn.Module):
         self.config = eu.combine_dicts(kwargs, config, self.default_config())
         self.is_a_usf = False
 
+        self.num_actions = self.config.num_actions
+        self.features_size = self.config.features_size
+        
         self.goal_position_layer = torch.nn.Sequential(
                 torch.nn.Linear(
                     in_features=self.config.goal_size,
