@@ -74,7 +74,20 @@ def test_default_configuration(agent_type, network_type):
     assert agent.config == expected_config
 
 
-def test_agent_matches_custom_config():
+@pytest.mark.parametrize(
+    "agent_type, network_type",
+    [
+        (a.FeatureGoalAgent, nn.FeatureGoalPaperDQN),
+        (a.FeatureGoalAgent, nn.FeatureGoalAugmentedDQN),
+        (a.FeatureGoalAgent, nn.FeatureGoalUSF),
+        (a.FeatureGoalWeightAgent, nn.FeatureGoalWeightUSF),
+        (a.StateGoalAgent, nn.StateGoalPaperDQN),
+        (a.StateGoalAgent, nn.StateGoalAugmentedDQN),
+        (a.StateGoalAgent, nn.StateGoalUSF),
+        (a.StateGoalWeightAgent, nn.StateGoalWeightUSF),
+    ],
+)
+def test_agent_matches_custom_config(agent_type, network_type):
     my_env = env.GridWorld(rows=3, columns=3, n_goals=1)
 
     expected_config = eu.AttrDict(
@@ -88,7 +101,7 @@ def test_agent_matches_custom_config():
         loss_weight_psi=4.01,
         loss_weight_phi=-3.50,
         network=eu.AttrDict(
-            cls=nn.FeatureGoalUSF,
+            cls=network_type,
             use_gdtuo=False,
             optimizer=torch.optim.Adam,
             state_size=2,
@@ -118,7 +131,7 @@ def test_agent_matches_custom_config():
         ),
         save=eu.AttrDict(extension=".pt"),
     )
-    agent = a.FeatureGoalAgent(env=my_env, config=expected_config)
+    agent = agent_type(env=my_env, config=expected_config)
 
     assert agent.config == expected_config
 
