@@ -3,6 +3,24 @@ import exputils as eu
 import exputils.data.logging as log
 import copy
 import universal_successor_features as usf
+from collections import namedtuple
+
+Transition = namedtuple(
+    "Experiences",
+    (
+        "agent_position",
+        "agent_position_features",
+        "goal",
+        "goal_weights",
+        "action",
+        "reward",
+        "next_agent_position",
+        "next_agent_position_features",
+        "terminated",
+        "truncated",
+    ),
+)
+
 
 def run_rl_first_phase(config=None, **kwargs):
     # default config
@@ -328,7 +346,7 @@ def general_step_function(obs, agent, my_env, goals_so_far, training):
 
     next_obs, reward, terminated, truncated, _ = my_env.step(action=action)
 
-    transition = (
+    transition = Transition(
         obs["agent_position"],
         obs["agent_position_features"],
         obs["goal_position"],

@@ -505,6 +505,115 @@ class BaseAgent(ABC):
 
         return total_td_error
 
+    def _sample_and_augment_experiences(self, list_of_goal_positions):
+        experiences, weights = self.memory.sample(self.batch_size)
+
+        augmented_experiences = []
+
+        for experience in experiences:
+            augmented_experiences.append(experience)
+            for goal_position in list_of_goal_positions:
+                new_experience = copy.deepcopy(experience)
+                # new_experience."agent_position" stays the same
+                # new_experience.agent_position_features stays the same
+                new_experience.goal_position = goal_position
+                new_experience.goal_weights = self.env._get_goal_weights_at(
+                    goal_position
+                )
+                # new_experience.action stays the same
+                new_experience.reward = int(np.sum(
+                    new_experience.agent_position_features * new_experience.goal_weights
+                ))
+                # new_experience.next_agent_position stays the same
+                # new_experience.next_agent_position_features stays the same
+                new_experience.terminated = (
+                    True if goal_position == new_experience.agent_position else False
+                )
+                # new_experiences.truncated stays the same
+                augmented_experiences.append(new_experience)
+
+        self.augmented_batch_size = len(list_of_goal_positions)
+
+        assert len(augmented_experiences) == self.augmented_batch_size
+
+        # For now this will do, but for PER it will not work.
+        # One way to fix this, only have a transition defined as (s, f, a, r, ns, nf)
+        # and construct a full transition from this. Then the td error can be 
+        # an average of the td-errors associated with that augmentation.
+        augmented_weights = np.ones(self.augmented_batch_size)
+
+        return Experiences(*zip(*experiences)), torch.tensor(augmented_weights)
+
+    def _train_one_augmented_batch(self):
+        experiences, sample_weights = self._sample_and_augment_experiences()
+
+        sample_weights = sample_weights.to(self.device)
+
+        batch_args = self._build_dictionary_of_batch_from_experiences(experiences)
+
+        if self.use_gdtuo:
+            self.optimizer.begin()
+
+        self.optimizer.zero_grad()
+
+        if self.is_a_usf:
+            target_batch_q, target_batch_psi, target_batch_r = self._build_target_batch(
+                batch_args,
+            )
+
+            (
+                predicted_batch_q,
+                predicted_batch_psi,
+                predicted_batch_r,
+            ) = self._build_predicted_batch(
+                batch_args,
+            )
+
+            total_td_error = self._get_td_error_for_usf(
+                target_batch_q,
+                target_batch_psi,
+                target_batch_r,
+                predicted_batch_q,
+                predicted_batch_psi,
+                predicted_batch_r,
+            )
+
+            # update the priority of batch samples in memory
+            # Only for PER, for all other methods, this function does nothing.
+            self.memory.update_samples(total_td_error.detach().cpu())
+
+            # Only for PER, for all other methods, this function does nothing.
+            self.memory.anneal_beta()
+
+            loss = torch.mean(sample_weights * total_td_error)
+
+        else:
+            target_batch_q = self._build_target_batch(
+                batch_args,
+            )
+            predicted_batch_q = self._build_predicted_batch(
+                batch_args,
+            )
+
+            td_error_q = torch.square(torch.abs(target_batch_q - predicted_batch_q))
+
+            # Only for PER, for all other methods, this function does nothing.
+            self.memory.update_samples(td_error_q.detach().cpu())
+
+            # Only for PER, for all other methods, this function does nothing.
+            self.memory.anneal_beta()
+
+            loss = torch.mean(sample_weights * td_error_q)
+
+        if self.use_gdtuo:
+            loss.backward(create_graph=True)
+        else:
+            loss.backward()
+
+        self.optimizer.step()
+
+        return loss.item()
+
     def _train_one_batch(self):
         experiences, sample_weights = self._sample_experiences()
         sample_weights = sample_weights.to(self.device)
