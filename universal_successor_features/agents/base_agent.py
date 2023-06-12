@@ -23,7 +23,21 @@ Experiences = namedtuple(
         "next_agent_position_batch",
         "next_agent_position_features_batch",
         "terminated_batch",
-        "truncated_batch",
+    ),
+)
+
+FullTransition = namedtuple(
+    "Experiences",
+    (
+        "agent_position",
+        "agent_position_features",
+        "goal",
+        "goal_weights",
+        "action",
+        "reward",
+        "next_agent_position",
+        "next_agent_position_features",
+        "terminated",
     ),
 )
 
@@ -138,6 +152,13 @@ class BaseAgent(ABC):
             )
 
         self.batch_size = self.config.batch_size
+
+        # The internal batch size I will work with
+        # I set it to the same value, but it will be determined during training.
+        # by the list of goal positions over which I want to evaluate.
+        # The entry point is the _train_one_batch_function
+        self._augmented_batch_size = self.batch_size
+
         self.train_every_n_steps = self.config.train_every_n_steps - 1
         self.steps_since_last_training = 0
 
@@ -249,7 +270,10 @@ class BaseAgent(ABC):
         return Experiences(*zip(*experiences)), torch.tensor(weights)
 
     def _build_tensor_from_batch_of_np_arrays(self, list_of_np_arrays):
-        assert len(list_of_np_arrays) == self.batch_size
+        # This function is called from the training function where I will have
+        # defined the true augmented batch size.
+        # So it needs to use the augmented batch size parameter.
+        assert len(list_of_np_arrays) == self._augmented_batch_size
         assert len(list_of_np_arrays[0].shape) == 2
 
         len_input = list_of_np_arrays[0].shape[1]
@@ -257,17 +281,17 @@ class BaseAgent(ABC):
         # expected shape: [(1,n), (1,n), ..., (1,n)] where in total we
         # have batch_size elements
         list_of_np_arrays = np.array(list_of_np_arrays)
-        assert list_of_np_arrays.shape == (self.batch_size, 1, len_input)
+        assert list_of_np_arrays.shape == (self._augmented_batch_size, 1, len_input)
 
         # batch of np_arrays has form (batch_size, 1, n) so after squeeze()
         # we have (batch_size, n)
         batch_of_np_arrays = (
             torch.tensor(list_of_np_arrays)
-            .reshape(self.batch_size, len_input)
+            .reshape(self._augmented_batch_size, len_input)
             .to(torch.float)
         )
 
-        assert batch_of_np_arrays.shape == (self.batch_size, len_input)
+        assert batch_of_np_arrays.shape == (self._augmented_batch_size, len_input)
 
         return batch_of_np_arrays
 
@@ -332,60 +356,69 @@ class BaseAgent(ABC):
         """
         # We only assert the data that we use for computations. Any other
         # data not explicitly used in the body of this function, such as
-        # sf_s_g will be checked in the appropriate function that uses it.
+        # sf's will be checked in the appropriate function that uses it.
 
         assert len(batch_args) == 9
 
-        q, sf_s_g, w, reward_phi_batch = self.target_net(
+        q, sf, w, reward_phi_batch = self.target_net(
             **self._build_target_args(batch_args)
         )
 
-        assert q.shape == (self.batch_size, self.action_space)
+        assert q.shape == (self._augmented_batch_size, self.action_space)
 
         q_max, action = torch.max(q, axis=1)
 
-        assert q_max.shape == (self.batch_size,)
-        assert action.shape == (self.batch_size,)
-        assert batch_args["reward_batch"].shape == (self.batch_size,)
-        assert batch_args["terminated_batch"].shape == (self.batch_size,)
+        assert q_max.shape == (self._augmented_batch_size,)
+        assert action.shape == (self._augmented_batch_size,)
+        assert batch_args["reward_batch"].shape == (self._augmented_batch_size,)
+        assert batch_args["terminated_batch"].shape == (self._augmented_batch_size,)
 
         target_q = batch_args["reward_batch"] + self.discount_factor * torch.mul(
             q_max, ~batch_args["terminated_batch"]
         )
-        assert target_q.shape == (self.batch_size,)
+        assert target_q.shape == (self._augmented_batch_size,)
 
-        return target_q, action, sf_s_g, w, reward_phi_batch
+        return target_q, action, sf, w, reward_phi_batch
 
-    def _build_psi_target(self, batch_args, action, sf_s_g, reward_phi_batch):
-        assert batch_args["terminated_batch"].shape == (self.batch_size,)
-        assert action.shape == (self.batch_size,)
-        assert sf_s_g.shape == (self.batch_size, self.action_space, self.features_size)
-        assert reward_phi_batch.shape == (self.batch_size, self.features_size)
+    def _build_psi_target(self, batch_args, action, sf, reward_phi_batch):
+        # This function is only called inside the train function which has
+        # properly defined the augmented batch size
+        assert batch_args["terminated_batch"].shape == (self._augmented_batch_size,)
+        assert action.shape == (self._augmented_batch_size,)
+        assert sf.shape == (
+            self._augmented_batch_size,
+            self.action_space,
+            self.features_size,
+        )
+        assert reward_phi_batch.shape == (
+            self._augmented_batch_size,
+            self.features_size,
+        )
 
         terminated_batch = batch_args["terminated_batch"].unsqueeze(1)
 
-        assert terminated_batch.shape == (self.batch_size, 1)
+        assert terminated_batch.shape == (self._augmented_batch_size, 1)
 
         # shape (batch_size,1,n)
         action = (
-            action.reshape(self.batch_size, 1, 1)
+            action.reshape(self._augmented_batch_size, 1, 1)
             .tile(self.features_size)
             .to(self.device)
         )
 
-        assert action.shape == (self.batch_size, 1, self.features_size)
+        assert action.shape == (self._augmented_batch_size, 1, self.features_size)
 
-        max_sf = sf_s_g.gather(1, action)
-        assert max_sf.shape == (self.batch_size, 1, self.features_size)
+        max_sf = sf.gather(1, action)
+        assert max_sf.shape == (self._augmented_batch_size, 1, self.features_size)
 
-        max_sf = max_sf.reshape(self.batch_size, self.features_size)
-        assert max_sf.shape == (self.batch_size, self.features_size)
+        max_sf = max_sf.reshape(self._augmented_batch_size, self.features_size)
+        assert max_sf.shape == (self._augmented_batch_size, self.features_size)
 
         target_psi = reward_phi_batch + self.discount_factor * torch.mul(
             max_sf, ~terminated_batch
         )
 
-        assert target_psi.shape == (self.batch_size, self.features_size)
+        assert target_psi.shape == (self._augmented_batch_size, self.features_size)
 
         return target_psi
 
@@ -420,35 +453,41 @@ class BaseAgent(ABC):
 
         q, sf_s_g, w, phi = self.policy_net(**self._build_predicted_args(batch_args))
 
-        assert q.shape == (self.batch_size, self.action_space)
-        assert batch_args["action_batch"].shape == (self.batch_size, 1)
+        assert q.shape == (self._augmented_batch_size, self.action_space)
+        assert batch_args["action_batch"].shape == (self._augmented_batch_size, 1)
 
         # shape (batch_size,)
-        predicted_q = q.gather(1, batch_args["action_batch"]).reshape(self.batch_size)
+        predicted_q = q.gather(1, batch_args["action_batch"]).reshape(
+            self._augmented_batch_size
+        )
 
-        assert predicted_q.shape == (self.batch_size,)
+        assert predicted_q.shape == (self._augmented_batch_size,)
 
         return predicted_q, sf_s_g, w, phi
 
     def _build_psi_predicted(self, batch_args, sf_s_g):
         assert len(batch_args) == 9
-        assert sf_s_g.shape == (self.batch_size, self.action_space, self.features_size)
-        assert batch_args["action_batch"].shape == (self.batch_size, 1)
+        assert sf_s_g.shape == (
+            self._augmented_batch_size,
+            self.action_space,
+            self.features_size,
+        )
+        assert batch_args["action_batch"].shape == (self._augmented_batch_size, 1)
 
         action_batch = (
             batch_args["action_batch"]
-            .reshape(self.batch_size, 1, 1)
+            .reshape(self._augmented_batch_size, 1, 1)
             .tile(self.features_size)
         )
 
-        assert action_batch.shape == (self.batch_size, 1, self.features_size)
+        assert action_batch.shape == (self._augmented_batch_size, 1, self.features_size)
 
         # shape (batch_size, features_size)
         predicted_psi = sf_s_g.gather(1, action_batch).reshape(
-            self.batch_size, self.features_size
+            self._augmented_batch_size, self.features_size
         )
 
-        assert predicted_psi.shape == (self.batch_size, self.features_size)
+        assert predicted_psi.shape == (self._augmented_batch_size, self.features_size)
 
         return predicted_psi
 
@@ -480,7 +519,7 @@ class BaseAgent(ABC):
 
         td_error_q = torch.square(torch.abs(target_batch_q - predicted_batch_q))
 
-        assert td_error_q.shape == (self.batch_size,)
+        assert td_error_q.shape == (self._augmented_batch_size,)
 
         # shape of target_batch_psi is (batch, size_features) so the td_error for
         # that batch must be summed along first dim which automatically squeezes
@@ -489,133 +528,99 @@ class BaseAgent(ABC):
             torch.square(torch.abs(target_batch_psi - predicted_batch_psi)), dim=1
         )
 
-        assert td_error_psi.shape == (self.batch_size,)
+        assert td_error_psi.shape == (self._augmented_batch_size,)
 
         # shape (batch_size, )
         td_error_phi = torch.square(torch.abs(target_batch_r - predicted_batch_r))
 
-        assert td_error_phi.shape == (self.batch_size,)
+        assert td_error_phi.shape == (self._augmented_batch_size,)
 
         total_td_error = (
             self.loss_weight_q * td_error_q
             + self.loss_weight_psi * td_error_psi
             + self.loss_weight_phi * td_error_phi
         )
-        assert total_td_error.shape == (self.batch_size,)
+        assert total_td_error.shape == (self._augmented_batch_size,)
 
         return total_td_error
 
-    def _sample_and_augment_experiences(self, list_of_goal_positions):
+    def _sample_and_augment_experiences(self, list_of_goal_positions_for_augmentation):
+        # list of goal positions holds all the goals over which I want
+        # to augment my training. It can be a single goal, in which case
+        # I am doing no augmentation, or it can be the full set of goals
+        # over which I am learning.
+
+        assert type(list_of_goal_positions_for_augmentation) == list
+
+        # first I sample batch_size experiences.
+        # these experiences are named tuples of the following structure:
+        # (agent_position, agent_position_features, action, next_agent_position,
+        # next_agent_position_features)
+
+        # Here I must always use the true batch size I have determined
         experiences, weights = self.memory.sample(self.batch_size)
+
+        # Then, from these, we will construct a full transition tuple for each
+        # of the goals by doing the following:
+        # goal - given by goal list
+        # goal_weight - calculated by environment
+        # reward - goal_weight*next_agent_position_features
+        # terminated - true if position == goal
+        # truncated - we dont need for training.
 
         augmented_experiences = []
 
         for experience in experiences:
-            augmented_experiences.append(experience)
-            for goal_position in list_of_goal_positions:
-                new_experience = copy.deepcopy(experience)
-                # new_experience."agent_position" stays the same
-                # new_experience.agent_position_features stays the same
+            for goal_position in list_of_goal_positions_for_augmentation:
+                new_experience = FullTransition()
+                new_experience.agent_position = experience.agent_position
+                new_experience.agent_position_features = (
+                    experience.agent_position_features
+                )
                 new_experience.goal_position = goal_position
                 new_experience.goal_weights = self.env._get_goal_weights_at(
                     goal_position
                 )
-                # new_experience.action stays the same
-                new_experience.reward = int(np.sum(
-                    new_experience.agent_position_features * new_experience.goal_weights
-                ))
-                # new_experience.next_agent_position stays the same
-                # new_experience.next_agent_position_features stays the same
+                new_experience.action = experience.action
+                new_experience.reward = int(
+                    np.sum(
+                        new_experience.agent_position_features
+                        * new_experience.goal_weights
+                    )
+                )
+                new_experience.next_agent_position = experience.next_agent_position
+                new_experience.next_agent_position_features = (
+                    experience.next_agent_position_features
+                )
                 new_experience.terminated = (
                     True if goal_position == new_experience.agent_position else False
                 )
-                # new_experiences.truncated stays the same
                 augmented_experiences.append(new_experience)
 
-        self.augmented_batch_size = len(list_of_goal_positions)
+        # this is the real batch size I need to work with.
+        len_list_goals = len(list_of_goal_positions_for_augmentation)
+        self._augmented_batch_size = len_list_goals*self.batch_size
 
-        assert len(augmented_experiences) == self.augmented_batch_size
 
-        # For now this will do, but for PER it will not work.
-        # One way to fix this, only have a transition defined as (s, f, a, r, ns, nf)
-        # and construct a full transition from this. Then the td error can be 
-        # an average of the td-errors associated with that augmentation.
-        augmented_weights = np.ones(self.augmented_batch_size)
+        assert len_list_goals == self.augmented_batch_size
+
+
+        # We take the weights, reshape to (batch,1) so that we can tile in the 
+        # first dimension, then tile to obtain (batch, 12) then we reshape to 
+        # batch*12.
+        augmented_weights = (
+                weights.reshape((self.batch_size, 1))
+                .tile((self.batch_size, len_list_goals))
+                .reshape((self._augmented_batch_size,))
+                )
+        assert len(augmented_weights) == self._augmented_batch_size
 
         return Experiences(*zip(*experiences)), torch.tensor(augmented_weights)
 
-    def _train_one_augmented_batch(self):
-        experiences, sample_weights = self._sample_and_augment_experiences()
-
-        sample_weights = sample_weights.to(self.device)
-
-        batch_args = self._build_dictionary_of_batch_from_experiences(experiences)
-
-        if self.use_gdtuo:
-            self.optimizer.begin()
-
-        self.optimizer.zero_grad()
-
-        if self.is_a_usf:
-            target_batch_q, target_batch_psi, target_batch_r = self._build_target_batch(
-                batch_args,
-            )
-
-            (
-                predicted_batch_q,
-                predicted_batch_psi,
-                predicted_batch_r,
-            ) = self._build_predicted_batch(
-                batch_args,
-            )
-
-            total_td_error = self._get_td_error_for_usf(
-                target_batch_q,
-                target_batch_psi,
-                target_batch_r,
-                predicted_batch_q,
-                predicted_batch_psi,
-                predicted_batch_r,
-            )
-
-            # update the priority of batch samples in memory
-            # Only for PER, for all other methods, this function does nothing.
-            self.memory.update_samples(total_td_error.detach().cpu())
-
-            # Only for PER, for all other methods, this function does nothing.
-            self.memory.anneal_beta()
-
-            loss = torch.mean(sample_weights * total_td_error)
-
-        else:
-            target_batch_q = self._build_target_batch(
-                batch_args,
-            )
-            predicted_batch_q = self._build_predicted_batch(
-                batch_args,
-            )
-
-            td_error_q = torch.square(torch.abs(target_batch_q - predicted_batch_q))
-
-            # Only for PER, for all other methods, this function does nothing.
-            self.memory.update_samples(td_error_q.detach().cpu())
-
-            # Only for PER, for all other methods, this function does nothing.
-            self.memory.anneal_beta()
-
-            loss = torch.mean(sample_weights * td_error_q)
-
-        if self.use_gdtuo:
-            loss.backward(create_graph=True)
-        else:
-            loss.backward()
-
-        self.optimizer.step()
-
-        return loss.item()
-
-    def _train_one_batch(self):
-        experiences, sample_weights = self._sample_experiences()
+    def _train_one_batch(self, list_of_goal_positions_for_augmentation):
+        experiences, sample_weights = self._sample_and_augment_experiences(
+            list_of_goal_positions_for_augmentation
+        )
         sample_weights = sample_weights.to(self.device)
 
         batch_args = self._build_dictionary_of_batch_from_experiences(experiences)
@@ -679,13 +684,13 @@ class BaseAgent(ABC):
 
         return loss.item()
 
-    def _train(self):
+    def _train(self, list_of_goal_positions_for_augmentation):
         if self.steps_since_last_training >= self.train_every_n_steps:
             self.steps_since_last_training = 0
 
             losses = []
             for _ in range(self.config.train_for_n_iterations):
-                loss = self._train_one_batch()
+                loss = self._train_one_batch(list_of_goal_positions_for_augmentation)
                 losses.append(loss)
 
             if self.config.log.loss_per_step:
@@ -703,20 +708,25 @@ class BaseAgent(ABC):
         else:
             self.steps_since_last_network_update += 1
 
-    def train(self, transition):
+    def train(self, transition, list_of_goal_positions_for_augmentation):
         self.memory.push(transition)
 
         if len(self.memory) < self.learning_starts_after:
             return
 
-        self._train()
+        self._train(list_of_goal_positions_for_augmentation)
 
     def prepare_for_eval_phase(self):
         self.train_memory_buffer = copy.deepcopy(self.memory)
 
         self.eval_memory_buffer = eu.misc.create_object_from_config(self.config.memory)
 
-    def train_during_eval_phase(self, transition, p_pick_new_memory_buffer):
+    def train_during_eval_phase(
+        self,
+        transition,
+        p_pick_new_memory_buffer,
+        list_of_goal_positions_for_augmentation,
+    ):
         self.eval_memory_buffer.push(transition)
 
         if len(self.eval_memory_buffer) < self.learning_starts_after:
@@ -727,7 +737,7 @@ class BaseAgent(ABC):
             else:
                 self.memory = self.train_memory_buffer
 
-            self._train()
+            self._train(list_of_goal_positions_for_augmentation)
 
     def _update_target_network(self):
         target_net_state_dict = self.target_net.state_dict()
