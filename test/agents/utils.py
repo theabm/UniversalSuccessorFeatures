@@ -54,6 +54,7 @@ q_ground_truth = torch.tensor(
     ]
 )
 
+
 # Utilities needed for testing the learning of agents
 def compute_q_function(agent, env, list_of_goal_positions, use_pos, use_weight):
     size = env.rows * env.columns
@@ -171,7 +172,10 @@ def test_training(
             next_obs, reward, terminated, truncated, transition = step_function(
                 obs, agent, env, [obs["goal_position"]], True
             )
-            agent.train(transition=transition)
+            agent.train(
+                transition=transition,
+                list_of_goal_positions_for_augmentation=goal_list,
+            )
 
             obs = next_obs
             step += 1
@@ -186,4 +190,3 @@ def test_training(
 
     cmp = torch.allclose(q_predicted, q_gt, rtol=0, atol=0.05)
     return cmp
-

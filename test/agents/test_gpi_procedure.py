@@ -16,6 +16,9 @@ import test.agents.utils as u  # for pytest
 #           I need 1000 steps to learn the Q function well.
 #           On the other hand, if (like in the other tests)
 #           I leave nmax_steps at 1e6, the Q function is learnt in 500 steps.
+# Answer: with 1e6 steps, the agent is able to find the reward and learn from 
+# this information sooner. 
+
 @pytest.mark.parametrize(
     "agent_type, network, memory, n_steps",
     [
@@ -96,9 +99,9 @@ def test_gpi(agent_type, network, memory, n_steps, seed=0):
         np.array([[0, 1]]),
         np.array([[0, 2]]),
         np.array([[1, 0]]),
-        # np.array([[1, 1]]),
+        np.array([[1, 1]]),
         np.array([[1, 2]]),
-        np.array([[2, 1]]),
+        # np.array([[2, 1]]),
     ]
     for goal_position_3 in goal_positions_3:
         step = 0
@@ -129,11 +132,3 @@ def test_gpi(agent_type, network, memory, n_steps, seed=0):
         print(f"Goal: {goal_position_3}\tSteps: {step}")
 
         assert terminated
-
-
-test_gpi(
-    a.FeatureGoalWeightAgent,
-    nn.FeatureGoalWeightUSF,
-    mem.ExperienceReplayMemory,
-    1000,
-)

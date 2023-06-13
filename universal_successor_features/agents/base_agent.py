@@ -560,6 +560,7 @@ class BaseAgent(ABC):
         # Here I must always use the true batch size I have determined
         experiences, weights = self.memory.sample(self.batch_size)
         assert type(experiences) == list
+        assert len(experiences) == self.batch_size
 
         # Then, from these, we will construct a full transition tuple for each
         # of the goals by doing the following:
@@ -573,14 +574,18 @@ class BaseAgent(ABC):
 
         for experience in experiences:
             for goal_position in list_of_goal_positions_for_augmentation:
-
                 goal_weights = self.env._get_goal_weights_at(goal_position)
+                assert goal_weights.shape == (1, self.features_size)
+
+                reward = int(np.sum(experience.next_agent_position_features * goal_weights))
+                assert type(reward) == int
 
                 terminated = (
                     True
                     if (goal_position == experience.next_agent_position).all()
                     else False
                 )
+                assert type(terminated) == bool
 
                 new_experience = FullTransition(
                     experience.agent_position,
@@ -588,7 +593,7 @@ class BaseAgent(ABC):
                     goal_position,
                     goal_weights,
                     experience.action,
-                    int(np.sum(experience.agent_position_features * goal_weights)),
+                    reward,
                     experience.next_agent_position,
                     experience.next_agent_position_features,
                     terminated,
@@ -598,9 +603,12 @@ class BaseAgent(ABC):
 
         # this is the real batch size I need to work with.
         len_list_goals = len(list_of_goal_positions_for_augmentation)
+
         self._augmented_batch_size = len_list_goals * self.batch_size
 
-        assert len_list_goals == self._augmented_batch_size
+        assert len(augmented_experiences) == self._augmented_batch_size
+
+        assert weights.shape == (self.batch_size,)
 
         # We take the weights, reshape to (batch,1) so that we can tile in the
         # first dimension, then tile to obtain (batch, 12) then we reshape to
@@ -608,17 +616,24 @@ class BaseAgent(ABC):
         augmented_weights = weights.reshape((self.batch_size, 1))
 
         augmented_weights = np.tile(
-            augmented_weights, (self.batch_size, len_list_goals)
-        ).reshape((self._augmented_batch_size,))
+            augmented_weights, (1, len_list_goals)
+        )
 
-        assert len(augmented_weights) == self._augmented_batch_size
+        assert augmented_weights.shape == (self.batch_size, len_list_goals)
 
-        return Experiences(*zip(*augmented_experiences)), torch.tensor(augmented_weights)
+        augmented_weights = augmented_weights.reshape((self._augmented_batch_size,))
+
+        assert augmented_weights.shape == (self._augmented_batch_size,)
+
+        return Experiences(*zip(*augmented_experiences)), torch.tensor(
+            augmented_weights
+        )
 
     def _train_one_batch(self, list_of_goal_positions_for_augmentation):
         experiences, sample_weights = self._sample_and_augment_experiences(
             list_of_goal_positions_for_augmentation
         )
+
         sample_weights = sample_weights.to(self.device)
 
         batch_args = self._build_dictionary_of_batch_from_experiences(experiences)
@@ -650,12 +665,22 @@ class BaseAgent(ABC):
                 predicted_batch_r,
             )
 
+            loss = torch.mean(sample_weights * total_td_error)
+
+            # To update the samples for PER I cannot just pass the weights since
+            # these have been augmented.
+            # I have to compute an average of the td_error over blocks of size
+            # len(list_of_goal_positions_for_augmentation). This will be the
+            # associated weight to that transition.
+            total_td_error = total_td_error.reshape(
+                (self.batch_size, len(list_of_goal_positions_for_augmentation))
+            ).mean(dim=1)
+            assert total_td_error.shape == (self.batch_size,)
+
             # update the priority of batch samples in memory
             self.memory.update_samples(total_td_error.detach().cpu())
 
             self.memory.anneal_beta()
-
-            loss = torch.mean(sample_weights * total_td_error)
 
         else:
             target_batch_q = self._build_target_batch(
@@ -667,11 +692,17 @@ class BaseAgent(ABC):
 
             td_error_q = torch.square(torch.abs(target_batch_q - predicted_batch_q))
 
+            loss = torch.mean(sample_weights * td_error_q)
+
+            td_error_q = td_error_q.reshape(
+                (self.batch_size, len(list_of_goal_positions_for_augmentation))
+            ).mean(dim=1)
+
+            assert td_error_q.shape == (self.batch_size,)
+
             self.memory.update_samples(td_error_q.detach().cpu())
 
             self.memory.anneal_beta()
-
-            loss = torch.mean(sample_weights * td_error_q)
 
         if self.use_gdtuo:
             loss.backward(create_graph=True)

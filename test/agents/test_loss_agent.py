@@ -1,6 +1,6 @@
 import universal_successor_features as usf
 import torch
-from test.agents.stub_classes import StubFeatureGoalNetwork
+from test.agents.stub_classes import StubFeatureGoalWeightNetwork
 
 
 def build_env_agent_and_batch_args():
@@ -22,8 +22,8 @@ def build_env_agent_and_batch_args():
     )
 
     # replace the policy and target net with the stub network
-    agent.target_net = StubFeatureGoalNetwork(features_size=3 * 3).to(agent.device)
-    agent.policy_net = StubFeatureGoalNetwork(features_size=3 * 3).to(agent.device)
+    agent.target_net = StubFeatureGoalWeightNetwork(features_size=3 * 3).to(agent.device)
+    agent.policy_net = StubFeatureGoalWeightNetwork(features_size=3 * 3).to(agent.device)
 
     # simulate a batch (size 1) of experience
     batch_args = {

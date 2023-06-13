@@ -39,7 +39,7 @@ def test_training(network, memory, n_steps, seed=0):
         train_for_n_iterations=2,
         discount_factor=0.5,
         network={"cls": network},
-        memory=eu.AttrDict(cls=memory, alpha=0.5, beta0=0.5, schedule_length=n_steps),
+        memory=eu.AttrDict(cls=memory, alpha=0.3, beta0=0.2, schedule_length=n_steps),
     )
 
     cmp = u.test_training(

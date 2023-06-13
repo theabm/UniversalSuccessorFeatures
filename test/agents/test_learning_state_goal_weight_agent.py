@@ -8,8 +8,8 @@ import exputils as eu
 
 import test.agents.utils as u  # for pytest
 
-
 # import utils as u # for python
+
 @pytest.mark.parametrize(
     "network, memory, n_steps",
     [
@@ -48,3 +48,5 @@ def test_training(network, memory, n_steps, seed=0):
         use_weight=True,
     )
     assert cmp
+# test_training(nn.StateGoalWeightUSF, mem.ExperienceReplayMemory, 900)
+

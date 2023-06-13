@@ -6,7 +6,7 @@ import universal_successor_features as usf
 from collections import namedtuple
 
 PartialTransition = namedtuple(
-    "Experiences",
+    "PartialTransition",
     (
         "agent_position",
         "agent_position_features",

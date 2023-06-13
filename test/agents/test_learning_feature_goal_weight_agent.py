@@ -44,3 +44,5 @@ def test_learned_q_funtion_matches_expected_q_function(network, memory, n_steps,
         use_weight=True,
     )
     assert cmp
+
+# test_learned_q_funtion_matches_expected_q_function(nn.FeatureGoalWeightUSF, mem.ExperienceReplayMemory, 1000)
