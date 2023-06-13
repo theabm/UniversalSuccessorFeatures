@@ -10,14 +10,14 @@ PartialTransition = namedtuple(
     (
         "agent_position",
         "agent_position_features",
-        "goal",
-        "goal_weights",
+        # "goal",
+        # "goal_weights",
         "action",
-        "reward",
+        # "reward",
         "next_agent_position",
         "next_agent_position_features",
-        "terminated",
-        "truncated",
+        # "terminated",
+        # "truncated",
     ),
 )
 

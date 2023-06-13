@@ -27,7 +27,7 @@ Experiences = namedtuple(
 )
 
 FullTransition = namedtuple(
-    "Experiences",
+    "FullTransition",
     (
         "agent_position",
         "agent_position_features",
@@ -559,6 +559,7 @@ class BaseAgent(ABC):
 
         # Here I must always use the true batch size I have determined
         experiences, weights = self.memory.sample(self.batch_size)
+        assert type(experiences) == list
 
         # Then, from these, we will construct a full transition tuple for each
         # of the goals by doing the following:
@@ -572,50 +573,47 @@ class BaseAgent(ABC):
 
         for experience in experiences:
             for goal_position in list_of_goal_positions_for_augmentation:
-                new_experience = FullTransition()
-                new_experience.agent_position = experience.agent_position
-                new_experience.agent_position_features = (
-                    experience.agent_position_features
+
+                goal_weights = self.env._get_goal_weights_at(goal_position)
+
+                terminated = (
+                    True
+                    if (goal_position == experience.next_agent_position).all()
+                    else False
                 )
-                new_experience.goal_position = goal_position
-                new_experience.goal_weights = self.env._get_goal_weights_at(
-                    goal_position
+
+                new_experience = FullTransition(
+                    experience.agent_position,
+                    experience.agent_position_features,
+                    goal_position,
+                    goal_weights,
+                    experience.action,
+                    int(np.sum(experience.agent_position_features * goal_weights)),
+                    experience.next_agent_position,
+                    experience.next_agent_position_features,
+                    terminated,
                 )
-                new_experience.action = experience.action
-                new_experience.reward = int(
-                    np.sum(
-                        new_experience.agent_position_features
-                        * new_experience.goal_weights
-                    )
-                )
-                new_experience.next_agent_position = experience.next_agent_position
-                new_experience.next_agent_position_features = (
-                    experience.next_agent_position_features
-                )
-                new_experience.terminated = (
-                    True if goal_position == new_experience.agent_position else False
-                )
+
                 augmented_experiences.append(new_experience)
 
         # this is the real batch size I need to work with.
         len_list_goals = len(list_of_goal_positions_for_augmentation)
-        self._augmented_batch_size = len_list_goals*self.batch_size
+        self._augmented_batch_size = len_list_goals * self.batch_size
 
+        assert len_list_goals == self._augmented_batch_size
 
-        assert len_list_goals == self.augmented_batch_size
-
-
-        # We take the weights, reshape to (batch,1) so that we can tile in the 
-        # first dimension, then tile to obtain (batch, 12) then we reshape to 
+        # We take the weights, reshape to (batch,1) so that we can tile in the
+        # first dimension, then tile to obtain (batch, 12) then we reshape to
         # batch*12.
-        augmented_weights = (
-                weights.reshape((self.batch_size, 1))
-                .tile((self.batch_size, len_list_goals))
-                .reshape((self._augmented_batch_size,))
-                )
+        augmented_weights = weights.reshape((self.batch_size, 1))
+
+        augmented_weights = np.tile(
+            augmented_weights, (self.batch_size, len_list_goals)
+        ).reshape((self._augmented_batch_size,))
+
         assert len(augmented_weights) == self._augmented_batch_size
 
-        return Experiences(*zip(*experiences)), torch.tensor(augmented_weights)
+        return Experiences(*zip(*augmented_experiences)), torch.tensor(augmented_weights)
 
     def _train_one_batch(self, list_of_goal_positions_for_augmentation):
         experiences, sample_weights = self._sample_and_augment_experiences(
