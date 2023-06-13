@@ -7,6 +7,10 @@ import universal_successor_features.epsilon as eps
 import universal_successor_features.memory as mem
 import torch
 import pytest
+from test.agents.stub_classes import StubFeatureGoalWeightNetwork
+from universal_successor_features.exp.core import PartialTransition
+from universal_successor_features.agents.base_agent import FullTransition, Experiences
+import copy
 
 
 @pytest.mark.parametrize(
@@ -137,11 +141,7 @@ def test_agent_matches_custom_config(agent_type, network_type):
 
 
 def test_dimensions_of_network_match_env(rows=4, columns=5):
-    my_env = env.GridWorld(
-        rows=rows,
-        columns=columns,
-        n_goals=1
-    )
+    my_env = env.GridWorld(rows=rows, columns=columns, n_goals=1)
 
     agent = a.FeatureGoalAgent(env=my_env)
     assert agent.policy_net.config.state_size == 2
@@ -150,9 +150,24 @@ def test_dimensions_of_network_match_env(rows=4, columns=5):
     assert agent.policy_net.num_actions == 4
 
 
+# Having tested the basic setup, I need to now test for the following:
+# 1. How the agent picks an action
+# 2. How the gpi procedure works (tested on test gpi)
+# 4. Sample and augment experiences
+
+
 def test_choose_action():
-    my_env = env.GridWorld()
-    agent = a.FeatureGoalAgent(env=my_env)
+    eu.misc.seed(0)
+    my_env = env.GridWorld(
+        rows=3, columns=3, reward_at_goal_position=10, penalization=1, n_goals=1
+    )
+    agent = a.FeatureGoalWeightAgent(env=my_env)
+
+    # This network takes features, repeats them, and multiplies the second entry
+    # by 5. So the max action should always be 2 (unless rewards are negative)
+    # however, to observe this, I need to choose all the weights to one to
+    # activate the weights.
+    agent.policy_net = StubFeatureGoalWeightNetwork()
 
     obs, *_ = my_env.reset()
 
@@ -161,8 +176,147 @@ def test_choose_action():
         list_of_goal_positions=[obs["goal_position"]],
         training=False,
     )
-    assert action is not None
-    assert isinstance(action, int)
+    assert action == 2
+
+
+def test_sample_and_augment_experiences():
+    my_env = env.GridWorld(
+        rows=3, columns=3, reward_at_goal_position=10, penalization=0, n_goals=1
+    )
+
+    goal_1 = np.array([[2, 0]])
+    goal_2 = np.array([[0, 1]])
+
+    goal_1_w = my_env._get_goal_weights_at(goal_1)
+    goal_2_w = my_env._get_goal_weights_at(goal_2)
+
+    list_of_goal_positions_for_augmentation = [goal_1, goal_2]
+
+    obs, _ = my_env.reset(start_agent_position=np.array([[0, 0]]))
+
+    # make my agent go right, this means that it will hit one of the two goals.
+    action = 2
+    next_obs, *_ = my_env.step(action)
+
+    example_transition = PartialTransition(
+        obs["agent_position"],
+        obs["agent_position_features"],
+        action,
+        next_obs["agent_position"],
+        next_obs["agent_position_features"],
+    )
+
+    example_memory = mem.ExperienceReplayMemory(capacity=1)
+
+    example_memory.push(example_transition)
+
+    agent = a.FeatureGoalWeightAgent(env=my_env, batch_size=1)
+    agent.memory = example_memory
+
+    experiences, weights = agent._sample_and_augment_experiences(
+        list_of_goal_positions_for_augmentation
+    )
+
+    expected_transition_1 = FullTransition(
+        obs["agent_position"],
+        obs["agent_position_features"],
+        goal_1,
+        goal_1_w,
+        action,
+        my_env.config.penalization,
+        next_obs["agent_position"],
+        next_obs["agent_position_features"],
+        False,
+    )
+
+    expected_transition_2 = FullTransition(
+        obs["agent_position"],
+        obs["agent_position_features"],
+        goal_2,
+        goal_2_w,
+        action,
+        my_env.config.reward_at_goal_position,
+        next_obs["agent_position"],
+        next_obs["agent_position_features"],
+        True,
+    )
+    # Since we zip, we expect something like
+
+    expected_experiences = copy.deepcopy(
+        Experiences(
+            (obs["agent_position"], obs["agent_position"]),
+            (obs["agent_position_features"], obs["agent_position_features"]),
+            (goal_1, goal_2),
+            (goal_1_w, goal_2_w),
+            (action, action),
+            (my_env.config.penalization, my_env.config.reward_at_goal_position),
+            (next_obs["agent_position"], next_obs["agent_position"]),
+            (next_obs["agent_position_features"], next_obs["agent_position_features"]),
+            (False, True),
+        )
+    )
+
+    print("\nObtained: ", experiences)
+    print("\nExpected ", expected_experiences)
+
+    assert len(experiences.agent_position_batch) == 2
+
+    assert [
+        (elem1 == elem2).all()
+        for elem1, elem2 in zip(
+            expected_experiences.agent_position_batch, experiences.agent_position_batch
+        )
+    ]
+    assert [
+        (elem1 == elem2).all()
+        for elem1, elem2 in zip(
+            expected_experiences.next_agent_position_batch,
+            experiences.next_agent_position_batch,
+        )
+    ]
+    assert [
+        (elem1 == elem2).all()
+        for elem1, elem2 in zip(expected_experiences.goal_batch, experiences.goal_batch)
+    ]
+
+    assert [
+        (elem1 == elem2).all()
+        for elem1, elem2 in zip(
+            expected_experiences.goal_weights_batch, experiences.goal_weights_batch
+        )
+    ]
+    assert [
+        (elem1 == elem2)
+        for elem1, elem2 in zip(
+            expected_experiences.action_batch, experiences.action_batch
+        )
+    ]
+    assert [
+        (elem1 == elem2)
+        for elem1, elem2 in zip(
+            expected_experiences.reward_batch, experiences.reward_batch
+        )
+    ]
+    assert [
+        (elem1 == elem2).all()
+        for elem1, elem2 in zip(
+            expected_experiences.next_agent_position_batch,
+            experiences.next_agent_position_batch,
+        )
+    ]
+    assert [
+        (elem1 == elem2).all()
+        for elem1, elem2 in zip(
+            expected_experiences.next_agent_position_features_batch,
+            experiences.next_agent_position_features_batch,
+        )
+    ]
+    assert [
+        (elem1 == elem2)
+        for elem1, elem2 in zip(
+            expected_experiences.terminated_batch, experiences.terminated_batch
+        )
+    ]
 
 
 def test_build_tensor_from_batch_of_np_arrays(batch_size=32):
