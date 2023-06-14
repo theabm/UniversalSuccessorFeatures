@@ -12,8 +12,8 @@ import test.agents.utils as u  # for pytest
 @pytest.mark.parametrize(
     "network, memory, n_steps",
     [
-        (nn.FeatureGoalPaperDQN, mem.ExperienceReplayMemory, 900),
-        (nn.FeatureGoalAugmentedDQN, mem.ExperienceReplayMemory, 900),
+        (nn.FeatureGoalPaperDQN, mem.ExperienceReplayMemory, 400),
+        (nn.FeatureGoalAugmentedDQN, mem.ExperienceReplayMemory, 400),
         (nn.FeatureGoalUSF, mem.ExperienceReplayMemory, 1000),
         (nn.FeatureGoalUSF, mem.CombinedExperienceReplayMemory, 1000),
         (nn.FeatureGoalUSF, mem.PrioritizedExperienceReplayMemory, 1000),

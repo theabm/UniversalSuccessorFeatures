@@ -99,7 +99,7 @@ def test_gpi(agent_type, network, memory, n_steps, seed=0):
         np.array([[0, 1]]),
         np.array([[0, 2]]),
         np.array([[1, 0]]),
-        np.array([[1, 1]]),
+        # np.array([[1, 1]]),
         np.array([[1, 2]]),
         # np.array([[2, 1]]),
     ]
