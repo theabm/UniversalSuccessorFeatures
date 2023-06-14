@@ -19,6 +19,8 @@ class RoomGridWorld(GridWorld):
 
     def __init__(self, config=None, **kwargs):
         self.config = eu.combine_dicts(kwargs, config, RoomGridWorld.default_config())
+        self.config.rows = 9
+        self.config.columns = 9
 
         super().__init__(config=self.config)
 
