@@ -9,6 +9,8 @@ class RoomGridWorld(GridWorld):
     @staticmethod
     def default_config():
         return eu.AttrDict(
+            rows=9,
+            columns=9,
             nmax_steps=31,
             penalization=-0.1,
             reward_at_goal_position=0,
@@ -58,7 +60,7 @@ class RoomGridWorld(GridWorld):
         return i, j
 
     def _create_three_disjoint_goal_lists(self):
-        """Create three disjoint set of goals. 
+        """Create three disjoint set of goals.
         Primary/Source goals are the initial goals to train on.
 
         Secondary/Target goals are the goals trained on in second phase
@@ -97,7 +99,7 @@ class RoomGridWorld(GridWorld):
     def check_boundary_conditions(self):
         """
         Check agent cannot violate physical constraints of the grid
-        world. 
+        world.
         """
         super().check_boundary_conditions()
         if (self.agent_i, self.agent_j) in self.forbidden_cells:
