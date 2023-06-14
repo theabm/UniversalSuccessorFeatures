@@ -8,7 +8,6 @@ import universal_successor_features.memory as mem
 import torch
 import pytest
 from test.agents.stub_classes import StubFeatureGoalWeightNetwork
-from universal_successor_features.exp.core import PartialTransition
 from universal_successor_features.agents.base_agent import FullTransition, Experiences
 import copy
 
@@ -198,12 +197,17 @@ def test_sample_and_augment_experiences():
     action = 2
     next_obs, *_ = my_env.step(action)
 
-    example_transition = PartialTransition(
+    example_transition = FullTransition(
         obs["agent_position"],
         obs["agent_position_features"],
+        None, 
+        None,
         action,
+        None,
         next_obs["agent_position"],
         next_obs["agent_position_features"],
+        None,
+        None,
     )
 
     example_memory = mem.ExperienceReplayMemory(capacity=1)
@@ -227,6 +231,7 @@ def test_sample_and_augment_experiences():
         next_obs["agent_position"],
         next_obs["agent_position_features"],
         False,
+        None,
     )
 
     expected_transition_2 = FullTransition(
@@ -239,6 +244,7 @@ def test_sample_and_augment_experiences():
         next_obs["agent_position"],
         next_obs["agent_position_features"],
         True,
+        None,
     )
     # Since we zip, we expect something like
 

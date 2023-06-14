@@ -267,6 +267,7 @@ class BaseAgent(ABC):
 
     def _sample_experiences(self):
         experiences, weights = self.memory.sample(self.batch_size)
+        self._augmented_batch_size = self.batch_size
         return Experiences(*zip(*experiences)), torch.tensor(weights)
 
     def _build_tensor_from_batch_of_np_arrays(self, list_of_np_arrays):
@@ -577,7 +578,9 @@ class BaseAgent(ABC):
                 goal_weights = self.env._get_goal_weights_at(goal_position)
                 assert goal_weights.shape == (1, self.features_size)
 
-                reward = int(np.sum(experience.next_agent_position_features * goal_weights))
+                reward = int(
+                    np.sum(experience.next_agent_position_features * goal_weights)
+                )
                 assert type(reward) == int
 
                 terminated = (
@@ -615,9 +618,7 @@ class BaseAgent(ABC):
         # batch*12.
         augmented_weights = weights.reshape((self.batch_size, 1))
 
-        augmented_weights = np.tile(
-            augmented_weights, (1, len_list_goals)
-        )
+        augmented_weights = np.tile(augmented_weights, (1, len_list_goals))
 
         assert augmented_weights.shape == (self.batch_size, len_list_goals)
 
@@ -630,9 +631,12 @@ class BaseAgent(ABC):
         )
 
     def _train_one_batch(self, list_of_goal_positions_for_augmentation):
-        experiences, sample_weights = self._sample_and_augment_experiences(
-            list_of_goal_positions_for_augmentation
-        )
+        if list_of_goal_positions_for_augmentation is None:
+            experiences, sample_weights = self._sample_experiences()
+        else:
+            experiences, sample_weights = self._sample_and_augment_experiences(
+                list_of_goal_positions_for_augmentation
+            )
 
         sample_weights = sample_weights.to(self.device)
 
@@ -667,15 +671,20 @@ class BaseAgent(ABC):
 
             loss = torch.mean(sample_weights * total_td_error)
 
-            # To update the samples for PER I cannot just pass the weights since
-            # these have been augmented.
-            # I have to compute an average of the td_error over blocks of size
-            # len(list_of_goal_positions_for_augmentation). This will be the
-            # associated weight to that transition.
-            total_td_error = total_td_error.reshape(
-                (self.batch_size, len(list_of_goal_positions_for_augmentation))
-            ).mean(dim=1)
-            assert total_td_error.shape == (self.batch_size,)
+            if list_of_goal_positions_for_augmentation is None:
+                # we do nothing
+                pass
+            else:
+                # To update the samples for PER I cannot just pass the weights since
+                # these have been augmented.
+                # I have to compute an average of the td_error over blocks of size
+                # len(list_of_goal_positions_for_augmentation). This will be the
+                # associated weight to that transition.
+                total_td_error = total_td_error.reshape(
+                    (self.batch_size, len(list_of_goal_positions_for_augmentation))
+                ).mean(dim=1)
+
+                assert total_td_error.shape == (self.batch_size,)
 
             # update the priority of batch samples in memory
             self.memory.update_samples(total_td_error.detach().cpu())
@@ -694,11 +703,13 @@ class BaseAgent(ABC):
 
             loss = torch.mean(sample_weights * td_error_q)
 
-            td_error_q = td_error_q.reshape(
-                (self.batch_size, len(list_of_goal_positions_for_augmentation))
-            ).mean(dim=1)
-
-            assert td_error_q.shape == (self.batch_size,)
+            if list_of_goal_positions_for_augmentation is None:
+                pass
+            else:
+                td_error_q = td_error_q.reshape(
+                    (self.batch_size, len(list_of_goal_positions_for_augmentation))
+                ).mean(dim=1)
+                assert td_error_q.shape == (self.batch_size,)
 
             self.memory.update_samples(td_error_q.detach().cpu())
 

@@ -5,22 +5,20 @@ import copy
 import universal_successor_features as usf
 from collections import namedtuple
 
-PartialTransition = namedtuple(
-    "PartialTransition",
+FullTransition = namedtuple(
+    "FullTransition",
     (
         "agent_position",
         "agent_position_features",
-        # "goal",
-        # "goal_weights",
+        "goal",
+        "goal_weights",
         "action",
-        # "reward",
+        "reward",
         "next_agent_position",
         "next_agent_position_features",
-        # "terminated",
-        # "truncated",
+        "terminated",
     ),
 )
-
 
 def run_rl_first_phase(config=None, **kwargs):
     # default config
@@ -35,7 +33,6 @@ def run_rl_first_phase(config=None, **kwargs):
             network=eu.AttrDict(cls=None),
         ),
         n_steps=48000,
-        augment_data=False,
         log_name_step="step",
         log_name_episode="episode",
         log_name_step_per_episode="step_per_episode",
@@ -64,6 +61,30 @@ def run_rl_first_phase(config=None, **kwargs):
 
     agent = eu.misc.create_object_from_config(config.agent, env=my_env)
 
+    if isinstance(agent, usf.agents.FeatureGoalWeightAgent) or isinstance(
+        agent, usf.agents.StateGoalWeightAgent
+    ):
+        # Data augmentation on the source tasks.
+        # Each transition is of type (s, f, a, s+1, f+1) where f is agent features.
+        # However, we can find the full transition for the agent for all the goals
+        # from this information by using the relationship
+        # r = f * w which is known.
+
+        # This is the default behavior for weight based agents!
+        list_of_goal_positions_for_augmentation = my_env.goal_list_source_tasks
+
+    else:
+
+        # Only option for now. However, in the future, I could try to augment
+        # the training data for the agents that do not know the weights
+        # by using an intrinsic reward.
+        # For example, I could use the negative distance to the goal position.
+        # This means that for each transition, the agent will learn how good
+        # it is to be in that state based on the distance and it will try to
+        # minimize it
+
+        list_of_goal_positions_for_augmentation = None
+
     step = 0
     total_reward = 0
     episode = 0
@@ -81,14 +102,6 @@ def run_rl_first_phase(config=None, **kwargs):
         agent.start_episode(episode=episode)
 
         goal_position = my_env.sample_source_goal()
-
-        # if I want to have data augmentation while I train, I augment over all
-        # the goals possible.
-        # Otherwise I simply keep my current goal.
-        if config.augment_data:
-            list_of_goal_positions_for_augmentation = my_env.goal_list_source_tasks
-        else:
-            list_of_goal_positions_for_augmentation = [goal_position]
 
         obs, _ = my_env.reset(goal_position=goal_position)
 
@@ -163,7 +176,6 @@ def run_rl_second_phase(config=None, **kwargs):
         use_gpi_eval=False,
         use_gpi_train=False,
         use_target_tasks=True,
-        augment_data=False,
         log_name_step="step",
         log_name_episode="episode",
         log_name_step_per_episode="step_per_episode",
@@ -230,6 +242,12 @@ def run_rl_second_phase(config=None, **kwargs):
         goal_sampler = my_env.sample_eval_goal
         goal_list_for_eval = my_env.goal_list_evaluation_tasks
 
+    # Since we have already learned on the source tasks, we can augment on
+    # all the tasks.
+    list_of_goal_positions_for_augmentation = (
+        my_env.goal_list_source_tasks + goal_list_for_eval
+    )
+
     step = 0
     total_reward = log.get_item(config.log_name_total_reward)[-1]
     episode = log.get_item(config.log_name_episode)[-1]
@@ -255,17 +273,11 @@ def run_rl_second_phase(config=None, **kwargs):
         # it determines over which goals the gpi procedure should be used.
         # if done during action selection, this will change the experiences I
         # store in my memory buffer
-        goals_for_gpi = [goal_position]
 
         # On the other hand, list_of_goal_positions_for_augmentation is for
         # training directly
         # It specifies the goals that I will use to augment my data.
-        if config.augment_data:
-            list_of_goal_positions_for_augmentation = (
-                goal_list_for_eval + my_env.goal_list_source_tasks
-            )
-        else:
-            list_of_goal_positions_for_augmentation = [goal_position]
+        goals_for_gpi = [goal_position]
 
         if config.use_gpi_train:
             goals_for_gpi += my_env.goal_list_source_tasks
@@ -377,17 +389,20 @@ def general_step_function(obs, agent, my_env, goals_for_gpi, training):
 
     next_obs, reward, terminated, truncated, _ = my_env.step(action=action)
 
-    transition = PartialTransition(
+    # Note: In the normal case, this works fine. 
+    # When I do data augmentation however, I will still use this transition, 
+    # but I will only work with the entries that do not change across goal 
+    # i.e. pos, feaures, action
+    transition = FullTransition(
         obs["agent_position"],
         obs["agent_position_features"],
-        # obs["goal_position"],
-        # obs["goal_weights"],
+        obs["goal_position"],
+        obs["goal_weights"],
         action,
-        # reward,
+        reward,
         next_obs["agent_position"],
         next_obs["agent_position_features"],
-        # terminated,
-        # truncated,
+        terminated,
     )
 
     return next_obs, reward, terminated, truncated, transition
