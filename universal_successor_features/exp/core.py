@@ -17,6 +17,7 @@ FullTransition = namedtuple(
         "next_agent_position",
         "next_agent_position_features",
         "terminated",
+        "truncated",
     ),
 )
 
@@ -61,29 +62,7 @@ def run_rl_first_phase(config=None, **kwargs):
 
     agent = eu.misc.create_object_from_config(config.agent, env=my_env)
 
-    if isinstance(agent, usf.agents.FeatureGoalWeightAgent) or isinstance(
-        agent, usf.agents.StateGoalWeightAgent
-    ):
-        # Data augmentation on the source tasks.
-        # Each transition is of type (s, f, a, s+1, f+1) where f is agent features.
-        # However, we can find the full transition for the agent for all the goals
-        # from this information by using the relationship
-        # r = f * w which is known.
-
-        # This is the default behavior for weight based agents!
-        list_of_goal_positions_for_augmentation = my_env.goal_list_source_tasks
-
-    else:
-
-        # Only option for now. However, in the future, I could try to augment
-        # the training data for the agents that do not know the weights
-        # by using an intrinsic reward.
-        # For example, I could use the negative distance to the goal position.
-        # This means that for each transition, the agent will learn how good
-        # it is to be in that state based on the distance and it will try to
-        # minimize it
-
-        list_of_goal_positions_for_augmentation = None
+    list_of_goal_positions_for_augmentation = my_env.goal_list_source_tasks
 
     step = 0
     total_reward = 0
@@ -242,10 +221,9 @@ def run_rl_second_phase(config=None, **kwargs):
         goal_sampler = my_env.sample_eval_goal
         goal_list_for_eval = my_env.goal_list_evaluation_tasks
 
-    # Since we have already learned on the source tasks, we can augment on
-    # all the tasks.
+    
     list_of_goal_positions_for_augmentation = (
-        my_env.goal_list_source_tasks + goal_list_for_eval
+            my_env.goal_list_source_tasks + goal_list_for_eval
     )
 
     step = 0
@@ -403,6 +381,7 @@ def general_step_function(obs, agent, my_env, goals_for_gpi, training):
         next_obs["agent_position"],
         next_obs["agent_position_features"],
         terminated,
+        truncated
     )
 
     return next_obs, reward, terminated, truncated, transition

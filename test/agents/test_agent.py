@@ -217,7 +217,7 @@ def test_sample_and_augment_experiences():
     agent = a.FeatureGoalWeightAgent(env=my_env, batch_size=1)
     agent.memory = example_memory
 
-    experiences, weights = agent._sample_and_augment_experiences(
+    experiences, weights = agent._sample_experiences(
         list_of_goal_positions_for_augmentation
     )
 
@@ -259,6 +259,7 @@ def test_sample_and_augment_experiences():
             (next_obs["agent_position"], next_obs["agent_position"]),
             (next_obs["agent_position_features"], next_obs["agent_position_features"]),
             (False, True),
+            (None, None),
         )
     )
 

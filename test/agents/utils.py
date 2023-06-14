@@ -156,13 +156,6 @@ def test_training(
 
     goal_list = [np.array([[2, 2]]), np.array([[2, 0]])]
 
-    if isinstance(agent, usf.agents.FeatureGoalWeightAgent) or isinstance(
-        agent, usf.agents.StateGoalWeightAgent
-    ):
-        list_of_goal_positions_for_augmentation = goal_list
-    else:
-        list_of_goal_positions_for_augmentation = None
-
     step = 0
     episode = 0
 
@@ -182,7 +175,7 @@ def test_training(
             )
             agent.train(
                 transition=transition,
-                list_of_goal_positions_for_augmentation=list_of_goal_positions_for_augmentation,
+                list_of_goal_positions_for_augmentation=goal_list,
             )
 
             obs = next_obs
