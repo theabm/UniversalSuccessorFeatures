@@ -174,3 +174,41 @@ def test_boundaries_going_right(i, j):
     my_env.reset(start_agent_position=start_agent_position)
     obs, *_ = my_env.step(env.Directions.RIGHT)
     assert (obs["agent_position"] == start_agent_position).all()
+
+
+@pytest.mark.parametrize(
+    "i,j",
+    [
+        (0, 0),(0, 1),(0, 2),
+        (1, 0),(1, 1),(1, 2),
+        (2, 0),(2, 1),(2, 2)
+    ],
+)
+def test_rbf_vector_is_correct(i,j):
+    agent_position = np.array([[i, j]])
+    my_env = env.GridWorld(
+        rows=3, columns=3, n_goals=1,
+        rbf_points_in_x_direction = 3, rbf_points_in_y_direction = 3
+    )
+    rbf_vector = []
+    for k in range(my_env.rows):
+        for m in range(my_env.columns):
+            exponent = np.sum(
+                (agent_position - np.array([k, m]))
+                * (agent_position - np.array([k, m]))
+            )
+            component = np.exp(-1 * exponent / my_env.sigma)
+            rbf_vector.append(component)
+
+    rbf_vector = np.array(rbf_vector)
+
+    obs, _ = my_env.reset(start_agent_position=agent_position)
+
+    rbf_vector_env = obs["agent_position_features_rbf"]
+    assert rbf_vector_env.shape == (1, 9)
+
+    rbf_vector_env = rbf_vector_env.reshape((9,))
+
+    assert (rbf_vector_env == rbf_vector).all()
+    assert rbf_vector_env[i*3+j] == 1.0
+

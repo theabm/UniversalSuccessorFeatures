@@ -75,8 +75,8 @@ class GridWorld(gym.Env):
             }
         )
 
-        dim1_components = np.linspace(1, self.rows, self.rbf_x)
-        dim2_components = np.linspace(1, self.columns, self.rbf_y)
+        dim1_components = np.linspace(0, self.rows-1, self.rbf_x)
+        dim2_components = np.linspace(0, self.columns-1, self.rbf_y)
 
         self.rbf_grid = np.array(
             np.meshgrid(dim1_components, dim2_components)
@@ -321,7 +321,7 @@ class GridWorld(gym.Env):
     def _make_full_grid_and_place_val_in(self, i, j, full_val, val):
         grd = np.full((self.rows, self.columns), full_val)
         grd[i][j] = val
-        return grd.reshape((1, self.rows * self.columns))
+        return grd.reshape((1, self.features_size))
 
     # formerly _get_agent_position_features_at
     def _get_one_hot_vector_at(self, position: np.ndarray):
@@ -344,9 +344,9 @@ class GridWorld(gym.Env):
             * np.sum((position - self.rbf_grid) * (position - self.rbf_grid), axis=1)
             / self.sigma
         )
-        assert rbf_vector.shape == (self.rbf_x * self.rbf_y,)
+        assert rbf_vector.shape == (self.rbf_size,)
 
-        rbf_vector = rbf_vector.reshape(1, self.rbf_x * self.rbf_y)
+        rbf_vector = rbf_vector.reshape((1, self.rbf_size))
 
         return rbf_vector
 
