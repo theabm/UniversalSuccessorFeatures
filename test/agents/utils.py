@@ -64,7 +64,7 @@ def compute_q_function(agent, env, list_of_goal_positions, use_pos, use_weight):
     for i in range(env.rows):
         for j in range(env.columns):
             pos.append([i, j])
-            features.append(env._get_agent_position_features_at(np.array([[i, j]])))
+            features.append(env._get_one_hot_vector_at(np.array([[i, j]])))
 
     # shape size*len(list_of_goal_positions), pos_size
     pos_tensor = (

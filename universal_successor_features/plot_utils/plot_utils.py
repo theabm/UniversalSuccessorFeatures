@@ -279,7 +279,7 @@ def display_successor_features(
 
     obs = {
         "agent_position": agent_position,
-        "agent_position_features": env._get_agent_position_features_at(agent_position),
+        "agent_position_features": env._get_one_hot_vector_at(agent_position),
         "goal_position": policy_goal_position,
         "goal_weights": env._get_goal_weights_at(policy_goal_position),
     }

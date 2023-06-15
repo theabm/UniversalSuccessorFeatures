@@ -15,17 +15,22 @@ class RoomGridWorld(GridWorld):
             penalization=-0.1,
             reward_at_goal_position=0,
             one_hot_weight=1,
+            n_goals=12,
+            rbf_points_in_x_direction=9,
+            rbf_points_in_y_direction=9,
         )
 
     def __init__(self, config=None, **kwargs):
         self.config = eu.combine_dicts(kwargs, config, RoomGridWorld.default_config())
         self.config.rows = 9
         self.config.columns = 9
+        self.n_goals = 12
 
         super().__init__(config=self.config)
 
         assert self.config.rows == 9
         assert self.config.columns == 9
+        assert self.config.n_goals == 12
 
         self.forbidden_cells = [
             (4, 0),
@@ -108,13 +113,6 @@ class RoomGridWorld(GridWorld):
             self.agent_i = self.old_agent_i
             self.agent_j = self.old_agent_j
 
-    def step(self, action):
-        self.old_agent_i = self.agent_i
-        self.old_agent_j = self.agent_j
-
-        obs, reward, terminated, truncated, info = super().step(action)
-        return obs, reward, terminated, truncated, info
-
     def save(self):
         self.config.forbidden_cells = self.forbidden_cells
         super().save()
@@ -131,6 +129,7 @@ class RoomGridWorld(GridWorld):
         env.forbidden_cells = config["forbidden_cells"]
 
         return env
+    
 
 
 if __name__ == "__main__":
