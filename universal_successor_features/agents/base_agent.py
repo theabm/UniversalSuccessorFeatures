@@ -158,7 +158,7 @@ class BaseAgent(ABC):
         # The internal batch size I will work with
         # I set it to the same value, but it will be determined during training.
         # by the list of goal positions over which I want to evaluate.
-        # The entry point is the _train_one_batch_function
+        # The entry point is the _sample_experiences
         self._augmented_batch_size = self.batch_size
 
         self.train_every_n_steps = self.config.train_every_n_steps - 1
@@ -268,9 +268,10 @@ class BaseAgent(ABC):
             raise "This function is only available for USF's"
 
     def _sample_experiences(self, list_of_goal_positions_for_augmentation):
-        # one of the arguments is used only in overriden version
+        # The list_of_goal_positions_for_augmentation argument is used only in 
+        # overriden version
 
-        # since in some agents I augment batch size, I need to initialize the
+        # Since in some agents I augment batch size, I need to initialize the
         # new batch size here.
 
         experiences, weights = self.memory.sample(self.batch_size)
@@ -278,7 +279,11 @@ class BaseAgent(ABC):
         assert type(experiences) == list
         assert len(experiences) == self.batch_size
 
-        self._augmented_batch_size = self.batch_size
+        # by default _augmented_batch_size = batch_size so I dont need to set it 
+        # here. However, in featuregoalagent where I have overriden this 
+        # function, I need to set it as appropriate
+
+        # self._augmented_batch_size = self.batch_size
 
         return Experiences(*zip(*experiences)), torch.tensor(weights)
 
