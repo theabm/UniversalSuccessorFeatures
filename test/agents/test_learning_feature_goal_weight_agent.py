@@ -13,10 +13,11 @@ import test.agents.utils as u  # for pytest
 @pytest.mark.parametrize(
     "network, memory, n_steps",
     [
+        (nn.FeatureGoalWeightKUSF, mem.ExperienceReplayMemory, 300),
         (nn.FeatureGoalWeightUSF, mem.ExperienceReplayMemory, 200),
     ],
 )
-def test_learned_q_funtion_matches_expected_q_function(
+def test_learned_q_function_matches_expected_q_function(
     network, memory, n_steps, seed=0
 ):
     if seed is not None:

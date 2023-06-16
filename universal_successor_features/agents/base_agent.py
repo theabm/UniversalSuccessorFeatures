@@ -225,6 +225,18 @@ class BaseAgent(ABC):
         q_per_goal = torch.zeros(len(list_of_goal_positions))
         a_per_goal = torch.zeros(len(list_of_goal_positions), dtype=int)
 
+        agent_position = obs["agent_position"]
+        # A key idea: at each iteration, we need to check that the position of 
+        # agent is not one of the goals in my list. This is because goal 
+        # positions are terminal states, so the agent never learns the psi 
+        # function there. So the value could be arbitrarily high and interfere 
+        # with the GPI procedure in selecting the correct action.
+        # include in thesis.
+
+        list_of_goal_positions = [
+            goal for goal in list_of_goal_positions if (goal != agent_position).any()
+        ]
+
         obs_dict = self._build_arguments_from_obs(obs)
         for i, goal_position in enumerate(list_of_goal_positions):
             with torch.no_grad():
@@ -268,7 +280,7 @@ class BaseAgent(ABC):
             raise "This function is only available for USF's"
 
     def _sample_experiences(self, list_of_goal_positions_for_augmentation):
-        # The list_of_goal_positions_for_augmentation argument is used only in 
+        # The list_of_goal_positions_for_augmentation argument is used only in
         # overriden version
 
         # Since in some agents I augment batch size, I need to initialize the
@@ -279,8 +291,8 @@ class BaseAgent(ABC):
         assert type(experiences) == list
         assert len(experiences) == self.batch_size
 
-        # by default _augmented_batch_size = batch_size so I dont need to set it 
-        # here. However, in featuregoalagent where I have overriden this 
+        # by default _augmented_batch_size = batch_size so I dont need to set it
+        # here. However, in featuregoalagent where I have overriden this
         # function, I need to set it as appropriate
 
         # self._augmented_batch_size = self.batch_size

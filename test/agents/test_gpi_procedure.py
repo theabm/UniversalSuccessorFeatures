@@ -132,3 +132,5 @@ def test_gpi(agent_type, network, memory, n_steps, seed=0):
         print(f"Goal: {goal_position_3}\tSteps: {step}")
 
         assert terminated
+
+# test_gpi(a.FeatureGoalAgent, nn.FeatureGoalUSF, mem.ExperienceReplayMemory, 1000)
