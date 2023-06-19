@@ -99,6 +99,7 @@ class BaseAgent(ABC):
         self.action_space = env.action_space.n
         self.position_size = env.observation_space["agent_position"].shape[1]
         self.features_size = env.observation_space["agent_position_features"].shape[1]
+        self.rbf_size = env.rbf_size
 
         # Setting the device
         if self.config.device == "cuda":
