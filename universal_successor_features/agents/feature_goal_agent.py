@@ -25,9 +25,10 @@ class FeatureGoalAgent(BaseAgent):
         )
         super().__init__(env=env, config=self.config)
 
-    def _build_arguments_from_obs(self, obs):
+    def _build_arguments_from_obs(self, obs, goal_position):
         return {
-            "features": torch.tensor(obs["features"])
+            "features": torch.tensor(obs["features"]).to(torch.float).to(self.device),
+            "policy_goal_position": torch.tensor(goal_position)
             .to(torch.float)
             .to(self.device),
             "env_goal_position": torch.tensor(obs["goal_position"])
@@ -50,6 +51,7 @@ class FeatureGoalAgent(BaseAgent):
             "policy_goal_position": batch_args["goal_position_batch"],
             "env_goal_position": batch_args["goal_position_batch"],
         }
+
 
 if __name__ == "__main__":
     env = envs.GridWorld()

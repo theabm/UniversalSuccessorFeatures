@@ -76,13 +76,13 @@ class StateGoalRBFUSF(torch.nn.Module):
     
     def forward(self,
                 agent_position_rbf,
-                policy_goal_position,
-                env_goal_position
+                policy_goal_position_rbf,
+                env_goal_position_rbf
                 ):
 
         features = self.agent_position_layer(agent_position_rbf)
 
-        goal_position_features = self.policy_goal_layer(policy_goal_position)
+        goal_position_features = self.policy_goal_layer(policy_goal_position_rbf)
 
         joined_representation = torch.cat(
                 (features,goal_position_features),
@@ -95,7 +95,7 @@ class StateGoalRBFUSF(torch.nn.Module):
         batch_size = sf.shape[0]
         sf = sf.reshape(batch_size, self.num_actions, self.features_size)
         
-        env_goal_weights = self.env_goal_layer(env_goal_position)
+        env_goal_weights = self.env_goal_layer(env_goal_position_rbf)
 
         # Output dot product between sf and env_goal_weights.
         # sf has shape (batch, num_actions, feature_size) while

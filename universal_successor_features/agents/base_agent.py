@@ -245,13 +245,10 @@ class BaseAgent(ABC):
             goal for goal in list_of_goal_positions if (goal != agent_position).any()
         ]
 
-        obs_dict = self._build_arguments_from_obs(obs)
         for i, goal_position in enumerate(list_of_goal_positions):
+            obs_dict = self._build_arguments_from_obs(obs, goal_position)
             with torch.no_grad():
                 q, *_ = self.policy_net(
-                    policy_goal_position=torch.tensor(goal_position)
-                    .to(torch.float)
-                    .to(self.device),
                     **obs_dict,
                 )
                 qm, am = torch.max(q, axis=1)
@@ -263,18 +260,15 @@ class BaseAgent(ABC):
         return a_per_goal[amm.item()]
 
     @abstractmethod
-    def _build_arguments_from_obs(self):
+    def _build_arguments_from_obs(self, obs, goal_position):
         pass
 
     def _print_successor_features(self, obs, list_of_goal_positions):
         if self.is_a_usf:
-            obs_dict = self._build_arguments_from_obs(obs)
             for i, goal_position in enumerate(list_of_goal_positions):
+                obs_dict = self._build_arguments_from_obs(obs, goal_position)
                 with torch.no_grad():
                     q, sf, *_ = self.policy_net(
-                        policy_goal_position=torch.tensor(goal_position)
-                        .to(torch.float)
-                        .to(self.device),
                         **obs_dict,
                     )
                     sf = sf.squeeze().reshape(

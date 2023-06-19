@@ -25,9 +25,12 @@ class StateGoalWeightAgent(BaseAgent):
         )
         super().__init__(env=env, config=self.config)
 
-    def _build_arguments_from_obs(self, obs):
+    def _build_arguments_from_obs(self, obs, goal_position):
         return {
             "agent_position": torch.tensor(obs["agent_position"])
+            .to(torch.float)
+            .to(self.device),
+            "policy_goal_position": torch.tensor(goal_position)
             .to(torch.float)
             .to(self.device),
             "env_goal_weights": torch.tensor(obs["goal_weights"])

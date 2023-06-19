@@ -57,12 +57,12 @@ class StateGoalWeightRBFUSF(torch.nn.Module):
         )
 
     def forward(self,
-                agent_position,
-                policy_goal_position,
+                agent_position_rbf,
+                policy_goal_position_rbf,
                 env_goal_weights
                 ):
-        features = self.agent_position_layer(agent_position)
-        goal_position_features = self.policy_goal_layer(policy_goal_position)
+        features = self.agent_position_layer(agent_position_rbf)
+        goal_position_features = self.policy_goal_layer(policy_goal_position_rbf)
         joined_representation = torch.cat(
                 (features,goal_position_features),
                 dim=1

@@ -30,9 +30,10 @@ class FeatureGoalWeightAgent(BaseAgent):
         )
         super().__init__(env=env, config=self.config)
 
-    def _build_arguments_from_obs(self, obs):
+    def _build_arguments_from_obs(self, obs, goal_position):
         return {
-            "features": torch.tensor(obs["features"])
+            "features": torch.tensor(obs["features"]).to(torch.float).to(self.device),
+            "policy_goal_position": torch.tensor(goal_position)
             .to(torch.float)
             .to(self.device),
             "env_goal_weights": torch.tensor(obs["goal_weights"])
@@ -116,9 +117,7 @@ class FeatureGoalWeightAgent(BaseAgent):
                 goal_position_rbf = self.env._get_rbf_vector_at(goal_position)
                 assert goal_weights.shape == (1, self.features_size)
 
-                reward = int(
-                    np.sum(experience.next_features * goal_weights)
-                )
+                reward = int(np.sum(experience.next_features * goal_weights))
                 assert type(reward) == int
 
                 terminated = (
