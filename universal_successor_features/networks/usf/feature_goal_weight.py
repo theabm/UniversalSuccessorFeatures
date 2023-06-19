@@ -45,12 +45,12 @@ class FeatureGoalWeightUSF(torch.nn.Module):
                 )
 
     def forward(self,
-                agent_position_features,
+                features,
                 policy_goal_position,
                 env_goal_weights):
         goal_position_features = self.policy_goal_layer(policy_goal_position)
         joined_representation = torch.cat(
-                (agent_position_features,goal_position_features),
+                (features,goal_position_features),
                 dim=1
                 )
 
@@ -65,7 +65,7 @@ class FeatureGoalWeightUSF(torch.nn.Module):
         # env_goal_weights has shape (batch, feature_size)
         q = torch.sum(torch.mul(sf, env_goal_weights.unsqueeze(1)), dim=2)
 
-        return q, sf, env_goal_weights, agent_position_features
+        return q, sf, env_goal_weights, features
 
 if __name__ == '__main__':
     my_dqn = FeatureGoalWeightUSF()

@@ -121,7 +121,7 @@ def compute_q_function(agent, env, list_of_goal_positions, use_pos, use_weight):
     # feature goal agent
     elif not use_pos and not use_weight:
         q, *_ = agent.policy_net(
-            agent_position_features=features_tensor,
+            features=features_tensor,
             policy_goal_position=goal_tensor,
             env_goal_position=goal_tensor,
         )
@@ -135,7 +135,7 @@ def compute_q_function(agent, env, list_of_goal_positions, use_pos, use_weight):
     # feature goal weight agent
     elif not use_pos and use_weight:
         q, *_ = agent.policy_net(
-            agent_position_features=features_tensor,
+            features=features_tensor,
             policy_goal_position=goal_tensor,
             env_goal_weights=weight_tensor,
         )

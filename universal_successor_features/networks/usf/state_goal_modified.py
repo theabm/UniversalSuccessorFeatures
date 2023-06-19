@@ -75,10 +75,10 @@ class StateGoalUSFModified(torch.nn.Module):
                 policy_goal_position,
                 env_goal_position
                 ):
-        agent_position_features = self.positions_to_feature(agent_position)
+        features = self.positions_to_feature(agent_position)
         goal_position_features = self.policy_goal_layer(policy_goal_position)
         joined_representations = torch.cat(
-                (agent_position_features,goal_position_features),
+                (features,goal_position_features),
                 dim=1
                 )
         sf = self.concatenation_layer(joined_representations)
@@ -90,7 +90,7 @@ class StateGoalUSFModified(torch.nn.Module):
 
         q = torch.sum(torch.mul(sf, env_goal_weigths.unsqueeze(1)), dim=2)
 
-        return q, sf, env_goal_weigths, agent_position_features
+        return q, sf, env_goal_weigths, features
 
 
 if __name__ == '__main__':

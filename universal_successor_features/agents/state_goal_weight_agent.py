@@ -39,7 +39,7 @@ class StateGoalWeightAgent(BaseAgent):
     def _build_target_args(batch_args):
         return {
             "agent_position": batch_args["next_agent_position_batch"],
-            "policy_goal_position": batch_args["goal_batch"],
+            "policy_goal_position": batch_args["goal_position_batch"],
             "env_goal_weights": batch_args["goal_weights_batch"],
         }
 
@@ -47,7 +47,7 @@ class StateGoalWeightAgent(BaseAgent):
     def _build_predicted_args(batch_args):
         return {
             "agent_position": batch_args["agent_position_batch"],
-            "policy_goal_position": batch_args["goal_batch"],
+            "policy_goal_position": batch_args["goal_position_batch"],
             "env_goal_weights": batch_args["goal_weights_batch"],
         }
 

@@ -15,13 +15,16 @@ Experiences = namedtuple(
     "Experiences",
     (
         "agent_position_batch",
-        "agent_position_features_batch",
-        "goal_batch",
+        "agent_position_rbf_batch",
+        "features_batch",
+        "goal_position_batch",
+        "goal_position_rbf_batch",
         "goal_weights_batch",
         "action_batch",
         "reward_batch",
         "next_agent_position_batch",
-        "next_agent_position_features_batch",
+        "next_agent_position_rbf_batch",
+        "next_features_batch",
         "terminated_batch",
         "truncated_batch",
     ),
@@ -31,13 +34,16 @@ FullTransition = namedtuple(
     "FullTransition",
     (
         "agent_position",
-        "agent_position_features",
-        "goal",
+        "agent_position_rbf",
+        "features",
+        "goal_position",
+        "goal_position_rbf",
         "goal_weights",
         "action",
         "reward",
         "next_agent_position",
-        "next_agent_position_features",
+        "next_agent_position_rbf",
+        "next_features",
         "terminated",
         "truncated",
     ),
@@ -98,7 +104,7 @@ class BaseAgent(ABC):
         self.env = env
         self.action_space = env.action_space.n
         self.position_size = env.observation_space["agent_position"].shape[1]
-        self.features_size = env.observation_space["agent_position_features"].shape[1]
+        self.features_size = env.features_size
         self.rbf_size = env.rbf_size
 
         # Setting the device
@@ -117,6 +123,7 @@ class BaseAgent(ABC):
             self.config.network.goal_size = self.position_size
             self.config.network.features_size = self.features_size
             self.config.network.num_actions = self.action_space
+            self.config.network.rbf_size = self.rbf_size
 
             self.policy_net = eu.misc.create_object_from_config(self.config.network)
             self.is_a_usf = self.policy_net.is_a_usf
@@ -156,9 +163,9 @@ class BaseAgent(ABC):
 
         self.batch_size = self.config.batch_size
 
-        # The internal batch size I will work with
-        # I set it to the same value, but it will be determined during training.
-        # by the list of goal positions over which I want to evaluate.
+        # The internal batch size I will work with. Some agents augment the
+        # data training automatically so this is the reason this is hidden.
+
         # The entry point is the _sample_experiences
         self._augmented_batch_size = self.batch_size
 
@@ -227,10 +234,10 @@ class BaseAgent(ABC):
         a_per_goal = torch.zeros(len(list_of_goal_positions), dtype=int)
 
         agent_position = obs["agent_position"]
-        # A key idea: at each iteration, we need to check that the position of 
-        # agent is not one of the goals in my list. This is because goal 
-        # positions are terminal states, so the agent never learns the psi 
-        # function there. So the value could be arbitrarily high and interfere 
+        # A key idea: at each iteration, we need to check that the position of
+        # agent is not one of the goals in my list. This is because goal
+        # positions are terminal states, so the agent never learns the psi
+        # function there. So the value could be arbitrarily high and interfere
         # with the GPI procedure in selecting the correct action.
         # include in thesis.
 
@@ -274,7 +281,7 @@ class BaseAgent(ABC):
                         self.action_space, self.env.rows, self.env.columns
                     )
                     print(
-                        f"Sucessor features at: {obs['agent_position_features']}\nFor goal{goal_position}\n",
+                        f"Sucessor features at: {obs['features']}\nFor goal{goal_position}\n",
                         sf,
                     )
         else:
@@ -332,13 +339,20 @@ class BaseAgent(ABC):
             "agent_position_batch": self._build_tensor_from_batch_of_np_arrays(
                 experiences.agent_position_batch
             ).to(self.device),
+            # shape (batch_size, rbf_size)
+            "agent_position_rbf_batch": self._build_tensor_from_batch_of_np_arrays(
+                experiences.agent_position_rbf_batch
+            ).to(self.device),
             # shape (batch_size, feature_size)
-            "agent_position_features_batch": self._build_tensor_from_batch_of_np_arrays(
-                experiences.agent_position_features_batch
+            "features_batch": self._build_tensor_from_batch_of_np_arrays(
+                experiences.features_batch
             ).to(self.device),
             # shape (batch_size, position_size)
-            "goal_batch": self._build_tensor_from_batch_of_np_arrays(
-                experiences.goal_batch
+            "goal_position_batch": self._build_tensor_from_batch_of_np_arrays(
+                experiences.goal_position_batch
+            ).to(self.device),
+            "goal_position_rbf_batch": self._build_tensor_from_batch_of_np_arrays(
+                experiences.goal_position_rbf_batch
             ).to(self.device),
             # shape (batch_size, feature_size)
             "goal_weights_batch": self._build_tensor_from_batch_of_np_arrays(
@@ -348,6 +362,7 @@ class BaseAgent(ABC):
             "action_batch": torch.tensor(experiences.action_batch)
             .unsqueeze(1)
             .to(self.device),
+
             # reward and terminated batch are handled differently because they are
             # a list of floats and bools respectively and not a list of np.arrays
             # shape (batch_size,1)
@@ -358,9 +373,12 @@ class BaseAgent(ABC):
             "next_agent_position_batch": self._build_tensor_from_batch_of_np_arrays(
                 experiences.next_agent_position_batch
             ).to(self.device),
+            "next_agent_position_rbf_batch": self._build_tensor_from_batch_of_np_arrays(
+                experiences.next_agent_position_rbf_batch
+            ).to(self.device),
             # shape (batch_size, feature_size)
-            "next_agent_position_features_batch": self._build_tensor_from_batch_of_np_arrays(
-                experiences.next_agent_position_features_batch
+            "next_features_batch": self._build_tensor_from_batch_of_np_arrays(
+                experiences.next_features_batch
             ).to(
                 self.device
             ),
@@ -389,7 +407,7 @@ class BaseAgent(ABC):
         # data not explicitly used in the body of this function, such as
         # sf's will be checked in the appropriate function that uses it.
 
-        assert len(batch_args) == 9
+        assert len(batch_args) == 12
 
         q, sf, w, reward_phi_batch = self.target_net(
             **self._build_target_args(batch_args)
@@ -414,6 +432,8 @@ class BaseAgent(ABC):
     def _build_psi_target(self, batch_args, action, sf, reward_phi_batch):
         # This function is only called inside the train function which has
         # properly defined the augmented batch size
+        assert len(batch_args) == 12
+
         assert batch_args["terminated_batch"].shape == (self._augmented_batch_size,)
         assert action.shape == (self._augmented_batch_size,)
         assert sf.shape == (
@@ -480,7 +500,7 @@ class BaseAgent(ABC):
         pass
 
     def _build_q_predicted(self, batch_args):
-        assert len(batch_args) == 9
+        assert len(batch_args) == 12
 
         q, sf_s_g, w, phi = self.policy_net(**self._build_predicted_args(batch_args))
 
@@ -497,7 +517,7 @@ class BaseAgent(ABC):
         return predicted_q, sf_s_g, w, phi
 
     def _build_psi_predicted(self, batch_args, sf_s_g):
-        assert len(batch_args) == 9
+        assert len(batch_args) == 12
         assert sf_s_g.shape == (
             self._augmented_batch_size,
             self.action_space,
@@ -574,92 +594,6 @@ class BaseAgent(ABC):
         assert total_td_error.shape == (self._augmented_batch_size,)
 
         return total_td_error
-
-    # def _sample_and_augment_experiences(self, list_of_goal_positions_for_augmentation):
-    #     # list of goal positions holds all the goals over which I want
-    #     # to augment my training. It can be a single goal, in which case
-    #     # I am doing no augmentation, or it can be the full set of goals
-    #     # over which I am learning.
-    #
-    #     assert type(list_of_goal_positions_for_augmentation) == list
-    #
-    #     # first I sample batch_size experiences.
-    #     # these experiences are named tuples of the following structure:
-    #     # (agent_position, agent_position_features, action, next_agent_position,
-    #     # next_agent_position_features)
-    #
-    #     # Here I must always use the true batch size I have determined
-    #     experiences, weights = self.memory.sample(self.batch_size)
-    #     assert type(experiences) == list
-    #     assert len(experiences) == self.batch_size
-    #
-    #     # Then, from these, we will construct a full transition tuple for each
-    #     # of the goals by doing the following:
-    #     # goal - given by goal list
-    #     # goal_weight - calculated by environment
-    #     # reward - goal_weight*next_agent_position_features
-    #     # terminated - true if position == goal
-    #     # truncated - we dont need for training.
-    #
-    #     augmented_experiences = []
-    #
-    #     for experience in experiences:
-    #         for goal_position in list_of_goal_positions_for_augmentation:
-    #             goal_weights = self.env._get_goal_weights_at(goal_position)
-    #             assert goal_weights.shape == (1, self.features_size)
-    #
-    #             reward = int(
-    #                 np.sum(experience.next_agent_position_features * goal_weights)
-    #             )
-    #             assert type(reward) == int
-    #
-    #             terminated = (
-    #                 True
-    #                 if (goal_position == experience.next_agent_position).all()
-    #                 else False
-    #             )
-    #             assert type(terminated) == bool
-    #
-    #             new_experience = FullTransition(
-    #                 experience.agent_position,
-    #                 experience.agent_position_features,
-    #                 goal_position,
-    #                 goal_weights,
-    #                 experience.action,
-    #                 reward,
-    #                 experience.next_agent_position,
-    #                 experience.next_agent_position_features,
-    #                 terminated,
-    #                 experience.truncated
-    #             )
-    #
-    #             augmented_experiences.append(new_experience)
-    #
-    #     # this is the real batch size I need to work with.
-    #     len_list_goals = len(list_of_goal_positions_for_augmentation)
-    #
-    #     self._augmented_batch_size = len_list_goals * self.batch_size
-    #
-    #     assert len(augmented_experiences) == self._augmented_batch_size
-    #
-    #     assert weights.shape == (self.batch_size,)
-    #
-    #     # We take the weights, reshape to (batch,1) so that we can tile in the
-    #     # first dimension, then tile to obtain (batch, 12) then we reshape to
-    #     # batch*12.
-    #     augmented_weights = weights.reshape((self.batch_size, 1))
-    #
-    #     augmented_weights = np.tile(augmented_weights, (1, len_list_goals))
-    #
-    #     assert augmented_weights.shape == (self.batch_size, len_list_goals)
-    #
-    #     augmented_weights = augmented_weights.reshape((self._augmented_batch_size,))
-    #
-    #     assert augmented_weights.shape == (self._augmented_batch_size,)
-    #
-    #     return Experiences(*zip(*augmented_experiences)), torch.tensor(
-    #         augmented_weights
-    #     )
 
     def _update_memory(self, td_error, list_of_goal_positions_for_augmentation):
         # update the priority of batch samples in memory

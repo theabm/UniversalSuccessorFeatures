@@ -1,6 +1,7 @@
 import universal_successor_features as usf
 import torch
 from test.agents.stub_classes import StubFeatureGoalWeightNetwork
+import numpy as np
 
 
 def build_env_agent_and_batch_args():
@@ -28,10 +29,12 @@ def build_env_agent_and_batch_args():
     # simulate a batch (size 1) of experience
     batch_args = {
         "agent_position_batch": torch.tensor([[0, 0]]),
-        "agent_position_features_batch": torch.tensor([[1, 0, 0, 0, 0, 0, 0, 0, 0]]).to(
+        "agent_position_rbf_batch": env._get_rbf_vector_at(np.array([[0,0]])),
+        "features_batch": torch.tensor([[1, 0, 0, 0, 0, 0, 0, 0, 0]]).to(
             agent.device
         ),
-        "goal_batch": torch.tensor([[2, 2]]).to(agent.device),
+        "goal_position_batch": torch.tensor([[2, 2]]).to(agent.device),
+        "goal_position_rbf_batch": env._get_rbf_vector_at(np.array([[2,2]])),
         # Note goal weights dont match with goal position because if it did,
         # the product sf*w would be zero and the max would not be possible to take
         # Since I want to activate all the features, I just put all ones
@@ -41,7 +44,8 @@ def build_env_agent_and_batch_args():
         "action_batch": torch.tensor([1]).unsqueeze(1).to(agent.device),
         "reward_batch": torch.tensor([0]).to(agent.device),
         "next_agent_position_batch": torch.tensor([[1, 0]]),
-        "next_agent_position_features_batch": torch.tensor(
+        "next_agent_position_rbf_batch": env._get_rbf_vector_at(np.array([[1,0]])),
+        "next_features_batch": torch.tensor(
             [[0, 0, 0, 1, 0, 0, 0, 0, 0]]
         ).to(agent.device),
         "terminated_batch": torch.tensor([False]).to(agent.device),
@@ -63,7 +67,7 @@ def test_build_q_target():
     target_q, max_action, sf, w, reward_phi_batch = agent._build_q_target(batch_args)
 
     assert (w == batch_args["goal_weights_batch"]).all()
-    assert (reward_phi_batch == batch_args["next_agent_position_features_batch"]).all()
+    assert (reward_phi_batch == batch_args["next_features_batch"]).all()
 
     # verify action chosen is the third one
     assert max_action == 2
@@ -167,7 +171,7 @@ def test_get_td_error_for_usf():
 
 
 if __name__ == "__main__":
-    sn = StubFeatureGoalNetwork()
+    sn = StubFeatureGoalWeightNetwork()
 
     my_features = torch.ones(9)
 

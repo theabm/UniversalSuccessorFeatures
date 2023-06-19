@@ -44,13 +44,13 @@ class FeatureGoalPaperDQN(torch.nn.Module):
                     ),
                 )
     def forward(self,
-                agent_position_features,
+                features,
                 env_goal_position,
                 **kwargs
                 ):
         env_goal_representation = self.goal_position_layer(env_goal_position)
         joined_representation = torch.cat(
-                (agent_position_features,env_goal_representation),
+                (features,env_goal_representation),
                 dim=1
                 )
         q = self.concatenation_layer(joined_representation)

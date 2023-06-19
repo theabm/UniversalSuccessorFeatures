@@ -56,19 +56,16 @@ class GridWorld(gym.Env):
                 "agent_position": gym.spaces.MultiDiscrete(
                     np.array([[self.rows, self.columns]])
                 ),
-                "agent_position_features": gym.spaces.MultiBinary(
-                    [1, self.features_size]
-                ),
-                "agent_position_features_rbf": gym.spaces.Box(
+                "agent_position_rbf": gym.spaces.Box(
                     low=-np.inf, high=np.inf, shape=(1, self.rbf_size)
+                    ),
+                "features": gym.spaces.MultiBinary(
+                    [1, self.features_size]
                 ),
                 "goal_position": gym.spaces.MultiDiscrete(
                     np.array([[self.rows, self.columns]])
                 ),
-                "goal_position_features": gym.spaces.MultiBinary(
-                    [1, self.features_size]
-                ),
-                "goal_position_features_rbf": gym.spaces.Box(
+                "goal_position_rbf": gym.spaces.Box(
                     low=-np.inf, high=np.inf, shape=(1, self.rbf_size)
                 ),
                 "goal_weights": gym.spaces.MultiBinary([1, self.features_size]),
@@ -110,11 +107,10 @@ class GridWorld(gym.Env):
 
         # what will make up observation space
         self.agent_position = None
-        self.agent_position_features = None
-        self.agent_position_features_rbf = None
+        self.agent_position_rbf = None
+        self.features = None
         self.goal_position = None
-        self.goal_position_features = None
-        self.goal_position_features_rbf = None
+        self.goal_position_rbf = None
         self.goal_weights = None
 
     def _sample_position_in_grid(self):
@@ -212,17 +208,12 @@ class GridWorld(gym.Env):
         # the position of the goal
         self.goal_position = np.array([[self.goal_i, self.goal_j]])
 
-        # the one hot encoding features of the goal (just to maintain symmetry
-        # with position features)
-        self.goal_position_features = self._get_one_hot_vector_at(self.goal_position)
-        assert self.goal_position_features.shape == (1, self.features_size)
-
         # the rbf goal position features
-        self.goal_position_features_rbf = self._get_rbf_vector_at(self.goal_position)
-        assert self.goal_position_features_rbf.shape == (1, self.rbf_size)
+        self.goal_position_rbf = self._get_rbf_vector_at(self.goal_position)
+        assert self.goal_position_rbf.shape == (1, self.rbf_size)
 
         self.goal_weights = self._get_goal_weights_at(self.goal_position)
-        assert self.goal_position_features.shape == (1, self.features_size)
+        assert self.goal_weights.shape == (1, self.features_size)
 
         obs = self.build_new_observation()
 
@@ -273,20 +264,19 @@ class GridWorld(gym.Env):
 
     def build_new_observation(self):
         self.agent_position = np.array([[self.agent_i, self.agent_j]])
-        self.agent_position_features = self._get_one_hot_vector_at(self.agent_position)
-        self.agent_position_features_rbf = self._get_rbf_vector_at(self.agent_position)
+        self.features = self._get_one_hot_vector_at(self.agent_position)
+        self.agent_position_rbf = self._get_rbf_vector_at(self.agent_position)
 
         assert self.agent_position.shape == (1, 2)
-        assert self.agent_position_features.shape == (1, self.features_size)
-        assert self.agent_position_features_rbf.shape == (1, self.rbf_size)
+        assert self.features.shape == (1, self.features_size)
+        assert self.agent_position_rbf.shape == (1, self.rbf_size)
 
         obs = {
             "agent_position": self.agent_position,
-            "agent_position_features": self.agent_position_features,
-            "agent_position_features_rbf": self.agent_position_features_rbf,
+            "agent_position_rbf": self.agent_position_rbf,
+            "features": self.features,
             "goal_position": self.goal_position,
-            "goal_position_features": self.goal_position_features,
-            "goal_position_features_rbf": self.goal_position_features_rbf,
+            "goal_position_rbf": self.goal_position_rbf,
             "goal_weights": self.goal_weights,
         }
 
@@ -323,7 +313,6 @@ class GridWorld(gym.Env):
         grd[i][j] = val
         return grd.reshape((1, self.features_size))
 
-    # formerly _get_agent_position_features_at
     def _get_one_hot_vector_at(self, position: np.ndarray):
         """
         Return one hot vector corresponding to a given position
@@ -386,7 +375,7 @@ if __name__ == "__main__":
     grid_world_env = GridWorld()
     # reset missing **kwargs argument but I dont want this functionality.
     # check_env(grid_world_env)
-    print(grid_world_env.observation_space["agent_position_features"].shape[1])
+    print(grid_world_env.observation_space["features"].shape[1])
     print(grid_world_env.observation_space["agent_position"].shape[1])
     l1, l2, l3 = grid_world_env._create_three_disjoint_goal_lists()
     print(l1)

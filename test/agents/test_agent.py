@@ -49,6 +49,7 @@ def test_default_configuration(agent_type, network_type):
             goal_size=2,
             features_size=9,
             num_actions=4,
+            rbf_size=81,
         ),
         target_network_update=eu.AttrDict(
             rule="hard",
@@ -111,6 +112,7 @@ def test_agent_matches_custom_config(agent_type, network_type):
             goal_size=2,
             features_size=9,
             num_actions=4,
+            rbf_size=81,
         ),
         target_network_update=eu.AttrDict(
             rule="hard",
@@ -178,86 +180,83 @@ def test_choose_action():
     assert action == 2
 
 
+# test that sample and augment experience for FGW is working. 
+# the idea is that we push a single transition, which will be augmented 
+# by the number of goals internally. So we check that the output is 
+# what we expect
 def test_sample_and_augment_experiences():
     my_env = env.GridWorld(
         rows=3, columns=3, reward_at_goal_position=10, penalization=0, n_goals=1
     )
 
+    # we select to augment over these two goals
     goal_1 = np.array([[2, 0]])
     goal_2 = np.array([[0, 1]])
 
     goal_1_w = my_env._get_goal_weights_at(goal_1)
     goal_2_w = my_env._get_goal_weights_at(goal_2)
 
+    goal_1_rbf = my_env._get_rbf_vector_at(goal_1)
+    goal_2_rbf = my_env._get_rbf_vector_at(goal_2)
+
     list_of_goal_positions_for_augmentation = [goal_1, goal_2]
 
     obs, _ = my_env.reset(start_agent_position=np.array([[0, 0]]))
 
     # make my agent go right, this means that it will hit one of the two goals.
+    # therefore, in the augmentation, I expect that for goal (0,1) the reward 
+    # calculated as phi*w = 10
+    # while for the other goal, it will be 0
     action = 2
     next_obs, *_ = my_env.step(action)
 
+    # We create a full transitio with the relevant elements. Note that 
+    # the elements that are set to none are ignored by the augmentation strategy
+    # from the non null elements, it will compute everything else.
     example_transition = FullTransition(
         obs["agent_position"],
-        obs["agent_position_features"],
-        None, 
+        None,
+        obs["features"],
+        None,
+        None,
         None,
         action,
         None,
         next_obs["agent_position"],
-        next_obs["agent_position_features"],
+        None,
+        next_obs["features"],
         None,
         None,
     )
 
+    # we create a memory buffer
     example_memory = mem.ExperienceReplayMemory(capacity=1)
 
+    # and push our example transition inside
     example_memory.push(example_transition)
 
+    # then we create an agent and set its memory to the one we created.
     agent = a.FeatureGoalWeightAgent(env=my_env, batch_size=1)
     agent.memory = example_memory
 
+    # finally we sample from it
     experiences, weights = agent._sample_experiences(
         list_of_goal_positions_for_augmentation
     )
 
-    expected_transition_1 = FullTransition(
-        obs["agent_position"],
-        obs["agent_position_features"],
-        goal_1,
-        goal_1_w,
-        action,
-        my_env.config.penalization,
-        next_obs["agent_position"],
-        next_obs["agent_position_features"],
-        False,
-        None,
-    )
-
-    expected_transition_2 = FullTransition(
-        obs["agent_position"],
-        obs["agent_position_features"],
-        goal_2,
-        goal_2_w,
-        action,
-        my_env.config.reward_at_goal_position,
-        next_obs["agent_position"],
-        next_obs["agent_position_features"],
-        True,
-        None,
-    )
-    # Since we zip, we expect something like
-
     expected_experiences = copy.deepcopy(
         Experiences(
             (obs["agent_position"], obs["agent_position"]),
-            (obs["agent_position_features"], obs["agent_position_features"]),
+            (obs["agent_position_rbf"], obs["agent_position_rbf"]),
+            (obs["features"], obs["features"]),
             (goal_1, goal_2),
+            (goal_1_rbf, goal_2_rbf),
             (goal_1_w, goal_2_w),
             (action, action),
             (my_env.config.penalization, my_env.config.reward_at_goal_position),
             (next_obs["agent_position"], next_obs["agent_position"]),
-            (next_obs["agent_position_features"], next_obs["agent_position_features"]),
+            (next_obs["agent_position_rbf"], next_obs["agent_position_rbf"]),
+            (next_obs["features"], next_obs["features"]),
             (False, True),
             (None, None),
         )
@@ -277,15 +276,28 @@ def test_sample_and_augment_experiences():
     assert [
         (elem1 == elem2).all()
         for elem1, elem2 in zip(
-            expected_experiences.next_agent_position_batch,
-            experiences.next_agent_position_batch,
+            expected_experiences.agent_position_rbf_batch, experiences.agent_position_rbf_batch
         )
     ]
     assert [
         (elem1 == elem2).all()
-        for elem1, elem2 in zip(expected_experiences.goal_batch, experiences.goal_batch)
+        for elem1, elem2 in zip(
+            expected_experiences.features_batch,
+            experiences.features_batch,
+        )
     ]
-
+    assert [
+        (elem1 == elem2).all()
+        for elem1, elem2 in zip(
+            expected_experiences.goal_position_batch, experiences.goal_position_batch
+        )
+    ]
+    assert [
+        (elem1 == elem2).all()
+        for elem1, elem2 in zip(
+            expected_experiences.goal_position_rbf_batch, experiences.goal_position_rbf_batch
+        )
+    ]
     assert [
         (elem1 == elem2).all()
         for elem1, elem2 in zip(
@@ -314,8 +326,15 @@ def test_sample_and_augment_experiences():
     assert [
         (elem1 == elem2).all()
         for elem1, elem2 in zip(
-            expected_experiences.next_agent_position_features_batch,
-            experiences.next_agent_position_features_batch,
+            expected_experiences.next_agent_position_rbf_batch,
+            experiences.next_agent_position_rbf_batch,
+        )
+    ]
+    assert [
+        (elem1 == elem2).all()
+        for elem1, elem2 in zip(
+            expected_experiences.next_features_batch,
+            experiences.next_features_batch,
         )
     ]
     assert [

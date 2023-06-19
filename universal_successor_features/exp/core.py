@@ -9,13 +9,16 @@ FullTransition = namedtuple(
     "FullTransition",
     (
         "agent_position",
-        "agent_position_features",
-        "goal",
+        "agent_position_rbf",
+        "features",
+        "goal_position",
+        "goal_position_rbf",
         "goal_weights",
         "action",
         "reward",
         "next_agent_position",
-        "next_agent_position_features",
+        "next_agent_position_rbf",
+        "next_features",
         "terminated",
         "truncated",
     ),
@@ -373,13 +376,16 @@ def general_step_function(obs, agent, my_env, goals_for_gpi, training):
     # i.e. pos, feaures, action
     transition = FullTransition(
         obs["agent_position"],
-        obs["agent_position_features"],
+        obs["agent_position_rbf"],
+        obs["features"],
         obs["goal_position"],
+        obs["goal_position_rbf"],
         obs["goal_weights"],
         action,
         reward,
         next_obs["agent_position"],
-        next_obs["agent_position_features"],
+        next_obs["agent_position_rbf"],
+        next_obs["features"],
         terminated,
         truncated
     )
@@ -388,35 +394,4 @@ def general_step_function(obs, agent, my_env, goals_for_gpi, training):
 
 
 if __name__ == "__main__":
-    # Only for debugging, can delete later
-    config = eu.AttrDict(
-        # random seed for the repetition
-        seed=3487 + 0,
-        env=eu.AttrDict(
-            cls=usf.envs.RoomGridWorld,
-            penalization=0.0,
-            reward_at_goal_position=20.0,
-            nmax_steps=31,
-        ),
-        agent=eu.AttrDict(
-            cls=usf.agents.FeatureGoalAgent,
-            network=eu.AttrDict(
-                cls=usf.networks.FeatureGoalUSF,
-            ),
-            loss_weight_q=1.0,
-            loss_weight_psi=0.01,
-            loss_weight_phi=0.0,
-            discount_factor=0.90,
-            batch_size=32,
-            learning_rate=5e-4,
-            epsilon=eu.AttrDict(value=0.25),
-            memory=eu.AttrDict(
-                cls=usf.memory.ExperienceReplayMemory,
-                alpha=None,
-                beta0=None,
-            ),
-        ),
-        n_steps=48000,
-    )
-
-    run_rl_first_phase(config=config)
+    pass

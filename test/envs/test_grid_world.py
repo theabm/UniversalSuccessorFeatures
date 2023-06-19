@@ -30,7 +30,7 @@ def test_observation_space():
     my_env = env.GridWorld()
     obs, _ = my_env.reset()
     assert obs["agent_position"].shape == (1, 2)
-    assert obs["agent_position_features"].shape == (1, 81)
+    assert obs["features"].shape == (1, 81)
     assert obs["goal_position"].shape == (1, 2)
     assert obs["goal_weights"].shape == (1, 81)
     my_env.step(0)
@@ -93,7 +93,7 @@ def test_position_features(i, j):
     idx = my_env.rows * i + j
     theoretical_features[0][idx] = 1
 
-    comp = theoretical_features == obs["agent_position_features"]
+    comp = theoretical_features == obs["features"]
 
     assert comp.all()
 
@@ -108,7 +108,7 @@ def test_reward_is_dot_product_of_feature_and_weight():
     for i in range(100000):
         action = my_env.action_space.sample()
         obs, reward, terminated, *_ = my_env.step(action)
-        dot_prod = np.sum(obs["agent_position_features"] * obs["goal_weights"])
+        dot_prod = np.sum(obs["features"] * obs["goal_weights"])
         assert dot_prod == reward
 
 
@@ -204,7 +204,7 @@ def test_rbf_vector_is_correct(i,j):
 
     obs, _ = my_env.reset(start_agent_position=agent_position)
 
-    rbf_vector_env = obs["agent_position_features_rbf"]
+    rbf_vector_env = obs["agent_position_rbf"]
     assert rbf_vector_env.shape == (1, 9)
 
     rbf_vector_env = rbf_vector_env.reshape((9,))

@@ -32,7 +32,7 @@ class FeatureGoalWeightAgent(BaseAgent):
 
     def _build_arguments_from_obs(self, obs):
         return {
-            "agent_position_features": torch.tensor(obs["agent_position_features"])
+            "features": torch.tensor(obs["features"])
             .to(torch.float)
             .to(self.device),
             "env_goal_weights": torch.tensor(obs["goal_weights"])
@@ -43,16 +43,16 @@ class FeatureGoalWeightAgent(BaseAgent):
     @staticmethod
     def _build_target_args(batch_args):
         return {
-            "agent_position_features": batch_args["next_agent_position_features_batch"],
-            "policy_goal_position": batch_args["goal_batch"],
+            "features": batch_args["next_features_batch"],
+            "policy_goal_position": batch_args["goal_position_batch"],
             "env_goal_weights": batch_args["goal_weights_batch"],
         }
 
     @staticmethod
     def _build_predicted_args(batch_args):
         return {
-            "agent_position_features": batch_args["agent_position_features_batch"],
-            "policy_goal_position": batch_args["goal_batch"],
+            "features": batch_args["features_batch"],
+            "policy_goal_position": batch_args["goal_position_batch"],
             "env_goal_weights": batch_args["goal_weights_batch"],
         }
 
@@ -113,10 +113,11 @@ class FeatureGoalWeightAgent(BaseAgent):
         for experience in experiences:
             for goal_position in list_of_goal_positions_for_augmentation:
                 goal_weights = self.env._get_goal_weights_at(goal_position)
+                goal_position_rbf = self.env._get_rbf_vector_at(goal_position)
                 assert goal_weights.shape == (1, self.features_size)
 
                 reward = int(
-                    np.sum(experience.next_agent_position_features * goal_weights)
+                    np.sum(experience.next_features * goal_weights)
                 )
                 assert type(reward) == int
 
@@ -129,13 +130,16 @@ class FeatureGoalWeightAgent(BaseAgent):
 
                 new_experience = FullTransition(
                     experience.agent_position,
-                    experience.agent_position_features,
+                    experience.agent_position_rbf,
+                    experience.features,
                     goal_position,
+                    goal_position_rbf,
                     goal_weights,
                     experience.action,
                     reward,
                     experience.next_agent_position,
-                    experience.next_agent_position_features,
+                    experience.next_agent_position_rbf,
+                    experience.next_features,
                     terminated,
                     experience.truncated,
                 )
