@@ -3,3 +3,5 @@ from .feature_goal_agent import FeatureGoalAgent
 from .state_goal_weight_agent import StateGoalWeightAgent
 from .feature_goal_weight_agent import FeatureGoalWeightAgent
 from .base_agent import BaseAgent
+from .state_rbf_goal_rbf_weight_agent import StateGoalWeightRBFAgent
+from .state_rbf_goal_rbf_agent import StateGoalRBFAgent

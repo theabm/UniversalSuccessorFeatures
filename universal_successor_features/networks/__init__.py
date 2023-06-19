@@ -10,3 +10,5 @@ from .usf.feature_goal_weight import FeatureGoalWeightUSF
 from .usf.feature_goal_weight_augmented import FeatureGoalWeightAugmentedUSF
 from .usf.feature_goal_weight_k import FeatureGoalWeightKUSF
 from .usf.state_goal_modified import StateGoalUSFModified
+from .usf.state_goal_rbf import StateGoalRBFUSF
+from .usf.state_goal_weight_rbf import StateGoalWeightRBFUSF

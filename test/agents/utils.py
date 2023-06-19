@@ -61,10 +61,12 @@ def compute_q_function(agent, env, list_of_goal_positions, use_pos, use_weight):
     size = env.rows * env.columns
     pos = []
     features = []
+    rbf_position = []
     for i in range(env.rows):
         for j in range(env.columns):
             pos.append([i, j])
             features.append(env._get_one_hot_vector_at(np.array([[i, j]])))
+            rbf_position.append(env._get_rbf_vector_at(np.array([[i, j]])))
 
     # shape size*len(list_of_goal_positions), pos_size
     pos_tensor = (
@@ -73,8 +75,8 @@ def compute_q_function(agent, env, list_of_goal_positions, use_pos, use_weight):
         .to(torch.float)
         .to(agent.device)
     )
-    # size (nsize, 1, size_features) -> (n_size, size_features)
-    # -> (2_nsize, size_features)
+    # size (grid_size, 1, size_features) -> (grid_size, size_features)
+    # -> (2* grid_size, size_features)
     features_tensor = np.array(features)
     features_tensor = (
         torch.tensor(features_tensor)
@@ -83,6 +85,35 @@ def compute_q_function(agent, env, list_of_goal_positions, use_pos, use_weight):
         .to(torch.float)
         .to(agent.device)
     )
+
+    rbf_position_tensor = np.array(rbf_position)
+    rbf_position_tensor = (
+        torch.tensor(rbf_position_tensor)
+        .squeeze()
+        .tile((len(list_of_goal_positions), 1))
+        .to(torch.float)
+        .to(agent.device)
+    )
+    assert rbf_position_tensor.shape == (2 * size, env.rbf_size)
+
+    rbf_goal_positions_tensor = [
+        env._get_rbf_vector_at(goal_position)
+        for goal_position in list_of_goal_positions
+    ]
+
+    # shape len(list_goals), 1, rbf_size
+    rbf_goal_positions_tensor = np.array(rbf_goal_positions_tensor)
+
+    rbf_goal_positions_tensor = (
+        torch.tensor(rbf_goal_positions_tensor)
+        .tile((1, size, 1))
+        .reshape(
+            len(list_of_goal_positions) * size, rbf_goal_positions_tensor.shape[-1]
+        )
+        .to(torch.float)
+        .to(agent.device)
+    )
+    assert rbf_goal_positions_tensor.shape == (2 * size, env.rbf_size)
 
     # shape len(list_of_goal_positions), 1, goal_size
     goal_tensor = np.array(list_of_goal_positions)
@@ -110,39 +141,18 @@ def compute_q_function(agent, env, list_of_goal_positions, use_pos, use_weight):
         .to(agent.device)
     )
 
-    # position goal agent
-    if use_pos and not use_weight:
-        # shape (list_of_goal_positions)*size, goal_size(pos_size)
-        q, *_ = agent.policy_net(
-            agent_position=pos_tensor,
-            policy_goal_position=goal_tensor,
-            env_goal_position=goal_tensor,
-        )
-    # feature goal agent
-    elif not use_pos and not use_weight:
-        q, *_ = agent.policy_net(
-            features=features_tensor,
-            policy_goal_position=goal_tensor,
-            env_goal_position=goal_tensor,
-        )
-    # position goal weight agent
-    elif use_pos and use_weight:
-        q, *_ = agent.policy_net(
-            agent_position=pos_tensor,
-            policy_goal_position=goal_tensor,
-            env_goal_weights=weight_tensor,
-        )
-    # feature goal weight agent
-    elif not use_pos and use_weight:
-        q, *_ = agent.policy_net(
-            features=features_tensor,
-            policy_goal_position=goal_tensor,
-            env_goal_weights=weight_tensor,
-        )
+    batch_dict = {
+        "agent_position_batch": pos_tensor,
+        "agent_position_rbf_batch": rbf_position_tensor,
+        "features_batch": features_tensor,
+        "goal_position_batch": goal_tensor,
+        "goal_position_rbf_batch": rbf_goal_positions_tensor,
+        "goal_weights_batch": weight_tensor,
+    }
 
-    # zero out the entries at the goal position index since the Q function is not
-    # defined at these points (if you look above the ground truth is set to zero
-    # for these entries)
+    args = agent._build_predicted_args(batch_dict)
+    q, *_ = agent.policy_net(**args)
+
     for i, goal in enumerate(list_of_goal_positions):
         idx = env.rows * goal[0][0] + goal[0][1] + i * size
         q[idx] = 0
