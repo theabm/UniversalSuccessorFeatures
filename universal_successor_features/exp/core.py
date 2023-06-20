@@ -37,6 +37,7 @@ def run_rl_first_phase(config=None, **kwargs):
             network=eu.AttrDict(cls=None),
         ),
         n_steps=48000,
+        log_directory = None,
         log_name_step="step",
         log_name_episode="episode",
         log_name_step_per_episode="step_per_episode",
@@ -55,15 +56,47 @@ def run_rl_first_phase(config=None, **kwargs):
     if config.seed is not None:
         eu.misc.seed(config.seed)
 
-    # build instances
-    my_env = eu.misc.create_object_from_config(
-        config.env,
-    )
+    if config.log_directory:
+        # if config.log_directory is specified, then I will train my agent 
+        # using another pretrained agent as behavioral policy, i.e. to 
+        # select actions.
+        # Since this agent was pretrained on an environment, we need to 
+        # use that same environment for the training of the current agent. 
+        log.load(directory=config.log_directory, load_objects=True)
+        my_env = log.get_item("env")
 
-    # Copy of environment for testing since I dont want to change its state
+    else:
+        # otherwise, I create an environment from scratch.
+        my_env = eu.misc.create_object_from_config(
+            config.env,
+        )
+
+    # Copy of environment for evaluation since I dont want to change its 
+    # internal state.
     test_env = copy.deepcopy(my_env)
 
+    # the agent that will be trained during the episodes of the environment
     agent = eu.misc.create_object_from_config(config.agent, env=my_env)
+
+    if config.log_directory:
+        # if config.log_directory is specified, we will use a pretrained 
+        # agent as a behavioral policy. 
+        # note that the pretrained agent is supposed to be an "optimal" agent 
+        # that has already learned to solve the task and will select optimal 
+        # actions from the space. 
+        # This is useful to understand whether our current agent can actually 
+        # learn with the current architecture present. 
+        # In our case, since we want to understand whether the agent can learn 
+        # the true psi function (no q loss), we first train an agent only with 
+        # q loss (since we have seen that this is easy to do) and then use this 
+        # agent as a behavioral policy that selects the actions the agent will 
+        # observe and subsequently, train on.
+        behavioral_agent = log.get_item("agent")
+    else:
+        # otherwise, the behavioral policy is simply the agent itself as 
+        # it is learning what is the best thing to do.
+        behavioral_agent = agent
+
 
     list_of_goal_positions_for_augmentation = my_env.goal_list_source_tasks
 
@@ -92,7 +125,7 @@ def run_rl_first_phase(config=None, **kwargs):
             # goals_for_gpi is the single goal I am working with. If I was
             # using GPI it would be a list of goals I have seen so far.
             next_obs, reward, terminated, truncated, transition = general_step_function(
-                obs, agent, my_env, goals_for_gpi=[goal_position], training=True
+                obs, behavioral_agent, my_env, goals_for_gpi=[goal_position], training=True
             )
 
             agent.train(
@@ -145,14 +178,6 @@ def run_rl_first_phase(config=None, **kwargs):
 def run_rl_second_phase(config=None, **kwargs):
     default_config = eu.AttrDict(
         seed=None,
-        env=eu.AttrDict(
-            cls=None,
-        ),
-        agent=eu.AttrDict(
-            cls=None,
-        ),
-        env_checkpoint_path=None,
-        agent_checkpoint_path=None,
         log_directory=None,
         n_steps=np.inf,
         use_gpi_eval=False,
