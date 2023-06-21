@@ -19,6 +19,7 @@ class FeatureGoalWeightAgent(BaseAgent):
                 use_gdtuo=False,
                 optimizer=torch.optim.Adam,
             ),
+            augment_data=False,
         )
         return cnf
 
@@ -29,6 +30,12 @@ class FeatureGoalWeightAgent(BaseAgent):
             FeatureGoalWeightAgent.default_config(),
         )
         super().__init__(env=env, config=self.config)
+
+        # override the sample experiences and update memory functions
+        # I do this since I dont want this to happen automatically.
+        if self.config.augment_data:
+            self._sample_experiences = self._sample_experiences_augmented
+            self._update_memory = self._update_memory_augmented
 
     def _build_arguments_from_obs(self, obs, goal_position):
         return {
@@ -57,7 +64,9 @@ class FeatureGoalWeightAgent(BaseAgent):
             "env_goal_weights": batch_args["goal_weights_batch"],
         }
 
-    def _update_memory(self, td_error, list_of_goal_positions_for_augmentation):
+    def _update_memory_augmented(
+        self, td_error, list_of_goal_positions_for_augmentation
+    ):
         td_error = td_error.reshape(
             (self.batch_size, len(list_of_goal_positions_for_augmentation))
         ).mean(dim=1)
@@ -66,7 +75,7 @@ class FeatureGoalWeightAgent(BaseAgent):
 
         super()._update_memory(td_error, list_of_goal_positions_for_augmentation)
 
-    def _sample_experiences(self, list_of_goal_positions_for_augmentation):
+    def _sample_experiences_augmented(self, list_of_goal_positions_for_augmentation):
         # list of goal positions holds all the goals over which I want
         # to augment my training..
 

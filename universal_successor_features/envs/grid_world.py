@@ -7,12 +7,6 @@ import warnings
 from universal_successor_features.envs.directions import Directions
 import pickle
 
-# Note that RBF vectors can be used as features only if r = rbf * w is true. 
-# this does not hold for a reward of -0.1 at every time step and 0 at the 
-# goal.
-# On the other hand, it can always be used as a substitute for the position. 
-# in other words, instead of (x,y) we give an rbf vector of fixed size. 
-
 class GridWorld(gym.Env):
     @staticmethod
     def default_config():
@@ -26,6 +20,7 @@ class GridWorld(gym.Env):
             n_goals=12,
             rbf_points_in_x_direction=9,
             rbf_points_in_y_direction=9,
+            use_rbf_as_features = False
         )
 
     def __init__(self, config=None, **kwargs):
@@ -59,8 +54,8 @@ class GridWorld(gym.Env):
                 "agent_position_rbf": gym.spaces.Box(
                     low=-np.inf, high=np.inf, shape=(1, self.rbf_size)
                     ),
-                "features": gym.spaces.MultiBinary(
-                    [1, self.features_size]
+                "features": gym.spaces.Box(
+                    low=-np.inf, high=np.inf, shape=(1, self.rbf_size)
                 ),
                 "goal_position": gym.spaces.MultiDiscrete(
                     np.array([[self.rows, self.columns]])
@@ -112,6 +107,11 @@ class GridWorld(gym.Env):
         self.goal_position = None
         self.goal_position_rbf = None
         self.goal_weights = None
+
+        if self.config.use_rbf_as_features:
+            self.get_features = self._get_rbf_vector_at
+        else:
+            self.get_features = self._get_one_hot_vector_at
 
     def _sample_position_in_grid(self):
         """
@@ -262,9 +262,25 @@ class GridWorld(gym.Env):
 
         return reward, terminated, truncated
 
+    # note that we never use features and position at the same time. 
+    # an agent either starts with position (or rbf position) and learns 
+    # the features, or it directly starts with the features and tries to 
+    # learn only the psi.
+    # For position we can use (i,j) or an rbf vector
+    # For features we can use one_hot encoding or rbf_vector.
+    # Note that if we use the one_hot encoding, the relation r = phi*w is 
+    # exactly satisfied. However, this encoding is not very good to allow for 
+    # generalization as we loose any concept of proximity. This could yield 
+    # difficulties in learning the successor features since they may be very 
+    # non linear. 
+    # On the other hand, if we use the rbf features, the relation r = phi*w is
+    # not exact. However, it is the equivalent of trying to learn the features 
+    # from the position since we would need to solve a regression problem for 
+    # r = phi*w and stop when we are satisfied with the error (which will likely 
+    # never be zero). This means we still are using an approximate solution.
     def build_new_observation(self):
         self.agent_position = np.array([[self.agent_i, self.agent_j]])
-        self.features = self._get_one_hot_vector_at(self.agent_position)
+        self.features = self.get_features(self.agent_position)
         self.agent_position_rbf = self._get_rbf_vector_at(self.agent_position)
 
         assert self.agent_position.shape == (1, 2)

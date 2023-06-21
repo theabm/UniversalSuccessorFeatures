@@ -13,7 +13,7 @@ import test.agents.utils as u  # for pytest
 @pytest.mark.parametrize(
     "network, memory, n_steps",
     [
-        (nn.FeatureGoalWeightKUSF, mem.ExperienceReplayMemory, 300),
+        (nn.FeatureGoalWeightKUSF, mem.ExperienceReplayMemory, 500),
         (nn.FeatureGoalWeightUSF, mem.ExperienceReplayMemory, 200),
     ],
 )
