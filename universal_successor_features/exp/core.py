@@ -4,6 +4,7 @@ import exputils.data.logging as log
 import copy
 import universal_successor_features as usf
 from collections import namedtuple
+import warnings
 
 FullTransition = namedtuple(
     "FullTransition",
@@ -24,6 +25,7 @@ FullTransition = namedtuple(
     ),
 )
 
+
 def run_rl_first_phase(config=None, **kwargs):
     # default config
     default_config = eu.AttrDict(
@@ -37,7 +39,7 @@ def run_rl_first_phase(config=None, **kwargs):
             network=eu.AttrDict(cls=None),
         ),
         n_steps=48000,
-        log_directory = None,
+        log_directory=None,
         log_name_step="step",
         log_name_episode="episode",
         log_name_step_per_episode="step_per_episode",
@@ -57,13 +59,16 @@ def run_rl_first_phase(config=None, **kwargs):
         eu.misc.seed(config.seed)
 
     if config.log_directory:
-        # if config.log_directory is specified, then I will train my agent 
-        # using another pretrained agent as behavioral policy, i.e. to 
+
+        warnings.warn("Using pretrained agent")
+
+        # if config.log_directory is specified, then I will train my agent
+        # using another pretrained agent as behavioral policy, i.e. to
         # select actions.
-        # Since this agent was pretrained on an environment, we need to 
-        # use that same environment for the training of the current agent. 
+        # Since this agent was pretrained on an environment, we need to
+        # use that same environment for the training of the current agent.
         log.load(directory=config.log_directory, load_objects=True)
-        my_env = log.get_item("env")
+        my_env = log.get_item(config.log_name_env)
 
     else:
         # otherwise, I create an environment from scratch.
@@ -71,7 +76,7 @@ def run_rl_first_phase(config=None, **kwargs):
             config.env,
         )
 
-    # Copy of environment for evaluation since I dont want to change its 
+    # Copy of environment for evaluation since I dont want to change its
     # internal state.
     test_env = copy.deepcopy(my_env)
 
@@ -79,24 +84,38 @@ def run_rl_first_phase(config=None, **kwargs):
     agent = eu.misc.create_object_from_config(config.agent, env=my_env)
 
     if config.log_directory:
-        # if config.log_directory is specified, we will use a pretrained 
-        # agent as a behavioral policy. 
-        # note that the pretrained agent is supposed to be an "optimal" agent 
-        # that has already learned to solve the task and will select optimal 
-        # actions from the space. 
-        # This is useful to understand whether our current agent can actually 
-        # learn with the current architecture present. 
-        # In our case, since we want to understand whether the agent can learn 
-        # the true psi function (no q loss), we first train an agent only with 
-        # q loss (since we have seen that this is easy to do) and then use this 
-        # agent as a behavioral policy that selects the actions the agent will 
+        # if config.log_directory is specified, we will use a pretrained
+        # agent as a behavioral policy.
+        # note that the pretrained agent is supposed to be an "optimal" agent
+        # that has already learned to solve the task and will select optimal
+        # actions from the space.
+        # This is useful to understand whether our current agent can actually
+        # learn with the current architecture present.
+        # In our case, since we want to understand whether the agent can learn
+        # the true psi function (no q loss), we first train an agent only with
+        # q loss (since we have seen that this is easy to do) and then use this
+        # agent as a behavioral policy that selects the actions the agent will
         # observe and subsequently, train on.
-        behavioral_agent = log.get_item("agent")
+        behavioral_agent = log.get_item(config.log_name_agent)
+
+        # After having obtained the agent, we reset the log so that
+        # we dont have the data from the previous agent as well.
+        log.reset()
+
+        # we set the training parameter for the general step function. This
+        # will get fed to agent.choose_action(). When we are using a pretrained
+        # agent, we dont want any exploration and want to get the optimal
+        # actions each time.
+
+        training = False
     else:
-        # otherwise, the behavioral policy is simply the agent itself as 
+        # otherwise, the behavioral policy is simply the agent itself as
         # it is learning what is the best thing to do.
         behavioral_agent = agent
 
+        # if we dont have a behavioral agent, we will need some exploration.
+        # so we set training to be true.
+        training = True
 
     list_of_goal_positions_for_augmentation = my_env.goal_list_source_tasks
 
@@ -125,7 +144,11 @@ def run_rl_first_phase(config=None, **kwargs):
             # goals_for_gpi is the single goal I am working with. If I was
             # using GPI it would be a list of goals I have seen so far.
             next_obs, reward, terminated, truncated, transition = general_step_function(
-                obs, behavioral_agent, my_env, goals_for_gpi=[goal_position], training=True
+                obs,
+                behavioral_agent,
+                my_env,
+                goals_for_gpi=[goal_position],
+                training=training,
             )
 
             agent.train(
@@ -249,9 +272,8 @@ def run_rl_second_phase(config=None, **kwargs):
         goal_sampler = my_env.sample_eval_goal
         goal_list_for_eval = my_env.goal_list_evaluation_tasks
 
-    
     list_of_goal_positions_for_augmentation = (
-            my_env.goal_list_source_tasks + goal_list_for_eval
+        my_env.goal_list_source_tasks + goal_list_for_eval
     )
 
     step = 0
@@ -395,9 +417,9 @@ def general_step_function(obs, agent, my_env, goals_for_gpi, training):
 
     next_obs, reward, terminated, truncated, _ = my_env.step(action=action)
 
-    # Note: In the normal case, this works fine. 
-    # When I do data augmentation however, I will still use this transition, 
-    # but I will only work with the entries that do not change across goal 
+    # Note: In the normal case, this works fine.
+    # When I do data augmentation however, I will still use this transition,
+    # but I will only work with the entries that do not change across goal
     # i.e. pos, feaures, action
     transition = FullTransition(
         obs["agent_position"],
@@ -412,7 +434,7 @@ def general_step_function(obs, agent, my_env, goals_for_gpi, training):
         next_obs["agent_position_rbf"],
         next_obs["features"],
         terminated,
-        truncated
+        truncated,
     )
 
     return next_obs, reward, terminated, truncated, transition
