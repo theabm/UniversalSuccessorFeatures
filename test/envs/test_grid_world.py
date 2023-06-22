@@ -212,3 +212,37 @@ def test_rbf_vector_is_correct(i,j):
     assert (rbf_vector_env == rbf_vector).all()
     assert rbf_vector_env[i*3+j] == 1.0
 
+def test_saving():
+    grid_world_env = env.GridWorld()
+    grid_world_env.save("grid_world.cfg")
+
+    # use parent class for saving
+    new_grid_world_env = env.GridWorld.load_from_checkpoint("grid_world.cfg")
+
+    assert all(
+        [
+            (goal1 == goal2).all()
+            for goal1, goal2 in zip(
+                grid_world_env.goal_list_source_tasks,
+                new_grid_world_env.goal_list_source_tasks,
+            )
+        ]
+    )
+    assert all(
+        [
+            (goal1 == goal2).all()
+            for goal1, goal2 in zip(
+                grid_world_env.goal_list_target_tasks,
+                new_grid_world_env.goal_list_target_tasks,
+            )
+        ]
+    )
+    assert all(
+        [
+            (goal1 == goal2).all()
+            for goal1, goal2 in zip(
+                grid_world_env.goal_list_evaluation_tasks,
+                new_grid_world_env.goal_list_evaluation_tasks,
+            )
+        ]
+    )
