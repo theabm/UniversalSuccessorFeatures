@@ -64,6 +64,7 @@ class BaseAgent(ABC):
             loss_weight_q=1.0,
             loss_weight_psi=0.01,
             loss_weight_phi=0.00,
+            optimal_target_net = None,
             network=eu.AttrDict(
                 cls=None,
                 # whether to use hypergradients
@@ -140,18 +141,13 @@ class BaseAgent(ABC):
         else:
             raise ValueError("Network Config must be a dictionary.")
 
-        # Setting other attributes
-        self.target_net = copy.deepcopy(self.policy_net)
-
-        self.policy_net.to(self.device)
-        self.target_net.to(self.device)
-
         self.loss_weight_q = self.config.loss_weight_q
         self.loss_weight_psi = self.config.loss_weight_psi
         self.loss_weight_phi = self.config.loss_weight_phi
 
         self.use_gdtuo = self.config.network.use_gdtuo
         if self.use_gdtuo:
+            warnings.warn("Using gdtuo... learning rate ignored.")
             self.optimizer = gdtuo.ModuleWrapper(
                 self.policy_net, optimizer=gdtuo.Adam(optimizer=gdtuo.SGD(1e-5))
             )
@@ -177,10 +173,11 @@ class BaseAgent(ABC):
         if self.config.target_network_update.rule == "hard":
             if self.config.target_network_update.alpha != 0.0:
                 warnings.warn(
-                    "For hard update, alpha should be set to 0.0 ... proceeding with alpha = 0.0"
+                    "Alpha = 0.0 for hard update..."
                 )
             self.update_alpha = 0.0
         elif self.config.target_network_update.rule == "soft":
+            warnings.warn("Using soft update.")
             self.update_alpha = self.config.target_network_update.alpha
         else:
             raise ValueError("Unknown type of update rule.")
@@ -193,6 +190,21 @@ class BaseAgent(ABC):
         self.current_episode = 0
         self.step = 0
         self.learning_starts_after = self.batch_size * 2
+
+        if self.config.optimal_target_net:
+            # if other target net is given, I will use it 
+            # should be used with pretrained optimal agent.
+            self.target_net = self.config.optimal_target_net
+            # if we provide an optimal target net, then we cannot 
+            # update the target net
+            warnings.warn("Using optimal target net. Update frequency = 0")
+            self.update_target_network_every_n_steps = np.inf
+        else:
+            # Setting other attributes
+            self.target_net = copy.deepcopy(self.policy_net)
+
+        self.target_net.to(self.device)
+        self.policy_net.to(self.device)
 
     def start_episode(self, episode):
         self.current_episode = episode
@@ -275,7 +287,7 @@ class BaseAgent(ABC):
                         self.action_space, self.env.rows, self.env.columns
                     )
                     print(
-                        f"Sucessor features at: {obs['features']}\nFor goal{goal_position}\n",
+                        f"SF at: {obs['features']}\nFor goal{goal_position}\n",
                         sf,
                     )
         else:
@@ -724,39 +736,43 @@ class BaseAgent(ABC):
 
         self.target_net.load_state_dict(target_net_state_dict)
 
-    # Not needed since I will use exputils functionality
-    # def save(self, episode, step, total_reward):
-    #     filename = "checkpoint" + self.config.save.extension
-    #     torch.save(
-    #         {
-    #             "cls": self.__class__,
-    #             "config": self.config,
-    #             "episode": episode,
-    #             "step": step,
-    #             "total_reward": total_reward,
-    #             "model_state_dict": self.policy_net.state_dict(),
-    #             "optimizer_state_dict": self.optimizer.state_dict(),
-    #             "memory": self.memory,
-    #             "env_goals_source": self.env.goal_list_source_tasks,
-    #             "env_goals_target": self.env.goal_list_target_tasks,
-    #             "env_goals_eval": self.env.goal_list_evaluation_tasks,
-    #         },
-    #         filename,
-    #     )
-    #
-    # @classmethod
-    # def load_from_checkpoint(cls, env, filename):
-    #     checkpoint = torch.load(filename)
-    #
-    #     agent = cls(env, config=checkpoint["config"])
-    #
-    #     agent.policy_net.load_state_dict(checkpoint["model_state_dict"])
-    #     agent.target_net = copy.deepcopy(agent.policy_net)
-    #
-    #     agent.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
-    #
-    #     agent.memory = checkpoint["memory"]
-    #     agent.current_episode = checkpoint["episode"]
-    #     agent.total_reward = checkpoint["total_reward"]
-    #
-    #     return agent
+    def save(self, filename, episode, step, total_reward):
+        torch.save(
+            {
+                "cls": self.__class__,
+                "config": self.config,
+                "episode": episode,
+                "step": step,
+                "total_reward": total_reward,
+                "model_state_dict": self.policy_net.state_dict(),
+                "optimizer_state_dict": self.optimizer.state_dict(),
+                "memory": self.memory,
+                "env_goals_source": self.env.goal_list_source_tasks,
+                "env_goals_target": self.env.goal_list_target_tasks,
+                "env_goals_eval": self.env.goal_list_evaluation_tasks,
+            },
+            filename,
+        )
+
+    @staticmethod
+    def load_from_checkpoint(env, filename):
+        checkpoint = torch.load(filename)
+
+        agent_class = checkpoint["cls"]
+
+        agent = agent_class(env, config=checkpoint["config"])
+
+        agent.policy_net.load_state_dict(checkpoint["model_state_dict"])
+        agent.target_net = copy.deepcopy(agent.policy_net)
+
+        agent.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
+
+        agent.memory = checkpoint["memory"]
+        agent.current_episode = checkpoint["episode"]
+        agent.total_reward = checkpoint["total_reward"]
+
+        agent._env_primary_goals = checkpoint["env_goals_source"]
+        agent._env_secondary_goals = checkpoint["env_goals_target"]
+        agent._env_tertiary_goals = checkpoint["env_goals_eval"]
+
+        return agent
