@@ -113,24 +113,27 @@ class RoomGridWorld(GridWorld):
             self.agent_i = self.old_agent_i
             self.agent_j = self.old_agent_j
 
-    def save(self):
+    def save(self, filename = "grid_world_rooms.cfg"):
         self.config.forbidden_cells = self.forbidden_cells
-        super().save()
+        super().save(filename)
 
-    @classmethod
-    def load_from_checkpoint(cls, filename):
+    @staticmethod
+    def load_from_checkpoint(filename = "grid_world_rooms.cfg"):
         with open(filename, "rb") as fp:
-            config = pickle.load(fp)
+            checkpoint = pickle.load(fp)
 
-        env = cls(config)
+        env_class = checkpoint["cls"]
+        config = checkpoint["config"]
+        env = env_class(config = config)
+
         env.goal_list_source_tasks = config["goal_list_source_tasks"]
         env.goal_list_target_tasks = config["goal_list_target_tasks"]
         env.goal_list_evaluation_tasks = config["goal_list_evaluation_tasks"]
+
+        # technically not needed but doesn't hurt
         env.forbidden_cells = config["forbidden_cells"]
 
         return env
-    
-
 
 if __name__ == "__main__":
     grid_world_env = RoomGridWorld()
@@ -142,7 +145,7 @@ if __name__ == "__main__":
         grid_world_env.render()
 
     grid_world_env.save()
-    new_grid_world_env = RoomGridWorld.load_from_checkpoint("./env_config.cfg")
+    new_grid_world_env = RoomGridWorld.load_from_checkpoint()
 
     assert all(
         [

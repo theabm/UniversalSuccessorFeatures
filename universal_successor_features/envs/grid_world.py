@@ -362,22 +362,29 @@ class GridWorld(gym.Env):
             i, j, self.config.penalization, self.config.reward_at_goal_position
         )
 
-    def save(self):
-        filename = "env_config.cfg"
+    def save(self, filename = "grid_world.cfg"):
 
         self.config.goal_list_source_tasks = self.goal_list_source_tasks
         self.config.goal_list_target_tasks = self.goal_list_target_tasks
         self.config.goal_list_evaluation_tasks = self.goal_list_evaluation_tasks
 
+        save_dict = {
+                "cls": self.__class__,
+                "config": self.config
+                }
+
         with open(filename, "wb") as fp:
-            pickle.dump(self.config, fp)
+            pickle.dump(save_dict, fp)
 
-    @classmethod
-    def load_from_checkpoint(cls, filename):
+    @staticmethod
+    def load_from_checkpoint(filename = "grid_world.cfg"):
         with open(filename, "rb") as fp:
-            config = pickle.load(fp)
+            checkpoint = pickle.load(fp)
 
-        env = cls(config)
+        env_class = checkpoint["cls"]
+        config = checkpoint["config"]
+        env = env_class(config = config)
+
         env.goal_list_source_tasks = config["goal_list_source_tasks"]
         env.goal_list_target_tasks = config["goal_list_target_tasks"]
         env.goal_list_evaluation_tasks = config["goal_list_evaluation_tasks"]
