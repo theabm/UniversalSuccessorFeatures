@@ -117,6 +117,10 @@ class RoomGridWorld(GridWorld):
         self.config.forbidden_cells = self.forbidden_cells
         super().save(filename)
 
+    # kinda useless since I use parent class method to save 
+    # however, if forbidden cells becomes a feature, that approach will not 
+    # work.
+    # I would need to make it part of the config and check if it was provided.
     @staticmethod
     def load_from_checkpoint(filename = "grid_world_rooms.cfg"):
         with open(filename, "rb") as fp:
@@ -144,34 +148,3 @@ if __name__ == "__main__":
         obs, reward, terminated, truncated, info = grid_world_env.step(action)
         grid_world_env.render()
 
-    grid_world_env.save()
-    new_grid_world_env = RoomGridWorld.load_from_checkpoint()
-
-    assert all(
-        [
-            (goal1 == goal2).all()
-            for goal1, goal2 in zip(
-                grid_world_env.goal_list_source_tasks,
-                new_grid_world_env.goal_list_source_tasks,
-            )
-        ]
-    )
-    assert all(
-        [
-            (goal1 == goal2).all()
-            for goal1, goal2 in zip(
-                grid_world_env.goal_list_target_tasks,
-                new_grid_world_env.goal_list_target_tasks,
-            )
-        ]
-    )
-    assert all(
-        [
-            (goal1 == goal2).all()
-            for goal1, goal2 in zip(
-                grid_world_env.goal_list_evaluation_tasks,
-                new_grid_world_env.goal_list_evaluation_tasks,
-            )
-        ]
-    )
-    assert grid_world_env.forbidden_cells == new_grid_world_env.forbidden_cells
