@@ -242,9 +242,6 @@ class BaseAgent(ABC):
             return torch.randint(0, self.action_space, (1,))
 
     def _greedy_action_selection(self, obs, list_of_goal_positions):
-        q_per_goal = torch.zeros(len(list_of_goal_positions))
-        a_per_goal = torch.zeros(len(list_of_goal_positions), dtype=int)
-
         agent_position = obs["agent_position"]
         # A key idea: at each iteration, we need to check that the position of
         # agent is not one of the goals in my list. This is because goal
@@ -256,6 +253,9 @@ class BaseAgent(ABC):
         list_of_goal_positions = [
             goal for goal in list_of_goal_positions if (goal != agent_position).any()
         ]
+
+        q_per_goal = torch.zeros(len(list_of_goal_positions))
+        a_per_goal = torch.zeros(len(list_of_goal_positions), dtype=int)
 
         for i, goal_position in enumerate(list_of_goal_positions):
             obs_dict = self._build_arguments_from_obs(obs, goal_position)

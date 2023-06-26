@@ -7,6 +7,7 @@ import warnings
 from universal_successor_features.envs.directions import Directions
 import pickle
 
+
 class GridWorld(gym.Env):
     @staticmethod
     def default_config():
@@ -20,7 +21,14 @@ class GridWorld(gym.Env):
             n_goals=12,
             rbf_points_in_x_direction=9,
             rbf_points_in_y_direction=9,
-            use_rbf_as_features = False
+            # I have two options:
+            # Use rbf as features - this corresponds to using Feature based
+            # agents with a rbf vector instead of the one hot encoding.
+            # Alternatively, I leave it as False and simply use a RBF neural
+            # networks which use rbf vectors instead of the the position.
+            # this is kind of ugly, but its the fastest solution since the other
+            # solution would require that I redefine the observation space.
+            use_rbf_as_features=False,
         )
 
     def __init__(self, config=None, **kwargs):
@@ -31,12 +39,12 @@ class GridWorld(gym.Env):
         # length and width of the grid
         self.rows = self.config.rows
         self.columns = self.config.columns
-        self.features_size = self.rows*self.columns
+        self.features_size = self.rows * self.columns
 
         # how many rbf points
         self.rbf_x = self.config.rbf_points_in_x_direction
         self.rbf_y = self.config.rbf_points_in_y_direction
-        self.rbf_size = self.rbf_x*self.rbf_y
+        self.rbf_size = self.rbf_x * self.rbf_y
 
         # sigma of gaussian for rbf points
         self.sigma = 1
@@ -53,7 +61,7 @@ class GridWorld(gym.Env):
                 ),
                 "agent_position_rbf": gym.spaces.Box(
                     low=-np.inf, high=np.inf, shape=(1, self.rbf_size)
-                    ),
+                ),
                 "features": gym.spaces.Box(
                     low=-np.inf, high=np.inf, shape=(1, self.rbf_size)
                 ),
@@ -67,8 +75,8 @@ class GridWorld(gym.Env):
             }
         )
 
-        dim1_components = np.linspace(0, self.rows-1, self.rbf_x)
-        dim2_components = np.linspace(0, self.columns-1, self.rbf_y)
+        dim1_components = np.linspace(0, self.rows - 1, self.rbf_x)
+        dim2_components = np.linspace(0, self.columns - 1, self.rbf_y)
 
         self.rbf_grid = np.array(
             np.meshgrid(dim1_components, dim2_components)
@@ -109,9 +117,18 @@ class GridWorld(gym.Env):
         self.goal_weights = None
 
         if self.config.use_rbf_as_features:
+            warnings.warn("Using rbf vector as features")
             self.get_features = self._get_rbf_vector_at
         else:
+            warnings.warn("Using one-hot vector as features")
             self.get_features = self._get_one_hot_vector_at
+
+    def set_goals(
+        self, goal_list_source_tasks, goal_list_target_tasks, goal_list_evaluation_tasks
+    ):
+        self.goal_list_source_tasks = goal_list_source_tasks
+        self.goal_list_target_tasks = goal_list_target_tasks
+        self.goal_list_evaluation_tasks = goal_list_evaluation_tasks
 
     def _sample_position_in_grid(self):
         """
@@ -262,21 +279,21 @@ class GridWorld(gym.Env):
 
         return reward, terminated, truncated
 
-    # note that we never use features and position at the same time. 
-    # an agent either starts with position (or rbf position) and learns 
-    # the features, or it directly starts with the features and tries to 
+    # note that we never use features and position at the same time.
+    # an agent either starts with position (or rbf position) and learns
+    # the features, or it directly starts with the features and tries to
     # learn only the psi.
     # For position we can use (i,j) or an rbf vector
     # For features we can use one_hot encoding or rbf_vector.
-    # Note that if we use the one_hot encoding, the relation r = phi*w is 
-    # exactly satisfied. However, this encoding is not very good to allow for 
-    # generalization as we loose any concept of proximity. This could yield 
-    # difficulties in learning the successor features since they may be very 
-    # non linear. 
+    # Note that if we use the one_hot encoding, the relation r = phi*w is
+    # exactly satisfied. However, this encoding is not very good to allow for
+    # generalization as we loose any concept of proximity. This could yield
+    # difficulties in learning the successor features since they may be very
+    # non linear.
     # On the other hand, if we use the rbf features, the relation r = phi*w is
-    # not exact. However, it is the equivalent of trying to learn the features 
-    # from the position since we would need to solve a regression problem for 
-    # r = phi*w and stop when we are satisfied with the error (which will likely 
+    # not exact. However, it is the equivalent of trying to learn the features
+    # from the position since we would need to solve a regression problem for
+    # r = phi*w and stop when we are satisfied with the error (which will likely
     # never be zero). This means we still are using an approximate solution.
     def build_new_observation(self):
         self.agent_position = np.array([[self.agent_i, self.agent_j]])
@@ -362,28 +379,24 @@ class GridWorld(gym.Env):
             i, j, self.config.penalization, self.config.reward_at_goal_position
         )
 
-    def save(self, filename = "grid_world.cfg"):
-
+    def save(self, filename="grid_world.cfg"):
         self.config.goal_list_source_tasks = self.goal_list_source_tasks
         self.config.goal_list_target_tasks = self.goal_list_target_tasks
         self.config.goal_list_evaluation_tasks = self.goal_list_evaluation_tasks
 
-        save_dict = {
-                "cls": self.__class__,
-                "config": self.config
-                }
+        save_dict = {"cls": self.__class__, "config": self.config}
 
         with open(filename, "wb") as fp:
             pickle.dump(save_dict, fp)
 
     @staticmethod
-    def load_from_checkpoint(filename = "grid_world.cfg"):
+    def load_from_checkpoint(filename="grid_world.cfg"):
         with open(filename, "rb") as fp:
             checkpoint = pickle.load(fp)
 
         env_class = checkpoint["cls"]
         config = checkpoint["config"]
-        env = env_class(config = config)
+        env = env_class(config=config)
 
         env.goal_list_source_tasks = config["goal_list_source_tasks"]
         env.goal_list_target_tasks = config["goal_list_target_tasks"]

@@ -39,6 +39,7 @@ def run_rl_first_phase(config=None, **kwargs):
             network=eu.AttrDict(cls=None),
         ),
         n_steps=48000,
+        use_custom_goals=False,
         log_directory=None,
         log_name_step="step",
         log_name_episode="episode",
@@ -59,7 +60,6 @@ def run_rl_first_phase(config=None, **kwargs):
         eu.misc.seed(config.seed)
 
     if config.log_directory:
-
         warnings.warn("Using pretrained agent... loading env")
 
         # if config.log_directory is specified, then I will train my agent
@@ -104,7 +104,7 @@ def run_rl_first_phase(config=None, **kwargs):
 
         # log.reset()
 
-        # we assert that the saved goals of the agent and the environment 
+        # we assert that the saved goals of the agent and the environment
         # are the same (should be guaranteed but better safe than sorry)
 
         assert all(
@@ -149,8 +149,8 @@ def run_rl_first_phase(config=None, **kwargs):
         # to select bad actions.
         # a first solution is setting training = True
         # this means the optimal agent will still do some exploration.
-        # Update: unsurprisingly, it doesnt work. so now we switch to using 
-        # the psi of the optimal agent as target but letting the agent still 
+        # Update: unsurprisingly, it doesnt work. so now we switch to using
+        # the psi of the optimal agent as target but letting the agent still
         # do its own stuff.
         config.agent.optimal_target_net = optimal_agent.target_net
 
@@ -160,6 +160,34 @@ def run_rl_first_phase(config=None, **kwargs):
         my_env = eu.misc.create_object_from_config(
             config.env,
         )
+
+    if config.use_custom_goals:
+        goal_list_source_tasks = [
+            np.array([[1, 1]]),
+            np.array([[1, 7]]),
+            np.array([[7, 1]]),
+            np.array([[7, 7]]),
+        ]
+        goal_list_target_tasks = [
+            np.array([[1, 0]]),
+            np.array([[1, 2]]),
+            np.array([[2, 1]]),
+            np.array([[1, 6]]),
+            np.array([[1, 8]]),
+            np.array([[2, 7]]),
+            np.array([[7, 0]]),
+            np.array([[6, 1]]),
+            np.array([[7, 2]]),
+            np.array([[7, 6]]),
+            np.array([[6, 7]]),
+            np.array([[7, 8]]),
+        ]
+
+        # we keep this one the same even though it may be overlapping. But 
+        # it isnt the focus for the time being
+        goal_list_evaluation_tasks = my_env.goal_list_evaluation_tasks
+        my_env.set_goals(goal_list_source_tasks, goal_list_target_tasks, goal_list_evaluation_tasks)
+
 
     # Copy of environment for evaluation since I dont want to change its
     # internal state.
@@ -244,8 +272,8 @@ def run_rl_first_phase(config=None, **kwargs):
         log.add_value(config.log_name_step_per_episode, step_per_episode)
         log.add_value(config.log_name_reward_per_episode, reward_per_episode)
 
-    # log.add_single_object(config.log_name_agent, agent)
-    # log.add_single_object(config.log_name_env, my_env)
+    log.add_single_object(config.log_name_agent, agent)
+    log.add_single_object(config.log_name_env, my_env)
     log.save()
 
     my_env.save(config.log_name_env)
@@ -366,11 +394,12 @@ def run_rl_second_phase(config=None, **kwargs):
         # On the other hand, list_of_goal_positions_for_augmentation is for
         # training directly
         # It specifies the goals that I will use to augment my data.
-        # it only applies to feature goal weight agent. Since it decreases the 
+        # it only applies to feature goal weight agent. Since it decreases the
         # performance, it is not used.
         goals_for_gpi = [goal_position]
 
         if config.use_gpi_train:
+            warnings.warn("using GPI for training...")
             goals_for_gpi += my_env.goal_list_source_tasks
 
         obs, _ = my_env.reset(goal_position=goal_position)
@@ -434,12 +463,13 @@ def run_rl_second_phase(config=None, **kwargs):
         goal_list_for_eval,
         use_gpi=config.use_gpi_eval,
     )
-    # log.add_single_object("agent", agent)
-    # log.add_single_object("env", my_env)
+    log.add_single_object(config.log_name_agent, agent)
+    log.add_single_object(config.log_name_env, my_env)
     log.save()
 
     my_env.save(config.log_name_env)
     agent.save(config.log_name_agent, episode, step, total_reward)
+
 
 def evaluate_agent(agent, test_env, step_fn, goal_list_for_eval, use_gpi):
     num_goals = len(goal_list_for_eval)
