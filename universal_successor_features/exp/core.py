@@ -270,7 +270,7 @@ def run_rl_second_phase(config=None, **kwargs):
         log_name_done_rate_source="done_rate_source",
         log_name_done_rate_eval="done_rate_eval",
         log_name_done_rate_combined="done_rate_combined",
-        log_name_agent="agent",
+        log_name_agent="agent.pt",
         log_name_env="env",
     )
 
@@ -285,16 +285,16 @@ def run_rl_second_phase(config=None, **kwargs):
     # my_env = log.get_item("env")
     # agent = log.get_item("agent")
 
-    my_env = usf.GridWorld.load_from_checkpoint(
+    my_env = usf.envs.GridWorld.load_from_checkpoint(
         config.log_directory + config.log_name_env
     )
     agent = usf.agents.BaseAgent.load_from_checkpoint(
-        config.log_directory + config.log_name_agent
+        my_env, config.log_directory + config.log_name_agent
     )
 
-    agent_saved_source_goals = agent.env.goal_list_source_tasks
-    agent_saved_target_goals = agent.env.goal_list_target_tasks
-    agent_saved_evaluation_goals = agent.env.goal_list_evaluation_tasks
+    agent_saved_source_goals = agent._env_primary_goals
+    agent_saved_target_goals = agent._env_secondary_goals
+    agent_saved_evaluation_goals = agent._env_tertiary_goals
 
     assert all(
         [
@@ -338,8 +338,8 @@ def run_rl_second_phase(config=None, **kwargs):
     )
 
     step = 0
-    total_reward = log.get_item(config.log_name_total_reward)[-1]
-    episode = log.get_item(config.log_name_episode)[-1]
+    total_reward = 0
+    episode = 0
 
     # Begin of Eval Phase
     agent.prepare_for_eval_phase()
@@ -366,6 +366,8 @@ def run_rl_second_phase(config=None, **kwargs):
         # On the other hand, list_of_goal_positions_for_augmentation is for
         # training directly
         # It specifies the goals that I will use to augment my data.
+        # it only applies to feature goal weight agent. Since it decreases the 
+        # performance, it is not used.
         goals_for_gpi = [goal_position]
 
         if config.use_gpi_train:
@@ -432,12 +434,12 @@ def run_rl_second_phase(config=None, **kwargs):
         goal_list_for_eval,
         use_gpi=config.use_gpi_eval,
     )
-    # agent.save(episode=episode, step=step, total_reward=total_reward)
-    # my_env.save()
-    log.add_single_object("agent", agent)
-    log.add_single_object("env", my_env)
+    # log.add_single_object("agent", agent)
+    # log.add_single_object("env", my_env)
     log.save()
 
+    my_env.save(config.log_name_env)
+    agent.save(config.log_name_agent, episode, step, total_reward)
 
 def evaluate_agent(agent, test_env, step_fn, goal_list_for_eval, use_gpi):
     num_goals = len(goal_list_for_eval)

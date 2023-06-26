@@ -257,6 +257,7 @@ def display_successor_features(
 ):
     new_path = experiment_rep_path + "/data/"
     log.set_directory(new_path)
+
     env = log.load_single_object("env")
     agent = log.load_single_object("agent")
 
@@ -279,18 +280,15 @@ def display_successor_features(
 
     obs = {
         "agent_position": agent_position,
-        "agent_position_features": env._get_one_hot_vector_at(agent_position),
+        "features": env._get_one_hot_vector_at(agent_position),
         "goal_position": policy_goal_position,
         "goal_weights": env._get_goal_weights_at(policy_goal_position),
     }
 
-    obs_dict = agent._build_arguments_from_obs(obs)
+    obs_dict = agent._build_arguments_from_obs(obs, policy_goal_position)
 
     with torch.no_grad():
         q, sf, *_ = agent.policy_net(
-            policy_goal_position=torch.tensor(policy_goal_position)
-            .to(torch.float)
-            .to(agent.device),
             **obs_dict,
         )
         sf = (
@@ -370,6 +368,7 @@ def add_rectangles_to_figure(fig, agent_i, agent_j, policy_goal_i, policy_goal_j
         x1=agent_j + 0.5,
         y1=agent_i + 0.5,
         line=dict(color="Yellow"),
+        fillcolor = "Yellow"
     )
 
     fig.add_shape(
@@ -379,6 +378,7 @@ def add_rectangles_to_figure(fig, agent_i, agent_j, policy_goal_i, policy_goal_j
         x1=policy_goal_j + 0.5,
         y1=policy_goal_i + 0.5,
         line=dict(color="Purple"),
+        fillcolor = "Purple"
     )
     return fig
 
