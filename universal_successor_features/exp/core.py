@@ -435,6 +435,7 @@ def run_rl_second_phase(config=None, **kwargs):
                     general_step_function,
                     goal_list_for_eval,
                     use_gpi=config.use_gpi_eval,
+                    log = log
                 )
                 done_rate_source = evaluate_agent(
                     agent,
@@ -476,7 +477,7 @@ def run_rl_second_phase(config=None, **kwargs):
     agent.save(config.log_name_agent, episode, step, total_reward)
 
 
-def evaluate_agent(agent, test_env, step_fn, goal_list_for_eval, use_gpi, log):
+def evaluate_agent(agent, test_env, step_fn, goal_list_for_eval, use_gpi, log = None):
     num_goals = len(goal_list_for_eval)
     completed_goals = 0
 
@@ -490,6 +491,7 @@ def evaluate_agent(agent, test_env, step_fn, goal_list_for_eval, use_gpi, log):
         truncated = False
         obs, _ = test_env.reset(goal_position=goal)
         trajectory.append((obs["agent_position"], obs["goal_position"]))
+        trajectory.append(goals_for_gpi)
         while not terminated and not truncated:
             next_obs, reward, terminated, truncated, _, trajectory_info = step_fn(
                 obs, agent, test_env, goals_for_gpi=goals_for_gpi, training=False
@@ -499,8 +501,9 @@ def evaluate_agent(agent, test_env, step_fn, goal_list_for_eval, use_gpi, log):
 
         if terminated:
             completed_goals += 1
-        if truncated:
-            log.add_value(trajectory_info)
+        if truncated and log is not None:
+            # add trajectory for paths that did not terminate for debugging
+            log.add_value("trajectory_info", trajectory_info)
 
     done_rate = completed_goals / num_goals
 
