@@ -180,7 +180,7 @@ def test_training(
         agent.start_episode(episode=episode)
 
         while not terminated and not truncated and step < n_steps:
-            next_obs, reward, terminated, truncated, transition = step_function(
+            next_obs, reward, terminated, truncated, transition, _ = step_function(
                 obs, agent, env, [obs["goal_position"]], True
             )
             agent.train(

@@ -128,6 +128,7 @@ def test_gpi(agent_type, network, memory, n_steps, seed=0):
                 terminated,
                 truncated,
                 transition,
+                _,
             ) = exp.general_step_function(obs, agent, my_env, goals_so_far, False)
             my_env.render()
 

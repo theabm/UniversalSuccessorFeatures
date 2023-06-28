@@ -8,6 +8,9 @@ import exputils.data.logging as log
 from dash import Dash, dcc, html, Output, Input
 import dash_bootstrap_components as dbc
 
+agent_name = "agent.pt"
+env_name = "env"
+
 # If we want to use bootstrap componets we HAVE to declare a theme
 app = Dash(__name__, external_stylesheets=[dbc.themes.DARKLY])
 
@@ -259,7 +262,7 @@ def display_successor_features(
     log.set_directory(new_path)
 
     env = log.load_single_object("env")
-    agent = log.load_single_object("agent")
+    agent = log.load_single_object("agent.pt")
 
     agent_position = np.array([[int(agent_position[1]), int(agent_position[3])]])
 
@@ -280,8 +283,10 @@ def display_successor_features(
 
     obs = {
         "agent_position": agent_position,
-        "features": env._get_one_hot_vector_at(agent_position),
+        "agent_position_rbf": env._get_rbf_vector_at(agent_position),
+        "features": env.get_features(agent_position),
         "goal_position": policy_goal_position,
+        "goal_position_rbf": env._get_rbf_vector_at(policy_goal_position),
         "goal_weights": env._get_goal_weights_at(policy_goal_position),
     }
 

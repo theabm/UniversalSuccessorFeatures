@@ -224,12 +224,12 @@ class BaseAgent(ABC):
             return self._epsilon_greedy_action_selection(
                 obs,
                 list_of_goal_positions,
-            ).item()
+            )#.item()
         else:
             return self._greedy_action_selection(
                 obs,
                 list_of_goal_positions,
-            ).item()
+            )#.item()
 
     def _epsilon_greedy_action_selection(self, obs, list_of_goal_positions):
         """Epsilon greedy action selection"""
@@ -239,7 +239,9 @@ class BaseAgent(ABC):
                 list_of_goal_positions,
             )
         else:
-            return torch.randint(0, self.action_space, (1,))
+            # we encode the chosen goal as -1 when the action was picked 
+            # randomly and not with GPI
+            return torch.randint(0, self.action_space, (1,)), -1
 
     def _greedy_action_selection(self, obs, list_of_goal_positions):
         agent_position = obs["agent_position"]
@@ -267,9 +269,9 @@ class BaseAgent(ABC):
                 q_per_goal[i] = qm.item()
                 a_per_goal[i] = am.item()
         # batch together for gpu in the future
-        amm = torch.argmax(q_per_goal)
+        max_policy = torch.argmax(q_per_goal)
 
-        return a_per_goal[amm.item()]
+        return a_per_goal[max_policy.item()].item(), max_policy.item()
 
     @abstractmethod
     def _build_arguments_from_obs(self, obs, goal_position):

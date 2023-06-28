@@ -169,25 +169,18 @@ def run_rl_first_phase(config=None, **kwargs):
             np.array([[7, 7]]),
         ]
         goal_list_target_tasks = [
-            np.array([[1, 0]]),
-            np.array([[1, 2]]),
-            np.array([[2, 1]]),
-            np.array([[1, 6]]),
-            np.array([[1, 8]]),
-            np.array([[2, 7]]),
-            np.array([[7, 0]]),
-            np.array([[6, 1]]),
-            np.array([[7, 2]]),
-            np.array([[7, 6]]),
-            np.array([[6, 7]]),
-            np.array([[7, 8]]),
+            np.array([[1, 4]]),
+            np.array([[4, 7]]),
+            np.array([[7, 4]]),
+            np.array([[4, 1]]),
         ]
 
-        # we keep this one the same even though it may be overlapping. But 
-        # it isnt the focus for the time being
+        # we keep this one the same even though it may be overlapping (because
+        # of randomness). But it isnt the focus for the time being
         goal_list_evaluation_tasks = my_env.goal_list_evaluation_tasks
-        my_env.set_goals(goal_list_source_tasks, goal_list_target_tasks, goal_list_evaluation_tasks)
-
+        my_env.set_goals(
+            goal_list_source_tasks, goal_list_target_tasks, goal_list_evaluation_tasks
+        )
 
     # Copy of environment for evaluation since I dont want to change its
     # internal state.
@@ -222,7 +215,14 @@ def run_rl_first_phase(config=None, **kwargs):
             # In the first part of the training I do not use GPI so
             # goals_for_gpi is the single goal I am working with. If I was
             # using GPI it would be a list of goals I have seen so far.
-            next_obs, reward, terminated, truncated, transition = general_step_function(
+            (
+                next_obs,
+                reward,
+                terminated,
+                truncated,
+                transition,
+                _,
+            ) = general_step_function(
                 obs,
                 agent,
                 my_env,
@@ -405,9 +405,14 @@ def run_rl_second_phase(config=None, **kwargs):
         obs, _ = my_env.reset(goal_position=goal_position)
 
         while not terminated and not truncated and step <= config.n_steps:
-            next_obs, reward, terminated, truncated, transition = general_step_function(
-                obs, agent, my_env, goals_for_gpi, training=True
-            )
+            (
+                next_obs,
+                reward,
+                terminated,
+                truncated,
+                transition,
+                _,
+            ) = general_step_function(obs, agent, my_env, goals_for_gpi, training=True)
 
             agent.train_during_eval_phase(
                 transition=transition,
@@ -471,11 +476,12 @@ def run_rl_second_phase(config=None, **kwargs):
     agent.save(config.log_name_agent, episode, step, total_reward)
 
 
-def evaluate_agent(agent, test_env, step_fn, goal_list_for_eval, use_gpi):
+def evaluate_agent(agent, test_env, step_fn, goal_list_for_eval, use_gpi, log):
     num_goals = len(goal_list_for_eval)
     completed_goals = 0
 
-    for goal in goal_list_for_eval:
+    for i, goal in enumerate(goal_list_for_eval):
+        trajectory = []
         goals_for_gpi = [goal]
         if use_gpi:
             goals_for_gpi += test_env.goal_list_source_tasks
@@ -483,14 +489,18 @@ def evaluate_agent(agent, test_env, step_fn, goal_list_for_eval, use_gpi):
         terminated = False
         truncated = False
         obs, _ = test_env.reset(goal_position=goal)
+        trajectory.append((obs["agent_position"], obs["goal_position"]))
         while not terminated and not truncated:
-            next_obs, reward, terminated, truncated, _ = step_fn(
+            next_obs, reward, terminated, truncated, _, trajectory_info = step_fn(
                 obs, agent, test_env, goals_for_gpi=goals_for_gpi, training=False
             )
             obs = next_obs
+            trajectory.append(trajectory_info)
 
         if terminated:
             completed_goals += 1
+        if truncated:
+            log.add_value(trajectory_info)
 
     done_rate = completed_goals / num_goals
 
@@ -502,7 +512,7 @@ def general_step_function(obs, agent, my_env, goals_for_gpi, training):
 
     Creates the transition and returns it among the various arguments.
     """
-    action = agent.choose_action(
+    action, chosen_policy = agent.choose_action(
         obs=obs,
         list_of_goal_positions=goals_for_gpi,
         training=training,
@@ -530,7 +540,7 @@ def general_step_function(obs, agent, my_env, goals_for_gpi, training):
         truncated,
     )
 
-    return next_obs, reward, terminated, truncated, transition
+    return next_obs, reward, terminated, truncated, transition, (action, chosen_policy)
 
 
 if __name__ == "__main__":

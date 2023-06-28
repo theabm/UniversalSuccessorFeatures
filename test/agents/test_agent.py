@@ -43,6 +43,7 @@ def test_default_configuration(agent_type, network_type):
         loss_weight_q=1.0,
         loss_weight_psi=0.01,
         loss_weight_phi=0.00,
+        optimal_target_net = None,
         network=eu.AttrDict(
             cls=network_type,
             use_gdtuo=False,
@@ -106,6 +107,7 @@ def test_agent_matches_custom_config(agent_type, network_type):
         loss_weight_q=3,
         loss_weight_psi=4.01,
         loss_weight_phi=-3.50,
+        optimal_target_net = None,
         network=eu.AttrDict(
             cls=network_type,
             use_gdtuo=False,
@@ -174,7 +176,7 @@ def test_choose_action():
 
     obs, *_ = my_env.reset()
 
-    action = agent.choose_action(
+    action, _ = agent.choose_action(
         obs=obs,
         list_of_goal_positions=[obs["goal_position"]],
         training=False,
