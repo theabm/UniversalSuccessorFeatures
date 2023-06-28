@@ -481,6 +481,9 @@ def evaluate_agent(agent, test_env, step_fn, goal_list_for_eval, use_gpi, log = 
     num_goals = len(goal_list_for_eval)
     completed_goals = 0
 
+    # if log is not None:
+    #     log.add_value("goals_for_gpi", test_env.goal_list_source_tasks)
+
     for i, goal in enumerate(goal_list_for_eval):
         trajectory = []
         goals_for_gpi = [goal]
@@ -491,6 +494,9 @@ def evaluate_agent(agent, test_env, step_fn, goal_list_for_eval, use_gpi, log = 
         truncated = False
         obs, _ = test_env.reset(goal_position=goal)
         trajectory.append((obs["agent_position"], obs["goal_position"]))
+        # I can save some memory by only saving this info once in a separate 
+        # file (look comment above). However, in that case the numbering will 
+        # be wrong. This way is easier.
         trajectory.append(goals_for_gpi)
         while not terminated and not truncated:
             next_obs, reward, terminated, truncated, _, trajectory_info = step_fn(
