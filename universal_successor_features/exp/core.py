@@ -509,7 +509,7 @@ def evaluate_agent(agent, test_env, step_fn, goal_list_for_eval, use_gpi, log = 
             completed_goals += 1
         if truncated and log is not None:
             # add trajectory for paths that did not terminate for debugging
-            log.add_value("trajectory_info", trajectory_info)
+            log.add_object("trajectory_info", trajectory_info)
 
     done_rate = completed_goals / num_goals
 
