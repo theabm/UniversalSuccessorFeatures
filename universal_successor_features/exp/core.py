@@ -50,8 +50,8 @@ def run_rl_first_phase(config=None, **kwargs):
         log_name_total_reward="total_reward",
         log_name_done_rate_primary="done_rate_primary",
         log_name_done_rate_tertiary="done_rate_tertiary",
-        log_name_agent="agent.pt",
-        log_name_env="env",
+        log_name_agent="data/agent.cfg",
+        log_name_env="data/env.cfg",
     )
 
     config = eu.combine_dicts(kwargs, config, default_config)
@@ -165,8 +165,8 @@ def run_rl_first_phase(config=None, **kwargs):
         goal_list_source_tasks = [
             np.array([[1, 1]]),
             np.array([[1, 7]]),
-            np.array([[7, 1]]),
             np.array([[7, 7]]),
+            np.array([[7, 1]]),
         ]
         goal_list_target_tasks = [
             np.array([[1, 4]]),
@@ -272,8 +272,8 @@ def run_rl_first_phase(config=None, **kwargs):
         log.add_value(config.log_name_step_per_episode, step_per_episode)
         log.add_value(config.log_name_reward_per_episode, reward_per_episode)
 
-    log.add_single_object(config.log_name_agent, agent)
-    log.add_single_object(config.log_name_env, my_env)
+    # log.add_single_object(config.log_name_agent, agent)
+    # log.add_single_object(config.log_name_env, my_env)
     log.save()
 
     my_env.save(config.log_name_env)
@@ -298,8 +298,8 @@ def run_rl_second_phase(config=None, **kwargs):
         log_name_done_rate_source="done_rate_source",
         log_name_done_rate_eval="done_rate_eval",
         log_name_done_rate_combined="done_rate_combined",
-        log_name_agent="agent.pt",
-        log_name_env="env",
+        log_name_agent="data/agent.cfg",
+        log_name_env="data/env.cfg",
     )
 
     config = eu.combine_dicts(kwargs, config, default_config)
@@ -469,8 +469,8 @@ def run_rl_second_phase(config=None, **kwargs):
         goal_list_for_eval,
         use_gpi=config.use_gpi_eval,
     )
-    log.add_single_object(config.log_name_agent, agent)
-    log.add_single_object(config.log_name_env, my_env)
+    # log.add_single_object(config.log_name_agent, agent)
+    # log.add_single_object(config.log_name_env, my_env)
     log.save()
 
     my_env.save(config.log_name_env)
@@ -509,7 +509,7 @@ def evaluate_agent(agent, test_env, step_fn, goal_list_for_eval, use_gpi, log = 
             completed_goals += 1
         if truncated and log is not None:
             # add trajectory for paths that did not terminate for debugging
-            log.add_object("trajectory_info", trajectory_info)
+            log.add_object("trajectory_info", trajectory)
 
     done_rate = completed_goals / num_goals
 
