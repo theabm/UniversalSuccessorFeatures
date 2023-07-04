@@ -65,6 +65,7 @@ class BaseAgent(ABC):
             loss_weight_psi=0.01,
             loss_weight_phi=0.00,
             optimal_target_net = None,
+            learning_starts_after = None,
             network=eu.AttrDict(
                 cls=None,
                 # whether to use hypergradients
@@ -189,7 +190,11 @@ class BaseAgent(ABC):
 
         self.current_episode = 0
         self.step = 0
-        self.learning_starts_after = self.batch_size * 2
+
+        if self.config.learning_starts_after is None:
+            self.learning_starts_after = 2*self.batch_size
+        else:
+            self.learning_starts_after = self.config.learning_starts_after
 
         if self.config.optimal_target_net:
             # if other target net is given, I will use it 
@@ -757,12 +762,13 @@ class BaseAgent(ABC):
         )
 
     @staticmethod
-    def load_from_checkpoint(env, filename):
+    def load_from_checkpoint(env, filename, config = None):
         checkpoint = torch.load(filename)
 
         agent_class = checkpoint["cls"]
+        agent_config = eu.combine_dicts(config, checkpoint["config"])
 
-        agent = agent_class(env, config=checkpoint["config"])
+        agent = agent_class(env, config=agent_config)
 
         agent.policy_net.load_state_dict(checkpoint["model_state_dict"])
         agent.target_net = copy.deepcopy(agent.policy_net)

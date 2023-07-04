@@ -4,6 +4,7 @@ import plotly.express as px
 import numpy as np
 import os
 import exputils.data.logging as log
+import universal_successor_features as usf
 
 from dash import Dash, dcc, html, Output, Input
 import dash_bootstrap_components as dbc
@@ -210,8 +211,9 @@ def update_agent_pos_and_goal_dropdown(experiment_rep_path):
     # something like /scratch/.../experiment0000001/repetition_000000
     new_path = experiment_rep_path + "/data/"
 
-    log.set_directory(new_path)
-    env = log.load_single_object("env")
+    env = usf.envs.GridWorld.load_from_checkpoint(
+            new_path + "env.cfg"
+        )
 
     try:
         options_agent_position = [
@@ -259,10 +261,13 @@ def display_successor_features(
     experiment_rep_path, policy_goal_position, agent_position, colors
 ):
     new_path = experiment_rep_path + "/data/"
-    log.set_directory(new_path)
 
-    env = log.load_single_object("env")
-    agent = log.load_single_object("agent.pt")
+    env = usf.envs.GridWorld.load_from_checkpoint(
+            new_path + "env.cfg"
+        )
+    agent = usf.agents.BaseAgent.load_from_checkpoint(
+            env, new_path + "agent.cfg"
+        )
 
     agent_position = np.array([[int(agent_position[1]), int(agent_position[3])]])
 

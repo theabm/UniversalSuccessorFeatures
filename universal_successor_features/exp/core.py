@@ -288,6 +288,8 @@ def run_rl_second_phase(config=None, **kwargs):
         use_gpi_eval=False,
         use_gpi_train=False,
         use_target_tasks=True,
+        # reserver for setting one wishes to override for original agent
+        agent=eu.AttrDict(),
         log_name_step="step",
         log_name_episode="episode",
         log_name_step_per_episode="step_per_episode",
@@ -317,7 +319,7 @@ def run_rl_second_phase(config=None, **kwargs):
         config.log_directory + config.log_name_env
     )
     agent = usf.agents.BaseAgent.load_from_checkpoint(
-        my_env, config.log_directory + config.log_name_agent
+        my_env, config.log_directory + config.log_name_agent, config.agent
     )
 
     agent_saved_source_goals = agent._env_primary_goals
@@ -435,7 +437,7 @@ def run_rl_second_phase(config=None, **kwargs):
                     general_step_function,
                     goal_list_for_eval,
                     use_gpi=config.use_gpi_eval,
-                    log = log
+                    log=log,
                 )
                 done_rate_source = evaluate_agent(
                     agent,
@@ -477,7 +479,7 @@ def run_rl_second_phase(config=None, **kwargs):
     agent.save(config.log_name_agent, episode, step, total_reward)
 
 
-def evaluate_agent(agent, test_env, step_fn, goal_list_for_eval, use_gpi, log = None):
+def evaluate_agent(agent, test_env, step_fn, goal_list_for_eval, use_gpi, log=None):
     num_goals = len(goal_list_for_eval)
     completed_goals = 0
 
@@ -494,8 +496,8 @@ def evaluate_agent(agent, test_env, step_fn, goal_list_for_eval, use_gpi, log = 
         truncated = False
         obs, _ = test_env.reset(goal_position=goal)
         trajectory.append((obs["agent_position"], obs["goal_position"]))
-        # I can save some memory by only saving this info once in a separate 
-        # file (look comment above). However, in that case the numbering will 
+        # I can save some memory by only saving this info once in a separate
+        # file (look comment above). However, in that case the numbering will
         # be wrong. This way is easier.
         trajectory.append(goals_for_gpi)
         while not terminated and not truncated:
