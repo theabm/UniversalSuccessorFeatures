@@ -29,112 +29,81 @@ class FeatureGoalWeightKUSF(torch.nn.Module):
                 torch.nn.ReLU(),
                 torch.nn.Linear(
                     in_features=64,
-                    out_features=64,
-                    ),
-                torch.nn.Linear(
-                    in_features=64,
-                    out_features=64,
-                    ),
-                torch.nn.ReLU(),
-                torch.nn.Linear(
-                    in_features=64,
                     out_features=self.config.features_size
                     )
                 )
         self.sf_1 = torch.nn.Sequential(
                 torch.nn.Linear(
                     in_features=2*self.config.features_size,
-                    out_features=512
-                    ),
-                torch.nn.ReLU(),
-                torch.nn.Linear(
-                    in_features=512,
-                    out_features=256,
+                    out_features=256
                     ),
                 torch.nn.ReLU(),
                 torch.nn.Linear(
                     in_features=256,
-                    out_features=512,
-                    ),
-                torch.nn.ReLU(),
-                torch.nn.Linear(
-                    in_features=512,
                     out_features=self.config.features_size
                     ),
                 )
         self.sf_2 = torch.nn.Sequential(
                 torch.nn.Linear(
                     in_features=2*self.config.features_size,
-                    out_features=512
-                    ),
-                torch.nn.ReLU(),
-                torch.nn.Linear(
-                    in_features=512,
-                    out_features=256,
+                    out_features=256
                     ),
                 torch.nn.ReLU(),
                 torch.nn.Linear(
                     in_features=256,
-                    out_features=512,
-                    ),
-                torch.nn.ReLU(),
-                torch.nn.Linear(
-                    in_features=512,
                     out_features=self.config.features_size
                     ),
                 )
         self.sf_3 = torch.nn.Sequential(
                 torch.nn.Linear(
                     in_features=2*self.config.features_size,
-                    out_features=512
-                    ),
-                torch.nn.ReLU(),
-                torch.nn.Linear(
-                    in_features=512,
-                    out_features=256,
+                    out_features=256
                     ),
                 torch.nn.ReLU(),
                 torch.nn.Linear(
                     in_features=256,
-                    out_features=512,
-                    ),
-                torch.nn.ReLU(),
-                torch.nn.Linear(
-                    in_features=512,
                     out_features=self.config.features_size
                     ),
                 )
         self.sf_4 = torch.nn.Sequential(
                 torch.nn.Linear(
                     in_features=2*self.config.features_size,
-                    out_features=512
-                    ),
-                torch.nn.ReLU(),
-                torch.nn.Linear(
-                    in_features=512,
-                    out_features=256,
+                    out_features=256
                     ),
                 torch.nn.ReLU(),
                 torch.nn.Linear(
                     in_features=256,
-                    out_features=512,
-                    ),
-                torch.nn.ReLU(),
-                torch.nn.Linear(
-                    in_features=512,
                     out_features=self.config.features_size
                     ),
                 )
+
+        self.feature_layer = torch.nn.Sequential(
+            torch.nn.Linear(
+                in_features=self.config.features_size,
+                out_features=64,
+            ),
+            torch.nn.ReLU(),
+            torch.nn.Linear(
+                in_features=64,
+                out_features=64,
+            ),
+            torch.nn.ReLU(),
+            torch.nn.Linear(
+                in_features=64,
+                out_features=self.config.features_size,
+            ),
+        )
 
     def forward(self,
                 features,
                 policy_goal_position,
                 env_goal_weights):
 
+        feature_encoding = self.feature_layer(features)
         goal_position_features = self.policy_goal_layer(policy_goal_position)
 
         joined_representation = torch.cat(
-                (features,goal_position_features),
+                (feature_encoding,goal_position_features),
                 dim=1
                 )
 

@@ -65,21 +65,23 @@ class BaseAgent(ABC):
             loss_weight_psi=0.01,
             loss_weight_phi=0.00,
             optimal_target_net = None,
+            pretrained_agent=None,
             learning_starts_after = None,
             network=eu.AttrDict(
                 cls=None,
-                # whether to use hypergradients
-                # setting to true will use SGD
-                # to optimize ADAM
+                # whether to use gradient_descent_the_ultimate_optimizer which 
+                # uses hypergradients. Setting to true will use SGD to optimize ADAM
                 use_gdtuo=None,
                 optimizer=None,
             ),
             target_network_update=eu.AttrDict(
-                rule="hard",  # "hard" or "soft"
+                # "hard" or "soft"
+                rule="hard",  
                 every_n_steps=10,
-                alpha=0.0,  # target network params will be updated as
+                # target network params will be updated as
                 # P_t = alpha * P_t + (1-alpha) * P_p
                 # where P_p are params of policy network
+                alpha=0.0,
             ),
             epsilon=eu.AttrDict(
                 cls=eps.EpsilonConstant,
@@ -87,8 +89,14 @@ class BaseAgent(ABC):
             memory=eu.AttrDict(
                 cls=mem.ExperienceReplayMemory,
                 # Need to be defined only for prioritized experience replay
+                # alpha is how much I prioritize
                 alpha=None,
+                # beta0 is how much I correct for skewed distribution
+                # should be between 0 and 1
                 beta0=None,
+                # If we define a schedule, beta0 will be annealed linearly to 
+                # 1 at the end of the schedule
+                # should be the length of the training steps
                 schedule_length=None,
             ),
             log=eu.AttrDict(
@@ -104,9 +112,13 @@ class BaseAgent(ABC):
     def __init__(self, env, config=None, **kwargs):
         self.config = eu.combine_dicts(kwargs, config, BaseAgent.default_config())
         self.env = env
+        # how many actions
         self.action_space = env.action_space.n
+        # how many directions (in our case it is 2)
         self.position_size = env.observation_space["agent_position"].shape[1]
+        # how many features (we are using one hot encoding so len*width of grid)
         self.features_size = env.features_size
+        # size of rbf features (usually the same as features size)
         self.rbf_size = env.rbf_size
 
         # Setting the device
@@ -119,7 +131,7 @@ class BaseAgent(ABC):
         else:
             self.device = torch.device("cpu")
 
-        # Creating object instances
+        # Creating object instance of neural network
         if isinstance(self.config.network, dict):
             self.config.network.state_size = self.position_size
             self.config.network.goal_size = self.position_size
@@ -128,24 +140,32 @@ class BaseAgent(ABC):
             self.config.network.rbf_size = self.rbf_size
 
             self.policy_net = eu.misc.create_object_from_config(self.config.network)
+            # whether the policy network is a USF or not (could be a DQN)
             self.is_a_usf = self.policy_net.is_a_usf
         else:
             raise ValueError("Network Config must be a dictionary.")
 
+        # creating instance of memory object
+        # we can have normal experience replay, prioritized, and combined
         if isinstance(self.config.memory, dict):
             self.memory = eu.misc.create_object_from_config(self.config.memory)
         else:
             raise ValueError("Memory config must be a dictionary.")
 
+        # the epsilon we use
+        # it can be constant, or linearly annealed, or exponentially annealed.
         if isinstance(self.config.epsilon, dict):
             self.epsilon = eu.misc.create_object_from_config(self.config.epsilon)
         else:
             raise ValueError("Network Config must be a dictionary.")
 
+        # the paramters for the loss which is a weighted combination of 
+        # L = w_q*Lq + w_psi*L_psi + w_phi * L_phi
         self.loss_weight_q = self.config.loss_weight_q
         self.loss_weight_psi = self.config.loss_weight_psi
         self.loss_weight_phi = self.config.loss_weight_phi
 
+        # use gradient_descent_the_ultimate_optimizer or not
         self.use_gdtuo = self.config.network.use_gdtuo
         if self.use_gdtuo:
             warnings.warn("Using gdtuo... learning rate ignored.")
@@ -158,19 +178,26 @@ class BaseAgent(ABC):
                 self.policy_net.parameters(), lr=self.config.learning_rate
             )
 
+        # the batch size we use
         self.batch_size = self.config.batch_size
 
         # The internal batch size I will work with. Some agents augment the
         # data training automatically so this is the reason this is hidden.
 
-        # The entry point is the _sample_experiences
+        # The entry point for this variable is in the _sample_experiences function
         self._augmented_batch_size = self.batch_size
 
+        # how often we train. The default case is to train every step.
         self.train_every_n_steps = self.config.train_every_n_steps - 1
         self.steps_since_last_training = 0
 
+        # the discounting factor. The default is 0.99
         self.discount_factor = self.config.discount_factor
 
+        # the rule to update the target network. We can either do a hard update 
+        # where we simply swap the two networks after a certain amount of timesteps
+        # or we can do a soft update, where at each step we update a small percentage 
+        # of the weights.
         if self.config.target_network_update.rule == "hard":
             if self.config.target_network_update.alpha != 0.0:
                 warnings.warn(
@@ -183,6 +210,8 @@ class BaseAgent(ABC):
         else:
             raise ValueError("Unknown type of update rule.")
 
+        # how often we update the network. The default is every 10 steps
+        # for soft updating, it should be set to 1
         self.update_target_network_every_n_steps = (
             self.config.target_network_update.every_n_steps - 1
         )
@@ -191,32 +220,51 @@ class BaseAgent(ABC):
         self.current_episode = 0
         self.step = 0
 
+        # how soon we start learning. This is set to twice the batch size by 
+        # default. However, we can set it manually to any value.
         if self.config.learning_starts_after is None:
             self.learning_starts_after = 2*self.batch_size
         else:
             self.learning_starts_after = self.config.learning_starts_after
 
+        # If we want to use a pretrained optimal target net. 
+        # This is used when analyzing the stability of the agent that is only 
+        # learning the successor features. 
+        # in particular, we first train an optimal agent using DQN. This agent 
+        # converges very well for gridworld. Then, we use this agent as the 
+        # optimal target agent which the policy network has to learn to imitate.
         if self.config.optimal_target_net:
-            # if other target net is given, I will use it 
-            # should be used with pretrained optimal agent.
+            # This is an instance of an agent - it is passed to this class in the
+            # training module.
             self.target_net = self.config.optimal_target_net
+
             # if we provide an optimal target net, then we cannot 
-            # update the target net
+            # update the target network ever since this is already the "ultimate"
+            # truth
             warnings.warn("Using optimal target net. Update frequency = 0")
             self.update_target_network_every_n_steps = np.inf
         else:
-            # Setting other attributes
+            # If I dont use an optimal target net, then initialy, the target 
+            # net is just an independent copy of the policy net
             self.target_net = copy.deepcopy(self.policy_net)
 
+        # sending the nets to the device (should be gpu)
         self.target_net.to(self.device)
         self.policy_net.to(self.device)
 
+        if self.config.pretrained_agent:
+            self.choose_action = self.config.pretrained_agent.choose_action
+
     def start_episode(self, episode):
+        """The function used to start an episode. It simply logs some 
+        initial information such as the current episode, the current epsilon 
+        value"""
         self.current_episode = episode
         if self.config.log.epsilon_per_episode:
             log.add_value(self.config.log.log_name_epsilon, self.epsilon.value)
 
     def end_episode(self):
+        """Ends the episode. It is used to make epsilon decay."""
         self.epsilon.decay()
 
     def choose_action(
@@ -225,6 +273,14 @@ class BaseAgent(ABC):
         list_of_goal_positions,
         training,
     ):
+        """Choose an action based on a single observation, a list of goal positions, 
+        and whether we are in training mode or not.
+
+        If we are in training mode, we will do epsilon greedy strategy, where 
+        we select a random action with a certain probability. Otherwise we 
+        select the best action.
+        If we are not in training mode, we only select the best action.
+        """
         if training:
             return self._epsilon_greedy_action_selection(
                 obs,
@@ -237,7 +293,17 @@ class BaseAgent(ABC):
             )#.item()
 
     def _epsilon_greedy_action_selection(self, obs, list_of_goal_positions):
-        """Epsilon greedy action selection"""
+        """Epsilon greedy action selection. We perform a random action a certain 
+        amount of time.
+
+        This function returns a tuple (action, goal_chosen). 
+        The goal chosen is useful when using GPI to understand which goal gave 
+        rise to that action. 
+        If we are not using GPI, then the goal chosen is the current goal we 
+        are trying to reach.
+        """
+    
+        # if the random value is greater than epsilon, we take a specific action
         if torch.rand(1).item() > self.epsilon.value:
             return self._greedy_action_selection(
                 obs,
@@ -711,8 +777,16 @@ class BaseAgent(ABC):
         self._train(list_of_goal_positions_for_augmentation)
 
     def prepare_for_eval_phase(self):
+        """Prepares the agent for the second phase where we 
+        evaluate a second (or third) set of goals. As described 
+        in the paper, we keep the previous memory buffer and start 
+        building a new one. When we train, we select either memory 
+        buffer with equal probability.
+        """
+        # do a deep copy of the memory buffer
         self.train_memory_buffer = copy.deepcopy(self.memory)
 
+        # build a new memory from the config. 
         self.eval_memory_buffer = eu.misc.create_object_from_config(self.config.memory)
 
     def train_during_eval_phase(
@@ -726,12 +800,24 @@ class BaseAgent(ABC):
         if len(self.eval_memory_buffer) < self.learning_starts_after:
             return
         else:
-            if torch.rand(1).item() <= p_pick_new_memory_buffer:
-                self.memory = self.eval_memory_buffer
-            else:
-                self.memory = self.train_memory_buffer
-
+            ## mod starts here
+            # the modification is to train the agent on both memory buffers 
+            # instead of only on one. 
+            # However it would be very bad if I tried to train more times per 
+            # iteration.
+            self.memory = self.eval_memory_buffer
             self._train(list_of_goal_positions_for_augmentation)
+            self.memory = self.train_memory_buffer
+            self._train(list_of_goal_positions_for_augmentation)
+            # mod ends here
+
+            # uncomment for original
+            # if torch.rand(1).item() <= p_pick_new_memory_buffer:
+            #     self.memory = self.eval_memory_buffer
+            # else:
+            #     self.memory = self.train_memory_buffer
+            #
+            # self._train(list_of_goal_positions_for_augmentation)
 
     def _update_target_network(self):
         target_net_state_dict = self.target_net.state_dict()

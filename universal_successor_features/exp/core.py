@@ -41,6 +41,8 @@ def run_rl_first_phase(config=None, **kwargs):
         n_steps=48000,
         use_custom_goals=False,
         log_directory=None,
+        use_optimal_target=False,
+        use_optimal_action_selector=False,
         log_name_step="step",
         log_name_episode="episode",
         log_name_step_per_episode="step_per_episode",
@@ -58,9 +60,10 @@ def run_rl_first_phase(config=None, **kwargs):
 
     if config.seed is not None:
         eu.misc.seed(config.seed)
+    action_selector = None
 
     if config.log_directory:
-        warnings.warn("Using pretrained agent... loading env")
+        warnings.warn("Using external agent... loading env")
 
         # if config.log_directory is specified, then I will train my agent
         # using another pretrained agent as behavioral policy, i.e. to
@@ -75,7 +78,7 @@ def run_rl_first_phase(config=None, **kwargs):
             config.log_directory + config.log_name_env
         )
 
-        warnings.warn("Using pretrained agent... loading agent")
+        warnings.warn("Using external agent... loading agent")
 
         # if config.log_directory is specified, we will use a pretrained
         # agent as a behavioral policy.
@@ -152,7 +155,12 @@ def run_rl_first_phase(config=None, **kwargs):
         # Update: unsurprisingly, it doesnt work. so now we switch to using
         # the psi of the optimal agent as target but letting the agent still
         # do its own stuff.
-        config.agent.optimal_target_net = optimal_agent.target_net
+        if config.use_optimal_target:
+            config.agent.optimal_target_net = optimal_agent.target_net
+        elif config.use_optimal_action_selector:
+            action_selector = optimal_agent.choose_action
+        else:
+            exit("either optimal or action selector need to be used with log directory")
 
     else:
         warnings.warn("Using new agent... creating env")
@@ -188,6 +196,9 @@ def run_rl_first_phase(config=None, **kwargs):
 
     # the agent that will be trained during the episodes of the environment
     agent = eu.misc.create_object_from_config(config.agent, env=my_env)
+    if action_selector is None:
+        print("action_selector was None, now its agent.choose_action")
+        action_selector = agent.choose_action
 
     list_of_goal_positions_for_augmentation = my_env.goal_list_source_tasks
 
@@ -226,6 +237,7 @@ def run_rl_first_phase(config=None, **kwargs):
                 obs,
                 agent,
                 my_env,
+                action_selector,
                 goals_for_gpi=[goal_position],
                 training=True,
             )
@@ -281,15 +293,37 @@ def run_rl_first_phase(config=None, **kwargs):
 
 
 def run_rl_second_phase(config=None, **kwargs):
+    # the idea behind this training phase is that we re-use an agent
+    # from the first phase by specifying the location of the config
+    # file of the agent and loading it up.
+
     default_config = eu.AttrDict(
         seed=None,
+        # location of agent trained on the first phase
         log_directory=None,
+        # steps
         n_steps=np.inf,
+        # whether to use gpi for evaluation (action selection)
         use_gpi_eval=False,
+        # whether to use gpi during training
         use_gpi_train=False,
+        # whether to use the gpi procedure to fill up the memory
+        # this is useful when we want to fill the memory with
+        # useful transitions from some pretrained agent or an agent
+        # in some state. We used it so that the GPI agent which performs
+        # well in the beginning can fill up the memory buffer with quality
+        # transitions before its performance is ruined.
+        use_gpi_to_fill_memory_with_n_transitions=0,
+        # whether to use target tasks or not. If True we use target, if false
+        # we use tertiary tasks.
         use_target_tasks=True,
-        # reserver for setting one wishes to override for original agent
+        # reserved for settings one wishes to override for
+        # original agent
+        # For example, if original agent would train for 1 iteration and we
+        # want to modify this so that it can train for 5 iters, this setting
+        # will override the original one.
         agent=eu.AttrDict(),
+        # logging info
         log_name_step="step",
         log_name_episode="episode",
         log_name_step_per_episode="step_per_episode",
@@ -300,14 +334,22 @@ def run_rl_second_phase(config=None, **kwargs):
         log_name_done_rate_source="done_rate_source",
         log_name_done_rate_eval="done_rate_eval",
         log_name_done_rate_combined="done_rate_combined",
+        # location of config files from base log directory
         log_name_agent="data/agent.cfg",
         log_name_env="data/env.cfg",
     )
 
+    # combine the config settings (keyword args, config, and default config)
+    # in that order
     config = eu.combine_dicts(kwargs, config, default_config)
 
     if config.seed is not None:
         eu.misc.seed(config.seed)
+
+    # method to automatically load all the object save in a certain
+    # directory. This relies on dill files which are heavy.
+    # also, this method is very inflexible if we want to change
+    # something for the agent. So we switched to the second method below.
 
     # log.load(directory=config.log_directory, load_objects=True)
 
@@ -315,6 +357,8 @@ def run_rl_second_phase(config=None, **kwargs):
     # my_env = log.get_item("env")
     # agent = log.get_item("agent")
 
+    # This method is more flexible and it creates the instances from
+    # the configs saved from the first phase.
     my_env = usf.envs.GridWorld.load_from_checkpoint(
         config.log_directory + config.log_name_env
     )
@@ -326,6 +370,8 @@ def run_rl_second_phase(config=None, **kwargs):
     agent_saved_target_goals = agent._env_secondary_goals
     agent_saved_evaluation_goals = agent._env_tertiary_goals
 
+    # asserting that the goals match since we save the goals inside
+    # the agent when training.
     assert all(
         [
             (goal1 == goal2).all()
@@ -353,26 +399,99 @@ def run_rl_second_phase(config=None, **kwargs):
         ]
     ), "The agent did not learn the goals of this environment"
 
-    # Copy of environment for testing since I dont want to change its state
+    # Copy of environment for testing since I dont want to change
+    # its state
     test_env = copy.deepcopy(my_env)
 
+    # if we set target tasks to True then we use the target tasks
     if config.use_target_tasks:
         goal_sampler = my_env.sample_target_goal
         goal_list_for_eval = my_env.goal_list_target_tasks
     else:
+        # otherwise we use the tertiary set of goals which we call
+        # eval goals
         goal_sampler = my_env.sample_eval_goal
         goal_list_for_eval = my_env.goal_list_evaluation_tasks
+
+    # the list of goals we want to use for goal augmentation.
+    # goal augmentation is a strategy we can use for a certain subset
+    # of agents.
+    # the idea is similar to hindsight experience replay.
+    # if we know the features and goal weights, then, by extension,
+    # we know the reward for *any* transition because we can simply
+    # use the relation r = phi*w.
+    # Therefore, for these agents, we can pass the entire list of goals
+    # and rebuild the transitions as if we had actually experienced them
+    # this is useful so that the agent can uniformly experience all the
+    # goals at every iteration, rather than a subset randomly chosen.
+    # However, all agents that don't have this knowledge cannot use
+    # this strategy. For these agents, the relevant methods don't do
+    # anything.
 
     list_of_goal_positions_for_augmentation = (
         my_env.goal_list_source_tasks + goal_list_for_eval
     )
 
+    # Begin of Eval Phase
+    agent.prepare_for_eval_phase()
+
+    # If we selected to use GPI to fill the memory, we experience the
+    # environment with the newly loaded agent which will use GPI to
+    # get some quality transitions for the new goals.
+    if config.use_gpi_to_fill_memory_with_n_transitions:
+        step = 0
+        episode = 0
+
+        # this simply loads the memory buffer with quality transitions
+        # using gpi procedure
+
+        while step <= config.use_gpi_to_fill_memory_with_n_transitions:
+            terminated = False
+            truncated = False
+
+            episode += 1
+            agent.start_episode(episode=episode)
+
+            goal_position = goal_sampler()
+
+            goals_for_gpi = [goal_position] + my_env.goal_list_source_tasks
+
+            obs, _ = my_env.reset(goal_position=goal_position)
+
+            while (
+                not terminated
+                and not truncated
+                and step <= config.use_gpi_to_fill_memory_with_n_transitions
+            ):
+                (
+                    next_obs,
+                    reward,
+                    terminated,
+                    truncated,
+                    transition,
+                    _,
+                ) = general_step_function(
+                    obs,
+                    agent,
+                    my_env,
+                    agent.choose_action,
+                    goals_for_gpi,
+                    training=True,
+                )
+
+                # we push transitions to the buffer for the new
+                # transitions
+                agent.eval_memory_buffer.push(transition)
+
+                obs = next_obs
+                step += 1
+
+            agent.end_episode()
+
+    # now the second phase begins
     step = 0
     total_reward = 0
     episode = 0
-
-    # Begin of Eval Phase
-    agent.prepare_for_eval_phase()
 
     while step <= config.n_steps:
         terminated = False
@@ -400,6 +519,7 @@ def run_rl_second_phase(config=None, **kwargs):
         # performance, it is not used.
         goals_for_gpi = [goal_position]
 
+        # if gpi should be used for action selection
         if config.use_gpi_train:
             warnings.warn("using GPI for training...")
             goals_for_gpi += my_env.goal_list_source_tasks
@@ -414,8 +534,13 @@ def run_rl_second_phase(config=None, **kwargs):
                 truncated,
                 transition,
                 _,
-            ) = general_step_function(obs, agent, my_env, goals_for_gpi, training=True)
+            ) = general_step_function(
+                obs, agent, my_env, agent.choose_action, goals_for_gpi, training=True
+            )
 
+            # note that the training does *not* take the gpi goals.
+            # the training is done as usual, by drawing from my memory
+            # buffer
             agent.train_during_eval_phase(
                 transition=transition,
                 p_pick_new_memory_buffer=0.5,
@@ -430,6 +555,9 @@ def run_rl_second_phase(config=None, **kwargs):
             log.add_value(config.log_name_total_reward, total_reward)
             log.add_value(config.log_name_episode_per_step, episode)
 
+            # every 100 steps we evaluate the agent
+            # either on the target goals or the tertiary goals,
+            # depending on which one we selected.
             if step % 100 == 0:
                 done_rate_eval = evaluate_agent(
                     agent,
@@ -480,6 +608,7 @@ def run_rl_second_phase(config=None, **kwargs):
 
 
 def evaluate_agent(agent, test_env, step_fn, goal_list_for_eval, use_gpi, log=None):
+    action_selector = agent.choose_action
     num_goals = len(goal_list_for_eval)
     completed_goals = 0
 
@@ -502,7 +631,12 @@ def evaluate_agent(agent, test_env, step_fn, goal_list_for_eval, use_gpi, log=No
         trajectory.append(goals_for_gpi)
         while not terminated and not truncated:
             next_obs, reward, terminated, truncated, _, trajectory_info = step_fn(
-                obs, agent, test_env, goals_for_gpi=goals_for_gpi, training=False
+                obs,
+                agent,
+                test_env,
+                action_selector,
+                goals_for_gpi=goals_for_gpi,
+                training=False,
             )
             obs = next_obs
             trajectory.append(trajectory_info)
@@ -510,7 +644,8 @@ def evaluate_agent(agent, test_env, step_fn, goal_list_for_eval, use_gpi, log=No
         if terminated:
             completed_goals += 1
         if truncated and log is not None:
-            # add trajectory for paths that did not terminate for debugging
+            # add trajectory for paths that did not terminate
+            # for debugging
             log.add_object("trajectory_info", trajectory)
 
     done_rate = completed_goals / num_goals
@@ -518,12 +653,12 @@ def evaluate_agent(agent, test_env, step_fn, goal_list_for_eval, use_gpi, log=No
     return done_rate
 
 
-def general_step_function(obs, agent, my_env, goals_for_gpi, training):
+def general_step_function(obs, agent, my_env, action_selector, goals_for_gpi, training):
     """Choose an action and take a step in the environment.
 
     Creates the transition and returns it among the various arguments.
     """
-    action, chosen_policy = agent.choose_action(
+    action, chosen_policy = action_selector(
         obs=obs,
         list_of_goal_positions=goals_for_gpi,
         training=training,

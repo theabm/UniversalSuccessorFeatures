@@ -129,7 +129,7 @@ def test_gpi(agent_type, network, memory, n_steps, seed=0):
                 truncated,
                 transition,
                 _,
-            ) = exp.general_step_function(obs, agent, my_env, goals_so_far, False)
+            ) = exp.general_step_function(obs, agent, my_env, agent.choose_action, goals_so_far, False)
             my_env.render()
 
             obs = next_obs
